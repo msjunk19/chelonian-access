@@ -48,7 +48,8 @@ public:
 
 private:
     bool m_initialized{false};
-    uint8_t m_current_volume{20};
+    uint8_t m_current_volume{50}; // testing with xbox speaker, no DAC
+    // uint8_t m_current_volume{20}; // original volume
     uint8_t m_rx_pin;
     uint8_t m_tx_pin;
     uint8_t m_current_source{
