@@ -13,7 +13,7 @@ AudioContoller audio;
 enum RelayState currentRelayState = RELAY_IDLE;
 uint8_t invalidAttempts = 0;
 bool scanned = false;
-bool impatient = false;
+// bool impatient = false;
 unsigned long relayActivatedTime = 0;
 bool relayActive = false;
 
@@ -79,13 +79,20 @@ void accessServiceLoop() {
     boolean success;
     uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
     uint8_t uidLength;
+
     handleRelaySequence();
-    if (millis() > 10000 && !impatient && !scanned) {
-        audio.playTrack(AudioContoller::SOUND_WAITING);
-        impatient = true;
-    }
+
+    static bool impatient = false;
+    static bool impatientEnabled = true;
+    static unsigned long startTime = millis();
+
     success = rfid.readCard(uid, &uidLength);
+
     if (success) {
+        // Reset impatient timer immediately
+        impatient = false;
+        startTime = millis();
+
         scanned = true;
         ESP_LOGE(TAG, "Card detected");
         ESP_LOGE(TAG, "UID Length: %u bytes", uidLength);
@@ -93,12 +100,11 @@ void accessServiceLoop() {
         for (uint8_t i = 0; i < uidLength; i++) {
             char buffer[20];
             sprintf(buffer, " 0x%02X", uid[i]);
-            // Note: ESP_LOGE doesn't support direct loops, so handle in a string or per line
-            // For simplicity, log as a single string
+            // Could accumulate into a string if desired
         }
-        // Replace with a formatted string for the entire UID
-        // This might need adjustment based on actual code, but assuming a string build
+
         bool validUID = rfid.validateUID(uid, uidLength);
+
         if (uidLength == 4) {
             ESP_LOGE(TAG, "4B UID detected");
         } else if (uidLength == 7) {
@@ -106,25 +112,41 @@ void accessServiceLoop() {
         } else {
             ESP_LOGE(TAG, "Unknown UID type/length");
         }
+
         if (validUID) {
             ESP_LOGE(TAG, "Valid card - activating relays");
             invalidAttempts = 0;
             audio.playTrack(AudioContoller::SOUND_ACCEPTED);
             activateRelays();
+
+            // Disable impatient logic after success
+            impatientEnabled = false;
+            impatient = false;
         } else {
             ESP_LOGW(TAG, "Invalid card - attempt #%u", invalidAttempts + 1);
-            if (invalidAttempts == 0) {
-                audio.playTrack(AudioContoller::SOUND_DENIED_1);
-            } else if (invalidAttempts == 1) {
-                audio.playTrack(AudioContoller::SOUND_DENIED_2);
-            } else {
-                audio.playTrack(AudioContoller::SOUND_DENIED_3);
-            }
+
+            // Re-enable impatient logic and restart timer
+            impatientEnabled = true;
+            impatient = false;
+            startTime = millis();
+
+
+            if (invalidAttempts == 0) audio.playTrack(AudioContoller::SOUND_DENIED_1);
+            else if (invalidAttempts == 1) audio.playTrack(AudioContoller::SOUND_DENIED_2);
+            else audio.playTrack(AudioContoller::SOUND_DENIED_3);
+
             delay(3000);
             delay(invalidDelays[invalidAttempts] * 1000);
-            if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) {
-                invalidAttempts++;
-            }
+
+            if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) invalidAttempts++;
+        }
+
+    } else {
+        // Play waiting sound if no card present
+        if (impatientEnabled && millis() - startTime > 10000 && !impatient) {
+            ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
+            audio.playTrack(AudioContoller::SOUND_WAITING);
+            impatient = true;
         }
     }
 }

@@ -51,8 +51,12 @@ bool RFIDController::begin() {
     return true;
 }
 
+//Adjusted readCard to prevent blocking the loop indefinitely unless a card is presented. 
 bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
-    bool result = m_nfc->readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, uidLength);
+    // Set a short timeout (150 ms) to avoid blocking the loop, 20ms works but needs to be longer to read implants. 150 is working currently. Adjust as needed for implant.
+    constexpr uint16_t TIMEOUT_MS = 150;
+    bool result = m_nfc->readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, uidLength, TIMEOUT_MS);
+
     if (result) {
         ESP_LOGE(TAG, "%lu ms - Card detected: UID=", millis());
         char uidStr[50] = "";
@@ -64,8 +68,9 @@ bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
         uidStr[strlen(uidStr) - 1] = '\0';  // Remove last colon
         ESP_LOGE(TAG, "%s", uidStr);
     } else {
-        ESP_LOGE(TAG, "No card detected");
+        // ESP_LOGE(TAG, "No card detected");
     }
+
     return result;
 }
 
@@ -132,8 +137,8 @@ void RFIDController::printFirmwareVersion() {
 
 void RFIDController::initializeDefaultUIDs() {
     // Initialize with test UIDs as specified
-    // std::array<uint8_t, 4> testUID4B = {0xB4, 0x12, 0x34, 0x56};
-    std::array<uint8_t, 4> testUID4B = {0xCC, 0x0F, 0x12, 0x07};
+    // std::array<uint8_t, 4> testUID4B = {0xB4, 0x12, 0x34, 0x56}; //Default test UID
+    std::array<uint8_t, 4> testUID4B = {0xCC, 0x0F, 0x12, 0x07}; // my test UID
 
     std::array<uint8_t, 7> testUiD7B1 = {0x04, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
     std::array<uint8_t, 7> testUiD7B2 = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD};
