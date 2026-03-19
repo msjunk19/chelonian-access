@@ -6,41 +6,49 @@
 static const char* TAG = "Audio";
 
 AudioContoller::AudioContoller(uint8_t rx_pin, uint8_t tx_pin)
-    : m_rx_pin(rx_pin), m_tx_pin(tx_pin) {}
+    : m_rx_pin(rx_pin), m_tx_pin(tx_pin), player(nullptr) {}
 
 AudioContoller::~AudioContoller() {
-    delete player;
+    if (player != nullptr) {
+        delete player;
+        player = nullptr;
+    }
 }
 
 bool AudioContoller::begin() {
-    delay(100);  // Small delay to ensure module is ready for serial communication
+    delay(100);  // Small delay to ensure module is ready
     ESP_LOGE(TAG, "%lu - Initializing audio controller...", millis());
+
     if (player == nullptr) {
-        player = new JQ6500_Serial(m_rx_pin, m_tx_pin);
-        ESP_LOGE(TAG, "%lu - Created JQ6500_Serial on RX: %d, TX: %d", millis(), m_rx_pin,
-                 m_tx_pin);
+        // Use UART1 for ESP32-C3
+        player = new JQ6500_Serial(1);  // UART1
+        ESP_LOGE(TAG, "%lu - Created JQ6500_Serial on UART1", millis());
     }
-    player->begin(9600);
 
-    if (player != nullptr) {
-        // Ensure we're using built-in flash memory (not SD card)
-        setSource(MP3_SRC_BUILTIN);
-        delay(2000);  // Increased delay after setting source
+    // Map UART1 to your pins (20 = RX, 21 = TX)
+    player->begin(9600, SERIAL_8N1, m_rx_pin, m_tx_pin);
 
-        player->setVolume(m_current_volume);
+    // Ensure using built-in flash memory (not SD card)
+    setSource(MP3_SRC_BUILTIN);
+    delay(2000);  // Allow module to settle
 
-        audio_enabled = true;
-        // lets print the status here
-        uint8_t status = player->getStatus();
-        ESP_LOGE(TAG, "%lu - JQ6500 status: %d", millis(), status);
+    // Set initial volume
+    player->setVolume(m_current_volume);
 
-        m_initialized = true;
-        ESP_LOGE(TAG, "%lu - Initialized successfully. Volume: %d, Source: %s", millis(),
-                 m_current_volume, m_current_source == MP3_SRC_BUILTIN ? "Built-in" : "SD Card");
-        return true;
-    }
-    ESP_LOGE(TAG, "%lu - Initialization failed!", millis());
-    return false;
+    // Mark audio as enabled
+    audio_enabled = true;
+
+    // Print module status
+    uint8_t status = player->getStatus();
+    ESP_LOGE(TAG, "%lu - JQ6500 status: %d", millis(), status);
+
+    m_initialized = true;
+    ESP_LOGE(TAG, "%lu - Initialized successfully. Volume: %d, Source: %s",
+             millis(),
+             m_current_volume,
+             m_current_source == MP3_SRC_BUILTIN ? "Built-in" : "SD Card");
+
+    return true;
 }
 
 void AudioContoller::setVolume(uint8_t volume) {
