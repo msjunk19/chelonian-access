@@ -10,7 +10,7 @@ This guide provides an overview of the Chelonian Access system hardware assembly
 
 ## System Overview
 
-Here's what the completed assembly looks like:
+Here's what some of the parts look like:
 
 ![All Components](../../assets/img/assembly/all_components.jpeg)
 *All components laid out before assembly*

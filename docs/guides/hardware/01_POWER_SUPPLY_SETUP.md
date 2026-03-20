@@ -51,3 +51,5 @@ This guide covers the setup and configuration of the power supply components for
 - If output voltage is unstable, check input voltage stability
 - If converter gets hot, ensure proper ventilation
 - If output is 0V, check input connections and polarity
+
+[Return to Assembly Guide](ASSEMBLY_SETUP.md) - Return to the Guide
