@@ -18,6 +18,7 @@ This guide covers the setup and configuration of the power supply components for
 - Multimeter
 - Wire strippers
 - Heat shrink tubing
+- Small screwdriver
 
 ## Configuration Steps
 
@@ -33,6 +34,10 @@ This guide covers the setup and configuration of the power supply components for
    - Apply 12V to IN+ and IN- (from vehicle or power supply)
    - Adjust the trim pot until output reads exactly 5.0V
    - Double-check voltage stability under load
+
+2. **Solder Pin Headers:**
+   - Solder pin headers to the 4 through hole pads
+
 
 ### Best Practices
 

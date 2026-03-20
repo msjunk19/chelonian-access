@@ -137,42 +137,11 @@ Components powered from Mini360 5V output:
 
 ## Physical Layout Recommendations
 
-1. **Component Placement:**
-   ```txt
-   [Power In] → [Mini360] → [Power Distribution]
-                               ↓          ↓
-   [ESP32-C3] ← [PN532]    [Relays]   [JQ6500]
-                                          ↓
-                                      [Speaker]
-   ```
-
-2. **Spacing Requirements:**
+1. **Spacing Requirements:**
    - PN532 antenna: 10cm from metal/electronics
    - Relay module: 5cm from RFID components
    - Power converter: Good airflow
    - Speaker: Acoustic separation
-
-## Common Modifications
-
-1. **Adding Emergency Button:**
-   - Use GPIO 2
-   - Add pull-up resistor
-   - Consider debouncing
-
-2. **Adding Status LEDs:**
-   - Use GPIO 7
-   - Add current-limiting resistor
-   - Consider light pipe to enclosure
-
-3. **Adding Door Sensor:**
-   - Use GPIO 3
-   - Add pull-up resistor
-   - Consider opto-isolation
-
-4. **Adding Battery Monitoring:**
-   - Use ADC1_CH0
-   - Add voltage divider
-   - Calculate proper resistor values
 
 ## Validation Checklist
 
@@ -185,23 +154,6 @@ Before powering up:
 6. [ ] Check speaker polarity
 7. [ ] Verify all signal connections
 8. [ ] Test continuity of all connections
-
-## Future Expansion
-
-The ESP32-C3 SuperMini has several unused pins that can be used for future expansion:
-
-1. **Available Digital I/O:**
-   - GPIO 2, 3, 7, 18-21
-   - Can be used for sensors, buttons, or additional outputs
-
-2. **Available Analog Inputs:**
-   - ADC1_CH0-3
-   - Can be used for various sensors or monitoring
-
-3. **Available Communication Interfaces:**
-   - Additional UART
-   - I2C bus
-   - More SPI devices
 
 ## Additional Resources
 

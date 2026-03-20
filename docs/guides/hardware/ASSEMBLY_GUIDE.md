@@ -8,18 +8,6 @@ nav_order: 1
 
 This guide provides an overview of the Chelonian Access system hardware assembly process. The complete assembly is broken down into smaller, manageable steps, each with its own detailed guide. Follow these guides in order for the best results.
 
-## System Overview
-
-Here's what some of the parts look like:
-
-![All Components](../../assets/img/assembly/all_components.jpeg)
-*All components laid out before assembly*
-
-![Main PCB Front](../../assets/img/assembly/simple_sexy_front_assembled.jpg)
-*Completed main PCB front - front view*
-
-![Main PCB Back](../../assets/img/assembly/simple_sexy_back_assembled.jpg)
-*Completed main PCB back - back view*
 
 ## Assembly Overview
 
@@ -66,30 +54,6 @@ Follow the assembly guides in order, starting with the power supply setup. Each 
 - Testing procedures
 - Troubleshooting tips
 
-If you encounter any issues during assembly, refer to the troubleshooting section in the relevant guide.
-
-## Important Guidelines
-
-Throughout the assembly process, keep these key points in mind:
-
-1. **Safety First**
-   - Always disconnect power before making changes
-   - Use proper tools and safety equipment
-   - Follow proper electrical safety practices
-   - Document all modifications
-
-2. **Quality Matters**
-   - Use appropriate wire gauges
-   - Make secure connections
-   - Label everything clearly
-   - Test as you go
-
-3. **Take Your Time**
-   - Follow each guide carefully
-   - Double-check all connections
-   - Document your progress
-   - If unsure, ask for help
-
 ## Next Steps
 
 After completing all assembly steps:
@@ -99,4 +63,3 @@ After completing all assembly steps:
 3. Set up access control settings
 4. Establish a maintenance schedule
 
-For detailed testing procedures and maintenance guidelines, refer to our operations manual.
