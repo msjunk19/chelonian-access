@@ -62,6 +62,7 @@ private:
 
     // LED state
     uint8_t m_led_pin;
+    // bool inverted; //ESP32C3 LED Logic inverted from ESP32DEV
     bool m_ledState;
     unsigned long m_lastChange;
     const uint16_t* m_pattern;

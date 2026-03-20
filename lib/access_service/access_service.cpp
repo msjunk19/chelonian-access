@@ -7,8 +7,8 @@
 #include <led_controller.h>
 #include "led_states.hpp"
 
-// LEDController led(PN_LED); //Single Color LED on pin 2
-LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 27
+// LEDController led(PN_LED); //Single Color LED on pin 8
+LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
 
 
 static const char* TAG = "ACCESS";  // Add TAG definition
