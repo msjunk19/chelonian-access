@@ -12,7 +12,7 @@ This guide will walk you through the process of installing the Chelonian Access 
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/dapperdivers/chelonian-access.git
+   git clone https://github.com/msjunk19/chelonian-access.git
    cd chelonian-access
    ```
 

@@ -20,7 +20,7 @@ The system uses 6 distinct audio files for different states:
 
 ## Installation Methods
 
-### Method 1: USB Download Tool (Recommended)
+### Method 1: Linux - USB Download Tool (Recommended)
 
 1. **Connect the JQ6500**
    - Remove the JQ6500 module from your Chelonian Access board
@@ -30,7 +30,7 @@ The system uses 6 distinct audio files for different states:
      - GND → GND
      - VCC → 3.3V
 
-2. **Install the Download Tool**
+2.  **Install the Download Tool**
    ```bash
    # Linux
    git clone https://github.com/NikolaiRadke/JQ6500-rescue-tool.git
@@ -42,12 +42,13 @@ The system uses 6 distinct audio files for different states:
 3. **Prepare Audio Files**
    - Copy the audio files from `docs/assets/audio` to a working directory
    - Ensure files are in MP3 format and properly named:
-     - `001.mp3` - Access Granted
-     - `002.mp3` - Access Denied
-     - `003.mp3` - Error
-     - `004.mp3` - Programming Mode
-     - `005.mp3` - Programming Success
-     - `006.mp3` - Programming Failed
+     - `001.mp3` - Startup Sound/Chime
+     - `002.mp3` - Waiting for Input
+     - `003.mp3` - Access Granted
+     - `004.mp3` - Acccess Denied 1
+     - `005.mp3` - Acccess Denied 2
+     - `006.mp3` - Acccess Denied 3
+   - You must add ALL of the files, at once, in numerical order (sorting)
 
 4. **Upload Files**
    ```bash
@@ -55,9 +56,11 @@ The system uses 6 distinct audio files for different states:
    jq6500-tool -d /dev/ttyUSB0 -f /path/to/audio/files/*.mp3
    ```
 
-### Method 2: Windows JQ6500s Tool
+### Method 2: Windows - JQ6500s Tool
 
 For Windows users, an alternative GUI tool is available:
+
+The device should show up on your PC as a cd drive, on it will be MusicDownloader.exe, use the directions below to use it. Alternatively, if it is not installed, you can download it as referenced.
 
 1. Download the JQ6500s tool from the manufacturer's website
 2. Connect the module as described above

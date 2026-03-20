@@ -72,29 +72,13 @@ esp_log_level_set("*", ESP_LOG_INFO);
    - DEBUG: Development debugging info
    - VERBOSE: Very detailed tracing
 
-3. **Performance**:
-   - Keep verbose logging minimal in production
-   - Avoid complex string operations in log statements
-
-4. **Formatting**:
-   - Include relevant context (timestamps, state values)
-   - Use printf-style formatting consistently
-
-## Example Output
-```
-I (1234) Main: Chelonian Access Service
-I (1235) Main: Version 1.0.0
-I (1236) Audio: 1236 - Initializing audio controller...
-I (2000) Audio: 2000 - Initialized successfully. Volume: 15, Source: Built-in
-E (2500) RFID: Failed to initialize reader!
-```
-
 ## Troubleshooting
 
 **Logs not appearing?**
 1. Check `CONFIG_LOG_DEFAULT_LEVEL` in platformio.ini
 2. Verify no runtime level override exists
 3. Ensure monitor speed matches Serial.begin() rate (115200)
+4. Check CDC Setting (some esp32c3)
 
 **Changing Log Levels**
 View current levels:
