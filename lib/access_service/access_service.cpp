@@ -20,7 +20,7 @@ AudioContoller audio;
 enum RelayState currentRelayState = RELAY_IDLE;
 uint8_t invalidAttempts = 0;
 bool scanned = false;
-bool impatient = false;
+// bool impatient = false;
 unsigned long relayActivatedTime = 0;
 bool relayActive = false;
 
@@ -87,61 +87,128 @@ void activateRelays() {
 }
 
 void accessServiceLoop() {
-    led.update();
-    boolean success;
     uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
-    uint8_t uidLength;    
+    uint8_t uidLength;
+    
     handleRelaySequence();
-    if (millis() > 10000 && !impatient && !scanned) {
-        audio.playTrack(AudioContoller::SOUND_WAITING);
-        impatient = true;
+
+    static bool scanned = false;
+
+    static bool audioQueued = false;
+    static uint8_t queuedSound = 0;
+
+    static unsigned long startTime = millis();   // impatience timer
+    static bool impatient = false;
+    static bool impatientEnabled = true;
+
+    static unsigned long invalidTimeoutEnd = 0;  // lockout timer
+
+    led.update();
+
+    bool success = rfid.readCard(uid, &uidLength);
+
+    bool lockedOut = millis() < invalidTimeoutEnd;
+    if (!lockedOut) {
+        // Only read card if not in lockout
+        success = rfid.readCard(uid, &uidLength);
+    } else {
+        success = false;  // pretend no card
     }
-    success = rfid.readCard(uid, &uidLength);
+
     if (success) {
         scanned = true;
-        ESP_LOGE(TAG, "Card detected");
-        ESP_LOGE(TAG, "UID Length: %u bytes", uidLength);
-        ESP_LOGE(TAG, "UID Value:");
-        for (uint8_t i = 0; i < uidLength; i++) {
-            char buffer[20];
-            sprintf(buffer, " 0x%02X", uid[i]);
-            // Note: ESP_LOGE doesn't support direct loops, so handle in a string or per line
-            // For simplicity, log as a single string
-        }
-        // Replace with a formatted string for the entire UID
-        // This might need adjustment based on actual code, but assuming a string build
+
+        // Reset impatience timer
+        impatient = false;
+        startTime = millis();
+
         bool validUID = rfid.validateUID(uid, uidLength);
+
+        // --- Unknown UID ---
         if (uidLength == 4) {
             ESP_LOGE(TAG, "4B UID detected");
         } else if (uidLength == 7) {
             ESP_LOGE(TAG, "7B UID detected");
         } else {
             ESP_LOGE(TAG, "Unknown UID type/length");
+
+            if (!led.isRunning()) {
+                led.setPattern(PATTERN_DOUBLE_BLINK, 1000);
+                audioQueued = false;
+            }
+            return;
+            
         }
+
+        // --- VALID CARD ---
         if (validUID) {
-            led.setPattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
-            // led.enqueuePattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
-            ESP_LOGE(TAG, "Valid card - activating relays");
-            invalidAttempts = 0;
-            audio.playTrack(AudioContoller::SOUND_ACCEPTED);
-            activateRelays();
-        } else {
-            ESP_LOGW(TAG, "Invalid card - attempt #%u", invalidAttempts + 1);
-            if (invalidAttempts == 0) {
-                led.setPattern(PATTERN_FAST_BLINK, 1000, LEDColor::YELLOW);
-                audio.playTrack(AudioContoller::SOUND_DENIED_1);
-            } else if (invalidAttempts == 1) {
-                led.setPattern(PATTERN_DOUBLE_BLINK, 1000, LEDColor::ORANGE);
-                audio.playTrack(AudioContoller::SOUND_DENIED_2);
-            } else {
-                led.setPattern(PATTERN_TRIPLE_BLINK, 1000, LEDColor::RED);
-                audio.playTrack(AudioContoller::SOUND_DENIED_3);
+            ESP_LOGE(TAG, "Valid card");
+
+            if (!led.isRunning() && !audioQueued) {
+                // led.setPattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
+                led.enqueuePattern(PATTERN_SLOW_BLINK, 2000, LEDColor::RED);
+                led.enqueuePattern(PATTERN_TRIPLE_BLINK, 1000, LEDColor::YELLOW);
+                led.enqueuePattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
+
+                queuedSound = AudioContoller::SOUND_ACCEPTED;
+                audioQueued = true;
+
+                activateRelays();
+
+                invalidAttempts = 0;
+
+                // Disable impatience after success
+                impatientEnabled = false;
+                impatient = false;
             }
-            delay(3000);
-            delay(invalidDelays[invalidAttempts] * 1000);
-            if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) {
-                invalidAttempts++;
+        }
+        // --- INVALID CARD ---
+        else {
+            ESP_LOGW(TAG, "Invalid card attempt #%u", invalidAttempts + 1);
+
+            if (!led.isRunning() && !audioQueued) {
+                led.setPattern(PATTERN_TRIPLE_BLINK,
+                               invalidDelays[invalidAttempts] * 1000,
+                               LEDColor::RED);
+
+                // Queue correct sound
+                if (invalidAttempts == 0) queuedSound = AudioContoller::SOUND_DENIED_1;
+                else if (invalidAttempts == 1) queuedSound = AudioContoller::SOUND_DENIED_2;
+                else queuedSound = AudioContoller::SOUND_DENIED_3;
+
+                audioQueued = true;
+
+                // 🔒 Start lockout timer (non-blocking)
+                invalidTimeoutEnd = millis() + (invalidDelays[invalidAttempts] * 1000) + (3000);  //Replicate the 3 Second + 1s*invalid card read Timeout for Brute Force Protection
+
+                // Increment attempts AFTER scheduling
+                if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1)
+                    invalidAttempts++;
+
+                // Re-enable impatience after invalid
+                impatientEnabled = true;
+                impatient = false;
+                startTime = millis();
             }
+        }
+
+    } else {
+        scanned = false;
+
+        // logic for waiting sound
+        if (impatientEnabled && millis() - startTime > 10000 && !impatient) {
+            ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
+
+            queuedSound = AudioContoller::SOUND_WAITING;
+            audioQueued = true;
+
+            impatient = true;
         }
     }
-}
+
+    // --- Play audio AFTER LED finishes ---
+    if (audioQueued && !led.isRunning()) {
+        audio.playTrack(queuedSound);
+        audioQueued = false;
+    }
+}   
