@@ -68,3 +68,5 @@ This guide covers the installation and configuration of the 4-Channel Relay Modu
 - Verify control signals
 - Test relay manually
 - Check for loose connections
+
+[Return to Assembly Guide](ASSEMBLY_GUIDE.md) - Return to the Guide

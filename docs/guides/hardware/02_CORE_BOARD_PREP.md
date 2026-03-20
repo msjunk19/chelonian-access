@@ -85,3 +85,5 @@ This guide covers the preparation and initial setup of the main control boards f
 2. Test continuity of connections
 3. Verify correct jumper positions
 4. Document any modifications
+
+[Return to Assembly Guide](ASSEMBLY_GUIDE.md) - Return to the Guide

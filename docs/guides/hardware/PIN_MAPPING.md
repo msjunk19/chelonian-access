@@ -209,3 +209,5 @@ The ESP32-C3 SuperMini has several unused pins that can be used for future expan
 - [PN532 User Manual](https://www.nxp.com/docs/en/user-guide/141520.pdf)
 - [JQ6500 Documentation](https://github.com/sleemanj/JQ6500_Serial)
 - [SRD-05VDC-SL-C Relay Specifications](https://components101.com/switches/5v-relay-pinout-working-datasheet)
+
+[Return to Assembly Guide](ASSEMBLY_GUIDE.md) - Return to the Guide

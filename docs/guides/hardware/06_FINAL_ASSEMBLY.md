@@ -93,3 +93,5 @@ Here's what your assembly should look like at various stages:
 1. All connections secure
 2. Proper strain relief
 3. All openings sealed
+
+[Return to Assembly Guide](ASSEMBLY_GUIDE.md) - Return to the Guide

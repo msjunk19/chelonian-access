@@ -77,3 +77,5 @@ Mini360 Buck Converter
 - Verify all ground connections
 - Check for voltage drops
 - Look for loose connections
+
+[Return to Assembly Guide](ASSEMBLY_GUIDE.md) - Return to the Guide

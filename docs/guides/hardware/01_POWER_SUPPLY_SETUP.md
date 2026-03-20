@@ -52,4 +52,4 @@ This guide covers the setup and configuration of the power supply components for
 - If converter gets hot, ensure proper ventilation
 - If output is 0V, check input connections and polarity
 
-[Return to Assembly Guide](ASSEMBLY_SETUP.md) - Return to the Guide
+[Return to Assembly Guide](ASSEMBLY_GUIDE.md) - Return to the Guide

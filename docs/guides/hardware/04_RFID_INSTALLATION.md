@@ -63,3 +63,5 @@ This guide covers the installation and setup of the PN532 NFC/RFID module in the
 - Verify power supply
 - Test in different positions
 - Look for interference sources
+
+[Return to Assembly Guide](ASSEMBLY_GUIDE.md) - Return to the Guide
