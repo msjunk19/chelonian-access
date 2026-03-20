@@ -87,7 +87,7 @@ A modern, secure RFID access control system, now known as Chelonian Access (form
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/dapperdivers/chelonian-access.git
+   git clone https://github.com/msjunk19/chelonian-access.git
    cd chelonian-access
    ```
 
@@ -127,7 +127,6 @@ The ESP32-C3 SuperMini has many built-in features that are not yet utilized:
 - **Bluetooth 5.0 BLE** - Smartphone as key, configuration
 - **4MB Flash Storage** - Persistent settings, logging
 - **Deep Sleep Mode** - Ultra-low 43μA power consumption
-- **Built-in Blue LED** - Status indicators
 - **Touch Sensor Support** - Alternative input methods
 - **Hardware Encryption** - Secure communications
 
@@ -191,29 +190,10 @@ void RFIDController::initializeDefaultUIDs() {
 
 Future versions will support flash storage and master card programming.
 
-## ⚡ Pin Connections
-
-```txt
-ESP32-C3 SuperMini ←→ Component Connections
-├── SPI Bus ←→ PN532 RFID Module
-│   ├── Pin 5 (SS)
-│   └── MISO/MOSI/SCK pins
-├── Digital Outputs ←→ 4-Channel Relay
-│   ├── Pin 9 → Relay 1 (Door Lock)
-│   ├── Pin 10 → Relay 2 (Available)
-│   ├── Pin 20 → Relay 3 (Available)
-│   └── Pin 21 → Relay 4 (Available)
-├── Serial ←→ JQ6500 MP3 Player (Optional)
-│   ├── Pin 1 → JQ6500 RX
-│   └── Pin 0 → JQ6500 TX
-└── Power ←→ Mini360 Buck Converter
-    ├── 5V → System power
-    └── GND → Common ground
-```
 
 ## 🧪 Testing
 
-The project includes comprehensive unit tests for all modules:
+The project includes comprehensive unit tests for all modules: (must add support for new code)
 
 ```bash
 # Run all tests
@@ -255,7 +235,7 @@ MIT License - See [LICENSE](.github/LICENSE.md) for details
 - Simple Sexy PCB created by **Chimpo**
 - Original Software: [SIMPLE-SEXY](https://github.com/chiplocks/SIMPLE-SEXY)
 - RFID implants: [Dangerous Things](https://dangerousthings.com/)
-
+- Updated Software: [Chelonian-Access](https://github.com/dapperdivers/chelonian-access)
 ---
 
 **Made with ❤️ for the Dangerous Things community**
