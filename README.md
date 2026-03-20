@@ -235,7 +235,7 @@ MIT License - See [LICENSE](.github/LICENSE.md) for details
 - Simple Sexy PCB created by **Chimpo**
 - Original Software: [SIMPLE-SEXY](https://github.com/chiplocks/SIMPLE-SEXY)
 - RFID implants: [Dangerous Things](https://dangerousthings.com/)
-- Updated Software: [Chelonian-Access](https://github.com/dapperdivers/chelonian-access)
+- Base Software: [Chelonian-Access](https://github.com/dapperdivers/chelonian-access)
 ---
 
 **Made with ❤️ for the Dangerous Things community**
