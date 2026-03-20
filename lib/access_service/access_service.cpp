@@ -3,6 +3,13 @@
 #include <Arduino.h>
 #include "esp_log.h"
 
+
+#include <led_controller.h>
+
+// LEDController led(PN_LED); //Single Color LED on pin 2
+LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 27
+
+
 static const char* TAG = "ACCESS";  // Add TAG definition
 // Instantiate controllers
 RFIDController rfid;
@@ -13,7 +20,7 @@ AudioContoller audio;
 enum RelayState currentRelayState = RELAY_IDLE;
 uint8_t invalidAttempts = 0;
 bool scanned = false;
-// bool impatient = false;
+bool impatient = false;
 unsigned long relayActivatedTime = 0;
 bool relayActive = false;
 
@@ -21,6 +28,10 @@ const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12,
                                                          23, 30, 38, 47, 57, 68};
 
 void accessServiceSetup() {
+
+    led.begin(); 
+    led.setPattern(PATTERN_BREATHING, 10000);
+
     if (rfid.begin()) {
         ESP_LOGE(TAG, "RFID controller initialized successfully");
     } else {
@@ -76,23 +87,17 @@ void activateRelays() {
 }
 
 void accessServiceLoop() {
+    led.update();
     boolean success;
     uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
-    uint8_t uidLength;
-
+    uint8_t uidLength;    
     handleRelaySequence();
-
-    static bool impatient = false;
-    static bool impatientEnabled = true;
-    static unsigned long startTime = millis();
-
+    if (millis() > 10000 && !impatient && !scanned) {
+        audio.playTrack(AudioContoller::SOUND_WAITING);
+        impatient = true;
+    }
     success = rfid.readCard(uid, &uidLength);
-
     if (success) {
-        // Reset impatient timer immediately
-        impatient = false;
-        startTime = millis();
-
         scanned = true;
         ESP_LOGE(TAG, "Card detected");
         ESP_LOGE(TAG, "UID Length: %u bytes", uidLength);
@@ -100,11 +105,12 @@ void accessServiceLoop() {
         for (uint8_t i = 0; i < uidLength; i++) {
             char buffer[20];
             sprintf(buffer, " 0x%02X", uid[i]);
-            // Could accumulate into a string if desired
+            // Note: ESP_LOGE doesn't support direct loops, so handle in a string or per line
+            // For simplicity, log as a single string
         }
-
+        // Replace with a formatted string for the entire UID
+        // This might need adjustment based on actual code, but assuming a string build
         bool validUID = rfid.validateUID(uid, uidLength);
-
         if (uidLength == 4) {
             ESP_LOGE(TAG, "4B UID detected");
         } else if (uidLength == 7) {
@@ -112,41 +118,30 @@ void accessServiceLoop() {
         } else {
             ESP_LOGE(TAG, "Unknown UID type/length");
         }
-
         if (validUID) {
+            led.setPattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
+            // led.enqueuePattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
             ESP_LOGE(TAG, "Valid card - activating relays");
             invalidAttempts = 0;
             audio.playTrack(AudioContoller::SOUND_ACCEPTED);
             activateRelays();
-
-            // Disable impatient logic after success
-            impatientEnabled = false;
-            impatient = false;
         } else {
             ESP_LOGW(TAG, "Invalid card - attempt #%u", invalidAttempts + 1);
-
-            // Re-enable impatient logic and restart timer
-            impatientEnabled = true;
-            impatient = false;
-            startTime = millis();
-
-
-            if (invalidAttempts == 0) audio.playTrack(AudioContoller::SOUND_DENIED_1);
-            else if (invalidAttempts == 1) audio.playTrack(AudioContoller::SOUND_DENIED_2);
-            else audio.playTrack(AudioContoller::SOUND_DENIED_3);
-
+            if (invalidAttempts == 0) {
+                led.setPattern(PATTERN_FAST_BLINK, 1000, LEDColor::YELLOW);
+                audio.playTrack(AudioContoller::SOUND_DENIED_1);
+            } else if (invalidAttempts == 1) {
+                led.setPattern(PATTERN_DOUBLE_BLINK, 1000, LEDColor::ORANGE);
+                audio.playTrack(AudioContoller::SOUND_DENIED_2);
+            } else {
+                led.setPattern(PATTERN_TRIPLE_BLINK, 1000, LEDColor::RED);
+                audio.playTrack(AudioContoller::SOUND_DENIED_3);
+            }
             delay(3000);
             delay(invalidDelays[invalidAttempts] * 1000);
-
-            if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) invalidAttempts++;
-        }
-
-    } else {
-        // Play waiting sound if no card present
-        if (impatientEnabled && millis() - startTime > 10000 && !impatient) {
-            ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
-            audio.playTrack(AudioContoller::SOUND_WAITING);
-            impatient = true;
+            if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) {
+                invalidAttempts++;
+            }
         }
     }
 }

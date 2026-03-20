@@ -4,6 +4,10 @@
 #include "audio_controller.h"
 #include "relay_controller.h"
 #include "rfid_controller.h"
+#include "led_controller.h"
+
+#define PN_LED (2)
+#define PN_NEOPIXEL (10)
 
 // State and configuration
 extern RFIDController rfid;
