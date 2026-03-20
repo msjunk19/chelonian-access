@@ -45,7 +45,8 @@ This guide covers the preparation and initial setup of the main control boards f
 ### 2. PN532 Module Preparation
 
 1. **Module Configuration:**
-   - ![PN532 NFC/RFID Module Jumpers](../../assets/img/assembly/pn532-spi-jumpers.jpeg) *PN532 NFC/RFID Module Jumpers*
+   ![PN532 NFC/RFID Module Jumpers](../../assets/img/assembly/pn532-spi-jumpers.jpeg) 
+   - *PN532 NFC/RFID Module Jumpers*
    - Set jumpers for SPI mode operation
    - Verify the module is set to 3.3V operation
 
