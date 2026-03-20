@@ -5,6 +5,7 @@
 
 
 #include <led_controller.h>
+#include "led_states.hpp"
 
 // LEDController led(PN_LED); //Single Color LED on pin 2
 LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 27
@@ -133,7 +134,7 @@ void accessServiceLoop() {
             ESP_LOGE(TAG, "Unknown UID type/length");
 
             if (!led.isRunning()) {
-                led.setPattern(PATTERN_DOUBLE_BLINK, 1000);
+                LED_SET_SEQ(UNKNOWN_UID_TYPE);//Unknown UID Type/Length
                 audioQueued = false;
             }
             return;
@@ -146,13 +147,14 @@ void accessServiceLoop() {
 
             if (!led.isRunning() && !audioQueued) {
                 // led.setPattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
-                led.enqueuePattern(PATTERN_TRIPLE_BLINK, 2000, LEDColor::GREEN);
-                led.enqueuePattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
+                LED_SET_SEQ(ACCESS_GRANTED);
+                // led.enqueuePattern(PATTERN_TRIPLE_BLINK, 2000, LEDColor::GREEN);
+                // led.enqueuePattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
 
                 queuedSound = AudioContoller::SOUND_ACCEPTED;
                 audioQueued = true;
 
-                activateRelays();   
+                activateRelays();
 
                 invalidAttempts = 0;
 
@@ -166,9 +168,10 @@ void accessServiceLoop() {
             ESP_LOGW(TAG, "Invalid card attempt #%u", invalidAttempts + 1);
 
             if (!led.isRunning() && !audioQueued) {
-                led.setPattern(PATTERN_FIVE_BLINK,
-                               invalidDelays[invalidAttempts] * 1000,
-                               LEDColor::RED);
+                LED_SET_SEQ(ACCESS_DENIED);
+                // led.setPattern(PATTERN_FIVE_BLINK,
+                //                invalidDelays[invalidAttempts] * 1000,
+                //                LEDColor::RED);
 
                 // Queue correct sound
                 if (invalidAttempts == 0) queuedSound = AudioContoller::SOUND_DENIED_1;

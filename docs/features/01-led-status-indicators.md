@@ -55,11 +55,11 @@ Use the ESP32-C3 SuperMini's onboard blue LED (GPIO8) to provide visual feedback
 ### Phase 3: Status Indicators
 - [ ] **System States**:
   - [X] Power on: Smooth fade in/out (using PWM)
-  - [ ] Ready: Slow breathing pattern
-  - [ ] WiFi connecting: Double blink pattern
-  - [ ] WiFi connected: Triple blink then solid
-  - [ ] Waiting (after 10s): Double blink every 2 seconds
-  - [ ] Card detected: Rapid blink
+  - [ ] Ready: Slow breathing pattern (In consideration due to the project being battery based)
+  - [ ] WiFi connecting: Double blink pattern (WiFi not integrated yet)
+  - [ ] WiFi connected: Triple blink then solid (WiFi not integrated yet)
+  - [ ] Waiting (after 10s): Double blink every 2 seconds (In consideration due to the project being battery based)
+  - [ ] Card detected: Rapid blink (This would run repeatedly, not being implemented)
 
 - [ ] **Access States**:
   - [X] Valid card: 3 fast blinks then solid for 2 seconds
@@ -73,13 +73,13 @@ Use the ESP32-C3 SuperMini's onboard blue LED (GPIO8) to provide visual feedback
   - [ ] WiFi error: Slow double blink
 
 ### Phase 4: Integration
-- [ ] Add `LEDController` instance to `main.cpp`
+- [X] Add `LEDController` instance to `main.cpp` (Not added to main, but implemented in access_service, effectively the same)
 - [ ] Call LED methods at appropriate points:
-  - [ ] `setup()`: Show initialization pattern
-  - [ ] Card read attempts
-  - [ ] Access granted/denied events
-  - [ ] Error conditions
-  - [ ] WiFi/BLE status changes
+  - [X] `setup()`: Show initialization pattern (Again, implemented in access_service, which is the only loop in main())
+  - [ ] Card read attempts (Card reads are too frequent for LED feedback, card reads multiple times per second)
+  - [X] Access granted/denied events
+  - [ ] Error conditions 
+  - [ ] WiFi/BLE status changes (WiFi/Bluetooth not yet implemented)
 - [X] Ensure LED patterns don't block main loop
 
 ### Phase 5: Advanced Features (Optional)
@@ -152,7 +152,7 @@ void LEDController::breathe() {
 - [ ] Test PWM brightness levels
 - [ ] Measure current consumption with LEDs active
 - [ ] Test error condition indicators
-- [ ] Verify patterns work during WiFi/BLE operations
+- [ ] Verify patterns work during WiFi/BLE operations (Neither Implemented Yet)
 
 ## Future Enhancements
 
