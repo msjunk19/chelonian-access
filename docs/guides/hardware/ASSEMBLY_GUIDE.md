@@ -12,13 +12,13 @@ This guide provides an overview of the Chelonian Access system hardware assembly
 
 Here's what the completed assembly looks like:
 
-![All Components](../assets/img/assembly/all_components.jpeg)
+![All Components](..\..\assets\img\assembly\all_components.jpeg)
 *All components laid out before assembly*
 
-![Completed Assembly Front](../assets/img/assembly/simple sexy front.jpeg)
+![Main PCB Front](..\..\assets\img\assembly\all_components.jpeg)
 *Completed assembly - front view*
 
-![Completed Assembly Back](../assets/img/assembly/simple sexy back.jpeg)
+![Main PCB Back](..\..\assets\img\assembly\simple_sexy_back.jpeg)
 *Completed assembly - back view*
 
 ## Assembly Overview

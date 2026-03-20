@@ -4,7 +4,7 @@ This directory contains guidelines for photographing the unassembled components 
 
 ## Required Component Photos
 
-1. **[All Components](./all_components.jpeg)** - Components Layout
+1. `01_components.jpg` - Components Layout
    - All components laid out neatly
    - Labels or arrows indicating each component
    - Include all required tools

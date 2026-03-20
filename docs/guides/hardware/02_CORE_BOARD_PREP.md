@@ -10,13 +10,13 @@ This guide covers the preparation and initial setup of the main control boards f
 
 ## Component Overview
 
-![ESP32-C3 SuperMini](../assets/img/assembly/esp32-c3 super mini.jpg)
+![ESP32-C3 SuperMini](../../assets/img/assembly/esp32-c3_super_mini.jpg)
 *ESP32-C3 SuperMini Board*
 
-![PN532 NFC/RFID Module](../assets/img/assembly/pn532.jpeg)
+![PN532 NFC/RFID Module](../../assets/img/assembly/pn532.jpeg)
 *PN532 NFC/RFID Module*
 
-![8-Pin Connector](../assets/img/assembly/8-pin-connector-female.jpg)
+![8-Pin Connector](../../assets/img/assembly/8-pin-connector-female.jpg)
 *8-Pin Connector (Female Side)*
 
 ## Required Components
@@ -45,7 +45,7 @@ This guide covers the preparation and initial setup of the main control boards f
 ### 2. PN532 Module Preparation
 
 1. **Module Configuration:**
-   - ![PN532 NFC/RFID Module Jumpers](../assets/img/assembly/pn532-spi-jumpers.jpeg) *PN532 NFC/RFID Module Jumpers*
+   - ![PN532 NFC/RFID Module Jumpers](../../assets/img/assembly/pn532-spi-jumpers.jpeg) *PN532 NFC/RFID Module Jumpers*
    - Set jumpers for SPI mode operation
    - Verify the module is set to 3.3V operation
 

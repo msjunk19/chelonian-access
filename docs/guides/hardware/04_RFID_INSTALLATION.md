@@ -10,10 +10,10 @@ This guide covers the installation and setup of the PN532 NFC/RFID module in the
 
 ## Component Images
 
-![PN532 Connections](../assets/img/assembly/pn532 wired connections.jpeg)
+![PN532 Connections](../../assets/img/assembly/pn532_wired_connections.jpeg)
 *PN532 Module Wiring*
 
-![PN532 Front View](../assets/img/assembly/pn352 wired front.jpeg)
+![PN532 Front View](../../assets/img/assembly/pn352_wired_front.jpeg)
 *PN532 Module - Front View*
 
 ## Required Components

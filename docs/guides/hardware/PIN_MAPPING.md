@@ -14,43 +14,35 @@ This document provides a comprehensive reference for all pin connections in the 
 
 | Pin Number | Function | Connected To | Notes |
 |------------|----------|--------------|--------|
-| GPIO 10 | SPI SS | PN532 SS | RFID reader slave select |
-| GPIO MISO | SPI MISO | PN532 MISO | RFID reader data in |
-| GPIO MOSI | SPI MOSI | PN532 MOSI | RFID reader data out |
-| GPIO SCK | SPI SCK | PN532 SCK | RFID reader clock |
-| GPIO 9 | Relay 1 | Door Lock Relay | Active LOW trigger |
-| GPIO 6 | Relay 2 | Auxiliary Relay | Available for expansion |
-| GPIO 5 | Relay 3 | Auxiliary Relay | Available for expansion |
-| GPIO 4 | Relay 4 | Auxiliary Relay | Available for expansion |
-| GPIO 1 | TX | JQ6500 RX | Audio module serial |
-| GPIO 0 | RX | JQ6500 TX | Audio module serial |
+| GPIO 7 | SPI SS | PN532 SS | RFID reader slave select |
+| GPIO 5 | SPI MISO | PN532 MISO | RFID reader data in |
+| GPIO 6 | SPI MOSI | PN532 MOSI | RFID reader data out |
+| GPIO 4 | SPI SCK | PN532 SCK | RFID reader clock |
+
+| GPIO 0 | Relay 1 | Door Lock Relay | Active LOW trigger |
+| GPIO 1 | Relay 2 | Auxiliary Relay | Available for expansion |
+| GPIO 2 | Relay 3 | Auxiliary Relay | Available for expansion |
+| GPIO 3 | Relay 4 | Auxiliary Relay | Available for expansion |
+
+| GPIO 21 | TX | JQ6500 RX | Audio module serial |
+| GPIO 20 | RX | JQ6500 TX | Audio module serial |
+
 | GPIO 8 | LED | Built-in Blue LED | Status indication |
+
 | 5V | Power In | Mini360 OUT+ | System power |
 | GND | Ground | Ground Bus | System ground |
 
-### Available Pins for Expansion
-
-| Pin Number | Type | Potential Uses |
-|------------|------|---------------|
-| ADC1_CH0 | Analog Input | Battery monitoring |
-| ADC1_CH1 | Analog Input | Light sensor |
-| ADC1_CH2 | Analog Input | Temperature sensor |
-| ADC1_CH3 | Analog Input | Current sensing |
-| GPIO 2 | Digital I/O | Emergency button |
-| GPIO 3 | Digital I/O | Door sensor |
-| GPIO 7 | Digital I/O | Status LED |
-| GPIO 18-21 | Digital I/O | General purpose |
 
 ## PN532 RFID Module
 
 | Pin | Connected To | Notes |
 |-----|-------------|-------|
-| SS | ESP32 GPIO 10 | Chip select |
-| MISO | ESP32 MISO | Data to ESP32 |
-| MOSI | ESP32 MOSI | Data from ESP32 |
-| SCK | ESP32 SCK | Clock signal |
-| VCC | ESP32 3.3V | Power input (3.3V logic required) |
-| GND | Ground Bus | Ground reference |
+| SS   | ESP32 GPIO 7 | Chip select |
+| MISO | ESP32 GPIO 6 | Data to ESP32 |
+| MOSI | ESP32 GPIO 5 | Data from ESP32 |
+| SCK  | ESP32 GPIO 4 | Clock signal |
+| VCC  | ESP32 3V3    | Power input (3.3V logic required) |
+| GND  | Ground Bus   | Ground reference |
 
 ## Relay Module (SRD-05VDC-SL-C)
 
@@ -58,10 +50,10 @@ This document provides a comprehensive reference for all pin connections in the 
 |-----|-------------|-------|
 | VCC | Mini360 5V | Power input |
 | GND | Ground Bus | Ground reference |
-| IN1 | ESP32 GPIO 9 | Door control |
-| IN2 | ESP32 GPIO 6 | Auxiliary |
-| IN3 | ESP32 GPIO 5 | Auxiliary |
-| IN4 | ESP32 GPIO 4 | Auxiliary |
+| IN1 | ESP32 GPIO 0 | Door control |
+| IN2 | ESP32 GPIO 1 | Auxiliary |
+| IN3 | ESP32 GPIO 2 | Auxiliary |
+| IN4 | ESP32 GPIO 3 | Auxiliary |
 | COM1-4 | Load Circuit | Common terminals |
 | NO1-4 | Load Circuit | Normally open |
 | NC1-4 | Load Circuit | Normally closed |
@@ -69,13 +61,13 @@ This document provides a comprehensive reference for all pin connections in the 
 ## JQ6500 Audio Module
 
 | Pin | Connected To | Notes |
-|-----|-------------|-------|
-| VCC | Mini360 5V | Power input |
-| GND | Ground Bus | Ground reference |
-| TX | ESP32 GPIO 0 | Serial data to ESP32 |
-| RX | ESP32 GPIO 1 | Serial data from ESP32 |
-| SPK+ | Speaker + | 8Ω speaker |
-| SPK- | Speaker - | 8Ω speaker |
+|-----|--------------|-------|
+| VCC | Mini360 5V   | Power input |
+| GND | Ground Bus   | Ground reference |
+| TX  | ESP32 GPIO 20| Serial data to ESP32 |
+| RX  | ESP32 GPIO 21| Serial data from ESP32 |
+| SPK+| Speaker +    | 8Ω speaker |
+| SPK-| Speaker -    | 8Ω speaker |
 
 ## Mini360 Buck Converter
 

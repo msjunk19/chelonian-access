@@ -12,16 +12,16 @@ This guide covers the final assembly steps, enclosure preparation, and system te
 
 Here's what your assembly should look like at various stages:
 
-![Initial Wiring](../assets/img/assembly/simple sexy wired connections.jpeg)
+![Initial Wiring](../../assets/img/assembly/simple_sexy_wired_connections.jpeg)
 *Initial component wiring*
 
-![Complete Wiring](../assets/img/assembly/wiring completed.jpeg)
+![Complete Wiring](../../assets/img/assembly/wiring_completed.jpeg)
 *Completed wiring assembly*
 
-![Final Assembly Front](../assets/img/assembly/simple sexy front.jpeg)
+![Final Assembly Front](../../assets/img/assembly/simple_sexy_front_assembled.jpg)
 *Final assembly - front view*
 
-![Final Assembly Back](../assets/img/assembly/simple sexy back.jpeg)
+![Final Assembly Back](../../assets/img/assembly/simple_sexy_back_assembled.jpg)
 *Final assembly - back view*
 
 ## Required Components

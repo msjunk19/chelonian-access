@@ -10,10 +10,10 @@ This guide covers the installation and configuration of the 4-Channel Relay Modu
 
 ## Component Images
 
-![4-Channel Relay Module](../assets/img/assembly/4-relay-module.jpeg)
+![4-Channel Relay Module](../../assets/img/assembly/4-relay-module.jpeg)
 *4-Channel Relay Module*
 
-![Wiring Connections](../assets/img/assembly/simple sexy wired connections.jpeg)
+![Wiring Connections](../../assets/img/assembly/simple_sexy_wired_connections.jpeg)
 *Relay Module Wiring Connections*
 
 ## Required Components
