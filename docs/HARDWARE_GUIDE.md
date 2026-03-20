@@ -220,28 +220,13 @@ This document provides detailed information about each hardware component used i
 
 ## Expansion Possibilities
 
-### I2C Bus (Pins 8/9 can be configured)
+### I2C / SPI ??
 
 - RTC module (DS3231) for time-based access
 - OLED display for status
 - Additional EEPROM storage
 - Temperature/humidity sensors
 - Accelerometer for tamper detection
-
-### Remaining Digital Pins
-
-- Emergency button input
-- Status LEDs (beyond built-in)
-- Buzzer for local alerts
-- PIR motion sensor
-- Door position sensor
-
-### Analog Inputs Available (A0-A5)
-
-- Battery voltage monitoring
-- Light sensor for automatic brightness
-- Current sensing for each relay
-- Potentiometer for volume control
 
 ### Wireless Capabilities
 
@@ -251,39 +236,6 @@ This document provides detailed information about each hardware component used i
 - ESP-NOW mesh networking
 - OTA firmware updates
 
-## Wiring Diagram
-
-```txt
-ESP32-C3 SuperMini
-┌─────────────────┐
-│                 │
-│  10 ─────────── │──── PN532 SS
-│  MISO ────────── │──── PN532 MISO
-│  MOSI ────────── │──── PN532 MOSI
-│  SCK ─────────── │──── PN532 SCK
-│                 │
-│  9 ──────────── │──── Relay 1 (Door)
-│  6 ──────────── │──── Relay 2
-│  5 ──────────── │──── Relay 3
-│  4 ──────────── │──── Relay 4
-│                 │
-│  1 ──────────── │──── JQ6500 RX
-│  0 ──────────── │──── JQ6500 TX
-│                 │
-│  5V ─────────── │──── Mini360 Output
-│  GND ─────────── │──── Common ground
-│                 │
-└─────────────────┘
-
-Mini360 Buck Converter
-┌─────────────────┐
-│  IN+ ────────── │──── 12V Vehicle
-│  IN- ────────── │──── Vehicle GND
-│  OUT+ ───────── │──── 5V to System
-│  OUT- ───────── │──── System GND
-└─────────────────┘
-```
-
 ## Best Practices
 
 1. **Power Supply**: Mini360 provides stable 5V from automotive 12V
@@ -292,39 +244,3 @@ Mini360 Buck Converter
 4. **Protection**: Flyback diodes included in relay module
 5. **Shielding**: Keep RFID antenna away from metal/interference
 6. **Audio**: JQ6500 can drive speaker directly
-
-## Advantages of New Hardware
-
-### ESP32-C3 SuperMini vs Pro Micro
-
-- **Processing Power**: 160MHz RISC-V vs 8MHz AVR
-- **Memory**: 400KB RAM vs 2.5KB RAM
-- **Storage**: 4MB Flash vs 32KB Flash
-- **Wireless**: Built-in WiFi & BLE vs none
-- **Size**: Similar compact form factor
-- **Power**: More efficient deep sleep modes
-
-### JQ6500 vs DFPlayer
-
-- **Simplicity**: Easier serial protocol
-- **Reliability**: More stable operation
-- **Integration**: Better documentation
-- **Cost**: Similar price point
-
-### Mini360 Buck Converter
-
-- **Efficiency**: Up to 96% vs linear regulators
-- **Adjustable**: Fine-tune output voltage
-- **Compact**: Minimal board space
-- **Robust**: Handles automotive voltage spikes
-
-## Troubleshooting Tips
-
-- RFID not reading: Check SPI connections and SS pin
-- Relays clicking rapidly: Check 5V supply from Mini360
-- Audio issues: Verify JQ6500 serial connections
-- WiFi not connecting: Check antenna clearance
-- Random resets: Adjust Mini360 output voltage
-- BLE issues: Ensure proper power decoupling
-
-This guide will be updated as new features are implemented with the ESP32-C3 platform.

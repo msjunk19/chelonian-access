@@ -9,7 +9,7 @@ nav_order: 1
 A modern, modular RFID keyless entry system built on the ESP32-C3 SuperMini platform.
 {: .fs-6 .fw-300 }
 
-[Get started](#getting-started){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 } [View on GitHub](https://github.com/dapperdivers/chelonian-access){: .btn .fs-5 .mb-4 .mb-md-0 }
+[Get started](#getting-started){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 } [View on GitHub](https://github.com/msjunk19/chelonian-access){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 ---
 
@@ -17,12 +17,14 @@ A modern, modular RFID keyless entry system built on the ESP32-C3 SuperMini plat
 
 ### Quick Links
 
-- [Project Overview](PROJECT_OVERVIEW.html) - Complete system architecture and capabilities
-- [Hardware Guide](HARDWARE_GUIDE.html) - Detailed component specifications
-- [Current Features](CURRENT_FEATURES.html) - Implemented vs. possible features
-- [Feature Roadmap](features/feature-roadmap.html) - Comprehensive enhancement guide
-- [Development Setup](guides/DEVELOPMENT_SETUP.html) - Detailed Guide to local development
-- [Software Installation](guides/software/01_ESP32_FIRMWARE_INSTALLATION.html) - ESP32 firmware and audio file installation guides
+- [Project Overview](PROJECT_OVERVIEW.MD) - Complete system architecture and capabilities
+- [Hardware Guide](HARDWARE_GUIDE.MD) - Detailed component specifications
+- [Current Features](CURRENT_FEATURES.MD) - Implemented vs. possible features
+- [Feature Roadmap](features/feature-roadmap.md) - Comprehensive enhancement guide
+- [Development Setup](guides/DEVELOPMENT_SETUP.MD) - Detailed Guide to local development
+- [Firmware Installation](guides/software/01_ESP32_FIRMWARE_INSTALLATION.MD) - ESP32 firmware installation guide
+- [JQ6500 File Transfer](02_JQ6500_AUDIO_INSTALLATION.MD) - Guide for putting audio files on JQ6500
+
 
 ### About the Project
 
@@ -46,17 +48,3 @@ This project transforms the original [SimpleSexy](https://github.com/chiplocks/S
 | **Power Supply** | Mini360 Buck Converter | 12V→5V conversion |
 
 ---
-
-## Documentation Structure
-
-### Core Documentation
-
-Essential guides for understanding the system architecture and implementation.
-
-### Feature Guides
-
-Detailed implementation guides for various system enhancements, from simple LED indicators to advanced wireless features.
-
-### Development
-
-Technical documentation for developers including migration guides, pin mappings, and development best practices.
