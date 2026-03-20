@@ -146,14 +146,13 @@ void accessServiceLoop() {
 
             if (!led.isRunning() && !audioQueued) {
                 // led.setPattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
-                led.enqueuePattern(PATTERN_SLOW_BLINK, 2000, LEDColor::RED);
-                led.enqueuePattern(PATTERN_TRIPLE_BLINK, 1000, LEDColor::YELLOW);
+                led.enqueuePattern(PATTERN_TRIPLE_BLINK, 2000, LEDColor::GREEN);
                 led.enqueuePattern(PATTERN_SOLID, 2000, LEDColor::GREEN);
 
                 queuedSound = AudioContoller::SOUND_ACCEPTED;
                 audioQueued = true;
 
-                activateRelays();
+                activateRelays();   
 
                 invalidAttempts = 0;
 
@@ -167,7 +166,7 @@ void accessServiceLoop() {
             ESP_LOGW(TAG, "Invalid card attempt #%u", invalidAttempts + 1);
 
             if (!led.isRunning() && !audioQueued) {
-                led.setPattern(PATTERN_TRIPLE_BLINK,
+                led.setPattern(PATTERN_FIVE_BLINK,
                                invalidDelays[invalidAttempts] * 1000,
                                LEDColor::RED);
 
