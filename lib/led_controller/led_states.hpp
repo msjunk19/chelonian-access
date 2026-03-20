@@ -10,24 +10,28 @@ struct LEDState {
 };
 
 // System / status indicators
-constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, 0, LEDColor::WHITE };
-constexpr LEDState SYSTEM_SCANNING   = { PATTERN_FAST_BLINK, 0, LEDColor::BLUE };
-constexpr LEDState WIFI_CONNECTING   = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
-constexpr LEDState WIFI_CONNECTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
-constexpr LEDState WAITING_TIMEOUT   = { PATTERN_SLOW_BLINK, 0, LEDColor::ORANGE };
+constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, LEDColor::WHITE };
+constexpr LEDState SYSTEM_SCANNING   = { PATTERN_FAST_BLINK, LEDColor::BLUE };
+constexpr LEDState WIFI_CONNECTING   = { PATTERN_DOUBLE_BLINK, LEDColor::YELLOW };
+constexpr LEDState WIFI_CONNECTED    = { PATTERN_TRIPLE_BLINK, LEDColor::GREEN };
+constexpr LEDState WAITING_TIMEOUT   = { PATTERN_SLOW_BLINK, LEDColor::ORANGE };
 constexpr LEDState POWER_ON_FADE     = { PATTERN_BREATHING, 3000, LEDColor::WHITE };
-constexpr LEDState UNKNOWN_UID_TYPE  = { PATTERN_DOUBLE_BLINK, LEDColor::ORANGE};
+constexpr LEDState UNKNOWN_UID_TYPE  = { PATTERN_DOUBLE_BLINK, LEDColor::ORANGE };
+constexpr LEDState PROGRAMMING_MODE  = { PATTERN_FIVE_BLINK, LEDColor::PURPLE };
 
 // Access control indicators
-constexpr LEDState ACCESS_GRANTED    = { PATTERN_TRIPLE_BLINK, 600, LEDColor::GREEN };
-constexpr LEDState ACCESS_DENIED     = { PATTERN_FIVE_BLINK, 600, LEDColor::RED };
+constexpr LEDState ACCESS_GRANTED    = { PATTERN_TRIPLE_BLINK, LEDColor::GREEN };
+constexpr LEDState ACCESS_DENIED     = { PATTERN_FIVE_BLINK, LEDColor::RED };
 constexpr LEDState DOOR_UNLOCKED     = { PATTERN_SOLID, 5000, LEDColor::GREEN };
-constexpr LEDState BRUTE_FORCE_LOCK  = { PATTERN_SOS, 0, LEDColor::RED };
+constexpr LEDState BRUTE_FORCE_LOCK  = { PATTERN_SOS, LEDColor::RED };
 
 // Error indicators
-constexpr LEDState ERROR_RFID        = { PATTERN_SOS, 0, LEDColor::RED };
-constexpr LEDState ERROR_AUDIO       = { PATTERN_FAST_BLINK, 0, LEDColor::PURPLE };
-constexpr LEDState ERROR_WIFI        = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
+constexpr LEDState ERROR_RFID        = { PATTERN_SOS, LEDColor::RED };
+constexpr LEDState ERROR_AUDIO       = { PATTERN_FAST_BLINK, LEDColor::PURPLE };
+constexpr LEDState ERROR_WIFI        = { PATTERN_DOUBLE_BLINK, LEDColor::YELLOW };
+
+// Card Read States
+constexpr LEDState MASTER_CARD       = { PATTERN_SOLID, 2000, LEDColor::PURPLE };
 
 // --- Optional helper macro for cleaner syntax ---
 #define LED_SET_SEQ(state) led.setPattern((state).pattern, (state).duration, (state).color)

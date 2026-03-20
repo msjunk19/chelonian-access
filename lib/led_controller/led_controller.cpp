@@ -1,18 +1,19 @@
 #include "led_controller.h"
 
 // Example blink sequences
-static const uint16_t PATTERN_SOLID_SEQ[]        = {0, 3000};
-static const uint16_t PATTERN_SLOW_BLINK_SEQ[]   = {500, 500};
-static const uint16_t PATTERN_FAST_BLINK_SEQ[]   = {200, 200};
-static const uint16_t PATTERN_DOUBLE_BLINK_SEQ[] = {120,120,120,700};
-static const uint16_t PATTERN_TRIPLE_BLINK_SEQ[] = {120,120,120,120,120,700};
-static const uint16_t PATTERN_FIVE_BLINK_SEQ[]   = {120,120,120,120,120,120,120,120,120,700};
-static const uint16_t PATTERN_SOS_SEQ[]          = {220,220,220,220,220,740,660,220,660,220,660,740,220,220,220,220,220,740};
+static const uint16_t PATTERN_SOLID_SEQ[]              = {0, 3000};
+static const uint16_t PATTERN_SLOW_BLINK_SEQ[]         = {500, 500};
+static const uint16_t PATTERN_FAST_BLINK_SEQ[]         = {200, 200};
+static const uint16_t PATTERN_DOUBLE_BLINK_SEQ[]       = {120,120,120,700};
+static const uint16_t PATTERN_TRIPLE_BLINK_SEQ[]       = {120,120,120,120,120,700};
+static const uint16_t PATTERN_TRIPLE_BLINK_SOLID_SEQ[] = {120,120,120,120,120,120,120,1000};
+static const uint16_t PATTERN_FIVE_BLINK_SEQ[]         = {120,120,120,120,120,120,120,120,120,700};
+static const uint16_t PATTERN_SOS_SEQ[]                = {220,220,220,220,220,740,660,220,660,220,660,740,220,220,220,220,220,740};
 
 struct PatternDef { const uint16_t* sequence; uint8_t length; };
 static const PatternDef PATTERN_TABLE[] = {
     {nullptr, 0}, {PATTERN_SOLID_SEQ, 2}, {PATTERN_SLOW_BLINK_SEQ,2},
-    {PATTERN_FAST_BLINK_SEQ,2},{PATTERN_DOUBLE_BLINK_SEQ,4},{PATTERN_TRIPLE_BLINK_SEQ,6},{PATTERN_FIVE_BLINK_SEQ, 10},
+    {PATTERN_FAST_BLINK_SEQ,2},{PATTERN_DOUBLE_BLINK_SEQ,4},{PATTERN_TRIPLE_BLINK_SEQ,6},{PATTERN_TRIPLE_BLINK_SOLID_SEQ,8},{PATTERN_FIVE_BLINK_SEQ, 10},
     {PATTERN_SOS_SEQ,18},{nullptr,0}  // placeholder for breathing
 };
 
