@@ -84,7 +84,7 @@ bool readMasterUIDsFromEEPROM(uint8_t storedUIDs[][7], uint8_t* lengths, int max
 }
 
 bool isMasterCardEEPROM(uint8_t* uid, uint8_t uidLength) {
-    if (!uidManager.hasMasterUIDs) return false;
+    if (!masterUidManager.hasMasterUIDs) return false;
 
     constexpr int maxMasters = 3;
     uint8_t storedUIDs[maxMasters][7] = {0};
@@ -119,7 +119,7 @@ void accessServiceSetup() {
         audio.playTrack(AudioContoller::SOUND_STARTUP);
     }
 
-    if (uidManager.readUIDs()) {
+    if (masterUidManager.readUIDs()) {
     Serial.println("Master UID(s) detected. Normal operation.");
     } else {
     Serial.println("No master UIDs found. Enter programming mode.");
@@ -173,7 +173,7 @@ static bool handleBootProgrammingCheck() {
     static bool masterProgrammingMode = false;
 
     if (!bootChecked) {
-        if (!uidManager.hasMasterUIDs) {
+        if (!masterUidManager.hasMasterUIDs) {
             Serial.println("No master UID stored. Enter programming mode.");
             masterProgrammingMode = true;
             LED_SET_SEQ(PROGRAMMING_MODE);
@@ -185,13 +185,13 @@ static bool handleBootProgrammingCheck() {
 }
 
 static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
-    static bool masterProgrammingMode = !uidManager.hasMasterUIDs;
+    static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs;
 
     if (!masterProgrammingMode) return false;
 
     if (rfid.readCard(uid, &uidLength)) {
         Serial.print("Programming user card detected, UID: ");
-        uidManager.printUID(uid, uidLength);
+        masterUidManager.printUID(uid, uidLength);
 
         // Wait for removal (debounce)
         while (rfid.readCard(uid, &uidLength)) {
@@ -200,11 +200,11 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
         uint8_t* uids[] = {uid};
         uint8_t lengths[] = {uidLength};
-        uidManager.writeUIDs(uids, lengths, 1);
-        uidManager.hasMasterUIDs = true;
+        masterUidManager.writeUIDs(uids, lengths, 1);
+        masterUidManager.hasMasterUIDs = true;
 
         masterProgrammingMode = false;
-
+        
         LED_SET_SEQ(MASTER_CARD_SET);
         Serial.println("Master UID programmed, exiting programming mode.");
     }
@@ -225,7 +225,8 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     }
 
     Serial.print("Programming user card detected, UID: ");
-    uidManager.printUID(uid, uidLength);
+    masterUidManager.printUID(uid, uidLength);
+    // masterUidManager.printUID(uid, uidLength);
 
     // Debounce: wait for removal
     while (rfid.readCard(uid, &uidLength)) {

@@ -4,8 +4,10 @@
 #include "exception_handler.h"
 #include <globals.hpp>
 #include <config.hpp>
+#include <eeprom_utils.hpp>
 
-MasterUIDManager uidManager; // global
+// MasterUIDManager uidManager; // global
+MasterUIDManager masterUidManager; //global updated
 
 static const char* TAG = "Main";
 
@@ -25,9 +27,16 @@ void setup() {
 
     // Init EEPROM, Check for Master UIDs
     EEPROM.begin(EEPROM_SIZE);
-    uidManager.readUIDs();
+
+    // clearEntireEEPROM();
+    // while (true); // stop here so it doesn't run normal code
+    
+
+
+    masterUidManager.readUIDs();
 
     accessServiceSetup();
+
 }
 
 void loop() {
