@@ -1,10 +1,6 @@
 #pragma once
 #include "led_controller.h"
 
-// Fix: explicitly reference your global object
-// extern LEDController led;  // <-- Add this at the top of led_states.hpp
-// #define LED_SET_SEQ(seq) led.setSequence(seq)
-
 // --- LED State Mapping ---
 // Duration 0 means indefinite (until another pattern is set)
 struct LEDState {
