@@ -6,8 +6,9 @@
 #include <config.hpp>
 #include <eeprom_utils.hpp>
 
-// MasterUIDManager uidManager; // global
+
 MasterUIDManager masterUidManager; //global updated
+UserUIDManager userUidManager; 
 
 static const char* TAG = "Main";
 
@@ -34,6 +35,7 @@ void setup() {
 
 
     masterUidManager.readUIDs();
+    userUidManager.readUIDs();
 
     accessServiceSetup();
 
