@@ -138,13 +138,13 @@ void RFIDController::printFirmwareVersion() {
 void RFIDController::initializeDefaultUIDs() {
     // Initialize with test UIDs as specified
     // std::array<uint8_t, 4> testUID4B = {0xB4, 0x12, 0x34, 0x56}; //Default test UID
-    std::array<uint8_t, 4> testUID4B = {0xCC, 0x0F, 0x12, 0x07}; // my test UID
+    // std::array<uint8_t, 4> testUID4B = {0xCC, 0x0F, 0x12, 0x07}; // my test UID
 
     std::array<uint8_t, 7> testUiD7B1 = {0x04, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
     std::array<uint8_t, 7> testUiD7B2 = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD};
     std::array<uint8_t, 7> testUiD7B3 = {0x04, 0x4A, 0x8C, 0x32, 0x0A, 0x54, 0x80};
 
-    addUID4B(testUID4B.data());
+    // addUID4B(testUID4B.data());
     addUID7B(testUiD7B1.data());
     addUID7B(testUiD7B2.data());
     addUID7B(testUiD7B3.data());

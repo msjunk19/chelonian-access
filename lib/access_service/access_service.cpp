@@ -9,11 +9,6 @@
 
 #include "globals.hpp"
 
-// #include "master_uid_manager.h"
-
-
-// MasterUIDManager uidManager; 
-
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
 
@@ -35,6 +30,8 @@ bool scanned = false;
 unsigned long relayActivatedTime = 0;
 bool relayActive = false;
 
+bool programmingMode = false;
+
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
                                                          23, 30, 38, 47, 57, 68};
 
@@ -47,6 +44,8 @@ bool isMasterCard(uint8_t* uid, uint8_t uidLength) {
     return true;
 }
 
+
+
 bool compareUID(uint8_t* a, uint8_t lenA, uint8_t* b, uint8_t lenB) {
     if (lenA != lenB) return false;
     for (int i = 0; i < lenA; i++) {
@@ -56,7 +55,45 @@ bool compareUID(uint8_t* a, uint8_t lenA, uint8_t* b, uint8_t lenB) {
 }
 
 
+bool readMasterUIDsFromEEPROM(uint8_t storedUIDs[][7], uint8_t* lengths, int maxMasters) {
+    if (maxMasters <= 0) return false;
 
+    uint16_t addr = 0;
+    int index = 0;
+
+    while (addr < EEPROM_SIZE && index < maxMasters) {
+        uint8_t len = EEPROM.read(addr++);
+        if (len == 0xFF || len == 0) break;  // end of stored UIDs
+
+        lengths[index] = len;
+
+        for (int i = 0; i < len; i++) {
+            storedUIDs[index][i] = EEPROM.read(addr++);
+        }
+
+        index++;
+    }
+
+    return (index > 0); // true if any UID was read
+}
+
+bool isMasterCardEEPROM(uint8_t* uid, uint8_t uidLength) {
+    if (!uidManager.hasMasterUIDs) return false;
+
+    constexpr int maxMasters = 3;
+    uint8_t storedUIDs[maxMasters][7] = {0};
+    uint8_t lengths[maxMasters] = {0};
+
+    if (!readMasterUIDsFromEEPROM(storedUIDs, lengths, maxMasters)) return false;
+
+    for (int i = 0; i < maxMasters; i++) {
+        if (compareUID(uid, uidLength, storedUIDs[i], lengths[i])) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 void accessServiceSetup() {
 
@@ -76,11 +113,11 @@ void accessServiceSetup() {
         audio.playTrack(AudioContoller::SOUND_STARTUP);
     }
 
-    // if (uidManager.readUIDs()) {
-    // Serial.println("Master UID(s) detected. Normal operation.");
-    // } else {
-    // Serial.println("No master UIDs found. Enter programming mode.");
-    // }
+    if (uidManager.readUIDs()) {
+    Serial.println("Master UID(s) detected. Normal operation.");
+    } else {
+    Serial.println("No master UIDs found. Enter programming mode.");
+    }
 
     ESP_LOGE(TAG, "Waiting for an ISO14443A card");
 }
@@ -189,13 +226,57 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
         return;
     }
 
-    if (isMasterCard(uid, uidLength)) {
-        handleMasterCard(uid, uidLength, state);
-        return;
+    constexpr int uidLenMax = 7;  // replace UID_LEN with actual length used
+    static bool masterPresent = false;
+    static unsigned long masterStartTime = 0;
+    static uint8_t lastMasterUID[uidLenMax] = {0};
+    static uint8_t lastMasterUIDLen = 0;
+    static unsigned long masterLastSeen = 0;
+
+    unsigned long now = millis();
+
+    // Master card detection
+    if (isMasterCardEEPROM(uid, uidLength)) {
+        // New card or re-presented after removal
+        if (!masterPresent || !compareUID(uid, uidLength, lastMasterUID, lastMasterUIDLen) ||
+            (now - masterLastSeen > 500)) {
+            memcpy(lastMasterUID, uid, uidLength);
+            lastMasterUIDLen = uidLength;
+            masterStartTime = now;       // reset hold timer
+            masterPresent = true;
+            ESP_LOGE(TAG, "Master card detected - hold started");
+        }
+
+        masterLastSeen = now;  // update last seen time
+
+        // Continuous hold for 2s
+        if (masterPresent && (now - masterStartTime >= 2000)) {
+            ESP_LOGE(TAG, "Master hold confirmed (2s)");
+
+            if (!led.isRunning() && !state.audioQueued) {
+                LED_SET_SEQ(ACCESS_GRANTED);
+                state.queuedSound = AudioContoller::SOUND_ACCEPTED;
+                state.audioQueued = true;
+
+                programmingMode = true;
+            }
+
+            if (masterPresent && (now - masterLastSeen > 300)) {
+                ESP_LOGE(TAG, "Master card not detected - hold reset");
+                masterPresent = false;
+                masterStartTime = 0;
+            }
+
+            return;
+        }
+
+        return;  // still holding, skip regular card processing
     }
 
+    // --- REGULAR CARD ---
     handleRegularCard(uid, uidLength, state);
 }
+
 
 static void handleNoCard() {
     state.scanned = false;
@@ -238,150 +319,6 @@ void accessServiceLoop() {
     handleAudioPlayback();
 }
 
-// void accessServiceLoop() {
-//     // --- Update hardware ---
-//     led.update();
-//     handleRelaySequence();
-
-//     // --- Prepare card read ---
-//     uint8_t uid[7] = {0};
-//     uint8_t uidLength = 0;
-
-//     // --- Check for master UIDs on first run ---
-//     static bool bootChecked = false;
-//     static bool programmingMode = false;
-
-//     if (!bootChecked) {
-//         // uidManager.readUIDs(); // updates hasMasterUIDs
-//         if (!uidManager.hasMasterUIDs) {
-//             Serial.println("No master UID stored. Enter programming mode.");
-//             programmingMode = true;
-//             LED_SET_SEQ(PROGRAMMING_MODE); // your LED helper function
-//         }
-//         bootChecked = true;
-//     }
-
-//     // --- Programming mode ---
-//     if (programmingMode) {
-//         bool cardDetected = rfid.readCard(uid, &uidLength);
-//         if (cardDetected) {
-//             Serial.print("Programming card detected, UID: ");
-//             for (int i = 0; i < uidLength; i++) {
-//                 Serial.print(uid[i], HEX);
-//                 Serial.print(" ");
-//             }
-//             Serial.println();
-
-//             // Debounce: wait for removal
-//             while (rfid.readCard(uid, &uidLength)) {
-//                 delay(50);
-//             }
-
-//             // Save as first master UID
-//             uint8_t* uids[] = {uid};
-//             uint8_t lengths[] = {uidLength};
-//             uidManager.writeUIDs(uids, lengths, 1);
-//             uidManager.hasMasterUIDs = true;
-
-//             programmingMode = false;
-//             LED_SET_SEQ(MASTER_CARD_SET);
-//             Serial.println("Master UID programmed, exiting programming mode.");
-//         }
-//         return; // Skip normal processing while programming
-//     }
-
-//     // --- Master card presence timeout ---
-//     if (handleMasterPresenceTimeout(state)) {
-//         return; // Timeout handled, skip rest
-//     }
-
-//     // --- Check if system is locked out ---
-//     bool lockedOut = millis() < state.invalidTimeoutEnd;
-//     bool cardDetected = !lockedOut && rfid.readCard(uid, &uidLength);
-
-//     if (cardDetected) {
-//         // --- Card detected ---
-//         state.scanned = true;
-//         state.startTime = millis();
-//         state.impatient = false;
-
-//         // --- Validate UID length ---
-//         if (!validateUIDLength(uidLength)) {
-//             state.audioQueued = false;
-//             return;
-//         }
-
-//         // --- Master card ---
-//         if (isMasterCard(uid, uidLength)) {
-//             handleMasterCard(uid, uidLength, state);
-//             return;
-//         }
-
-//         // --- Regular card ---
-//         handleRegularCard(uid, uidLength, state);
-//     } else {
-//         // --- No card detected ---
-//         state.scanned = false;
-//         handleImpatienceTimer(state);
-//     }
-
-//     // --- Play queued audio if LED sequence finished ---
-//     if (state.audioQueued && !led.isRunning()) {
-//         audio.playTrack(state.queuedSound);
-//         state.audioQueued = false;
-//     }
-// }
-
-// void accessServiceLoop() {
-//     // --- Update hardware ---
-//     led.update();
-//     handleRelaySequence();
-
-//     // --- Prepare card read ---
-//     uint8_t uid[7] = {0};
-//     uint8_t uidLength = 0;
-
-//     // --- Master card presence timeout ---
-//     if (handleMasterPresenceTimeout(state)) {
-//         return; // Timeout handled, skip rest
-//     }
-
-//     // --- Check if system is locked out ---
-//     bool lockedOut = millis() < state.invalidTimeoutEnd;
-//     bool cardDetected = !lockedOut && rfid.readCard(uid, &uidLength);
-
-//     if (cardDetected) {
-//         // --- Card detected ---
-//         state.scanned = true;
-//         state.startTime = millis();
-//         state.impatient = false;
-
-//         // --- Validate UID length ---
-//         if (!validateUIDLength(uidLength)) {
-//             state.audioQueued = false;
-//             return;
-//         }
-
-//         // --- Master card ---
-//         if (isMasterCard(uid, uidLength)) {
-//             handleMasterCard(uid, uidLength, state);
-//             return;
-//         }
-
-//         // --- Regular card ---
-//         handleRegularCard(uid, uidLength, state);
-//     } else {
-//         // --- No card detected ---
-//         state.scanned = false;
-//         handleImpatienceTimer(state);
-//     }
-
-//     // --- Play queued audio if LED sequence finished ---
-//     if (state.audioQueued && !led.isRunning()) {
-//         audio.playTrack(state.queuedSound);
-//         state.audioQueued = false;
-//     }
-// }
 
 // --- Helper functions using AccessLoopState ---
 

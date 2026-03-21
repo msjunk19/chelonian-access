@@ -1,7 +1,6 @@
 #include <EEPROM.h>
 #include <config.hpp>
 
-// #define EEPROM_SIZE 128   // Total EEPROM size to use
 
 class MasterUIDManager {
 public:
@@ -76,6 +75,7 @@ bool readUIDs() {
     hasMasterUIDs = true;
     return true;
 }
+
 
     bool checkUID(uint8_t* uid, uint8_t len) {
         uint16_t addr = 0;
