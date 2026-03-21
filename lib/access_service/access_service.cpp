@@ -41,65 +41,65 @@ static bool userProgrammingModeActive = false;
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
                                                          23, 30, 38, 47, 57, 68};
 
-bool isMasterCard(uint8_t* uid, uint8_t uidLength) {
-    if (uidLength != MASTER_UID_LEN) return false;
+// bool isMasterCard(uint8_t* uid, uint8_t uidLength) {
+//     if (uidLength != MASTER_UID_LEN) return false;
 
-    for (int i = 0; i < uidLength; i++) {
-        if (uid[i] != MASTER_UID[i]) return false;
-    }
-    return true;
-}
-
-
-
-bool compareUID(uint8_t* a, uint8_t lenA, uint8_t* b, uint8_t lenB) {
-    if (lenA != lenB) return false;
-    for (int i = 0; i < lenA; i++) {
-        if (a[i] != b[i]) return false;
-    }
-    return true;
-}
+//     for (int i = 0; i < uidLength; i++) {
+//         if (uid[i] != MASTER_UID[i]) return false;
+//     }
+//     return true;
+// }
 
 
-bool readMasterUIDsFromEEPROM(uint8_t storedUIDs[][7], uint8_t* lengths, int maxMasters) {
-    if (maxMasters <= 0) return false;
 
-    uint16_t addr = 0;
-    int index = 0;
+// bool compareUID(uint8_t* a, uint8_t lenA, uint8_t* b, uint8_t lenB) {
+//     if (lenA != lenB) return false;
+//     for (int i = 0; i < lenA; i++) {
+//         if (a[i] != b[i]) return false;
+//     }
+//     return true;
+// }
 
-    while (addr < EEPROM_SIZE && index < maxMasters) {
-        uint8_t len = EEPROM.read(addr++);
-        if (len == 0xFF || len == 0) break;  // end of stored UIDs
 
-        lengths[index] = len;
+// bool readMasterUIDsFromEEPROM(uint8_t storedUIDs[][7], uint8_t* lengths, int maxMasters) {
+//     if (maxMasters <= 0) return false;
 
-        for (int i = 0; i < len; i++) {
-            storedUIDs[index][i] = EEPROM.read(addr++);
-        }
+//     uint16_t addr = 0;
+//     int index = 0;
 
-        index++;
-    }
+//     while (addr < EEPROM_SIZE && index < maxMasters) {
+//         uint8_t len = EEPROM.read(addr++);
+//         if (len == 0xFF || len == 0) break;  // end of stored UIDs
 
-    return (index > 0); // true if any UID was read
-}
+//         lengths[index] = len;
 
-bool isMasterCardEEPROM(uint8_t* uid, uint8_t uidLength) {
-    if (!masterUidManager.hasMasterUIDs) return false;
+//         for (int i = 0; i < len; i++) {
+//             storedUIDs[index][i] = EEPROM.read(addr++);
+//         }
 
-    constexpr int maxMasters = 3;
-    uint8_t storedUIDs[maxMasters][7] = {0};
-    uint8_t lengths[maxMasters] = {0};
+//         index++;
+//     }
 
-    if (!readMasterUIDsFromEEPROM(storedUIDs, lengths, maxMasters)) return false;
+//     return (index > 0); // true if any UID was read
+// }
 
-    for (int i = 0; i < maxMasters; i++) {
-        if (compareUID(uid, uidLength, storedUIDs[i], lengths[i])) {
-            return true;
-        }
-    }
+// bool isMasterCardEEPROM(uint8_t* uid, uint8_t uidLength) {
+//     if (!masterUidManager.hasMasterUIDs) return false;
 
-    return false;
-}
+//     constexpr int maxMasters = 3;
+//     uint8_t storedUIDs[maxMasters][7] = {0};
+//     uint8_t lengths[maxMasters] = {0};
+
+//     if (!readMasterUIDsFromEEPROM(storedUIDs, lengths, maxMasters)) return false;
+
+//     for (int i = 0; i < maxMasters; i++) {
+//         if (compareUID(uid, uidLength, storedUIDs[i], lengths[i])) {
+//             return true;
+//         }
+//     }
+
+//     return false;
+// }
 
 void accessServiceSetup() {
 
@@ -190,7 +190,7 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
     if (!masterProgrammingMode) return false;
 
     if (rfid.readCard(uid, &uidLength)) {
-        Serial.print("Programming user card detected, UID: ");
+        Serial.print("Programming master card detected, UID: ");
         masterUidManager.printUID(uid, uidLength);
 
         // Wait for removal (debounce)
@@ -201,16 +201,44 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
         uint8_t* uids[] = {uid};
         uint8_t lengths[] = {uidLength};
         masterUidManager.writeUIDs(uids, lengths, 1);
-        masterUidManager.hasMasterUIDs = true;
 
+        masterUidManager.hasMasterUIDs = true;
         masterProgrammingMode = false;
-        
+
         LED_SET_SEQ(MASTER_CARD_SET);
         Serial.println("Master UID programmed, exiting programming mode.");
     }
 
     return true; // skip rest of loop while programming
 }
+
+// static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
+//     static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs;
+
+//     if (!masterProgrammingMode) return false;
+
+//     if (rfid.readCard(uid, &uidLength)) {
+//         Serial.print("Programming user card detected, UID: ");
+//         masterUidManager.printUID(uid, uidLength);
+
+//         // Wait for removal (debounce)
+//         while (rfid.readCard(uid, &uidLength)) {
+//             delay(50);
+//         }
+
+//         uint8_t* uids[] = {uid};
+//         uint8_t lengths[] = {uidLength};
+//         masterUidManager.writeUIDs(uids, lengths, 1);
+//         masterUidManager.hasMasterUIDs = true;
+
+//         masterProgrammingMode = false;
+        
+//         LED_SET_SEQ(MASTER_CARD_SET);
+//         Serial.println("Master UID programmed, exiting programming mode.");
+//     }
+
+//     return true; // skip rest of loop while programming
+// }
 
 static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!userProgrammingModeActive) return false;
@@ -219,7 +247,7 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!cardDetected) return true; // stay in programming mode, nothing scanned
 
     // Ignore the master card while in programming mode
-    if (isMasterCardEEPROM(uid, uidLength)) {
+    if (masterUidManager.checkUID(uid, uidLength)) {
         Serial.println("Master card detected - ignore during user programming mode");
         return true; // do nothing
     }
@@ -246,51 +274,14 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
 
     return true; // handled, skip normal processing
 
-    // // Add/remove logic
-    // if (!userManager.hasUID(uid, uidLength)) {
-    //     userManager.addUID(uid, uidLength);
-    //     Serial.println("User card added");
-    //     LED_SET_SEQ(ACCESS_GRANTED);
-    // } else {
-    //     userManager.removeUID(uid, uidLength);
-    //     Serial.println("User card removed");
-    //     LED_SET_SEQ(ACCESS_DENIED);
-    // }
-
-    // return true; // handled, skip normal processing
 }
 
-// static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
-//     if (!userProgrammingModeActive) return false;
-
-//     // Try to read a card
-//     bool cardDetected = rfid.readCard(uid, &uidLength);
-//     if (!cardDetected) return true; // stay in programming mode, nothing scanned
-
-//         Serial.print("Programming user card detected, UID: ");
-//         uidManager.printUID(uid, uidLength);
-
-//     // Debounce: wait for removal
-//     while (rfid.readCard(uid, &uidLength)) {
-//         delay(50);
-//     }
-
-//     // TODO: Decide add/remove logic
-//     // Example: if UID is not in user list, add it; if already present, remove it
-//     if (!userManager.hasUID(uid, uidLength)) {
-//         userManager.addUID(uid, uidLength);
-//         Serial.println("User card added");
-//         LED_SET_SEQ(ACCESS_GRANTED);
-//     } else {
-//         userManager.removeUID(uid, uidLength);
-//         Serial.println("User card removed");
-//         LED_SET_SEQ(ACCESS_DENIED);
-//     }
-
-//     return true; // handled, skip normal processing
-// }
-
 static AccessLoopState state;
+
+static bool uidMatches(const uint8_t* a, uint8_t lenA, const uint8_t* b, uint8_t lenB) {
+    if (lenA != lenB) return false;
+    return memcmp(a, b, lenA) == 0;
+}
 
 static bool handleMasterTimeout() {
     return handleMasterPresenceTimeout(state);
@@ -316,9 +307,9 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
     unsigned long now = millis();
 
     // Master card detection
-    if (isMasterCardEEPROM(uid, uidLength)) {
+    if (masterUidManager.checkUID(uid, uidLength)) {
         // New card or re-presented after removal
-        if (!masterPresent || !compareUID(uid, uidLength, lastMasterUID, lastMasterUIDLen) ||
+        if (!masterPresent || !uidMatches(uid, uidLength, lastMasterUID, lastMasterUIDLen) ||
             (now - masterLastSeen > 500)) {
             memcpy(lastMasterUID, uid, uidLength);
             lastMasterUIDLen = uidLength;
@@ -439,7 +430,7 @@ void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
     unsigned long now = millis();
     state.masterLastSeen = now;
 
-    if (!state.masterPresent || !compareUID(uid, uidLength, state.lastMasterUID, state.lastMasterUIDLen)) {
+    if (!state.masterPresent || !uidMatches(uid, uidLength, state.lastMasterUID, state.lastMasterUIDLen)) {
         memcpy(state.lastMasterUID, uid, uidLength);
         state.lastMasterUIDLen = uidLength;
         state.masterStartTime = now;
