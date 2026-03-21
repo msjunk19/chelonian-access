@@ -10,6 +10,7 @@ Implement a master card system that allows authorized users to add or remove acc
 
 ## Benefits
 
+- Simplified initial setup
 - No computer needed for card management
 - Quick on-site card enrollment
 - Easy card removal for lost/stolen cards
@@ -18,30 +19,19 @@ Implement a master card system that allows authorized users to add or remove acc
 
 ## Programming Modes
 
-1. **Add Card Mode** - Next card scanned will be added
-2. **Remove Card Mode** - Next card scanned will be removed
-3. **Wipe All Mode** - Remove all cards except masters
-4. **Clone Mode** - Copy permissions from one card to another
+1. **Add Master Card Mode** - Next card scanned will be set as Master
+2. **Add User Card Mode** - Next card scanned will be added
+3. **Remove User Card Mode** - Next card scanned will be removed
+4. **Wipe All Mode** - Remove all cards except masters
+
+5. **Clone Mode** - Copy permissions from one card to another
 
 ## Implementation Checklist
 
 ### Phase 1: Master Card Storage
-- [ ] Extend RFID controller for master cards:
-  ```cpp
-  class RFIDController {
-      // ... existing code ...
-      bool isMasterCard(const uint8_t* uid, uint8_t uidLength);
-      bool addMasterCard(const uint8_t* uid, uint8_t uidLength);
-      uint8_t getMasterCardCount();
-  private:
-      static constexpr uint8_t MAX_MASTER_CARDS = 3;
-      uint8_t masterCards[MAX_MASTER_CARDS][7];
-      uint8_t masterCardLengths[MAX_MASTER_CARDS];
-      uint8_t numMasterCards;
-  };
-  ```
-- [ ] Separate storage for master cards
-- [ ] Factory-set first master card
+- [X] Master UID Manager handles all Master UIDs and EEPROM read/write:
+- [X] Master UIDs written to EEPROM
+- [X] Device prompts user to scan master card if one is not already learned
 
 ### Phase 2: Programming State Machine
 - [ ] Create programming modes:
@@ -63,7 +53,7 @@ Implement a master card system that allows authorized users to add or remove acc
 
 ### Phase 3: Card Management Functions
 - [ ] **Add Card Flow**:
-  - [ ] Scan master card for 3 seconds
+  - [ ] Scan master card for 2 seconds
   - [ ] System enters add mode (LED pattern)
   - [ ] Scan new card to add
   - [ ] Success/failure feedback
@@ -146,8 +136,8 @@ Implement a master card system that allows authorized users to add or remove acc
 ## Usage Examples
 
 ### Adding a New Employee Card
-1. Supervisor scans their master card for 3 seconds
-2. System LED starts pulsing green
+1. Supervisor scans their master card for 2 seconds
+2. System LED starts pulsing purple
 3. New employee scans their card
 4. System flashes green 3 times and beeps
 5. Card is now authorized
