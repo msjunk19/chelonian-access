@@ -6,6 +6,9 @@
 #include <Arduino.h>
 #include "esp_log.h"
 
+#include "hard_uids.hpp"
+
+
 static const char* TAG = "RFID";  // Add TAG definition
 
 RFIDController::RFIDController(uint8_t clk, uint8_t miso, uint8_t mosi, uint8_t ss)
@@ -135,20 +138,32 @@ void RFIDController::printFirmwareVersion() {
     }
 }
 
+
 void RFIDController::initializeDefaultUIDs() {
-    // Initialize with test UIDs as specified
-    // std::array<uint8_t, 4> testUID4B = {0xB4, 0x12, 0x34, 0x56}; //Default test UID
-    // std::array<uint8_t, 4> testUID4B = {0xCC, 0x0F, 0x12, 0x07}; // my test UID
+    // Add all 4B UIDs
+    for (const auto& uid4b : TEST_UIDS_4B) {
+        addUID4B(uid4b.data());
+    }
 
-    std::array<uint8_t, 7> testUiD7B1 = {0x04, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
-    std::array<uint8_t, 7> testUiD7B2 = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD};
-    std::array<uint8_t, 7> testUiD7B3 = {0x04, 0x4A, 0x8C, 0x32, 0x0A, 0x54, 0x80};
-
-    // addUID4B(testUID4B.data());
-    addUID7B(testUiD7B1.data());
-    addUID7B(testUiD7B2.data());
-    addUID7B(testUiD7B3.data());
+    // Add all 7B UIDs
+    for (const auto& uid7b : TEST_UIDS_7B) {
+        addUID7B(uid7b.data());
+    }
 }
+
+// void RFIDController::initializeDefaultUIDs() {
+//     // Initialize with test UIDs as specified
+//     // std::array<uint8_t, 4> testUID4B = {0xCC, 0x0F, 0x12, 0x07}; // my test UID
+//     std::array<uint8_t, 4> testUID4B = {0xB4, 0x12, 0x34, 0x56}; //Default test UID
+//     std::array<uint8_t, 7> testUiD7B1 = {0x04, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
+//     std::array<uint8_t, 7> testUiD7B2 = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD};
+//     std::array<uint8_t, 7> testUiD7B3 = {0x04, 0x4A, 0x8C, 0x32, 0x0A, 0x54, 0x80};
+
+//     addUID4B(testUID4B.data());
+//     addUID7B(testUiD7B1.data());
+//     addUID7B(testUiD7B2.data());
+//     addUID7B(testUiD7B3.data());
+// }
 
 bool RFIDController::compare4BUID(const uint8_t* uid1, const uint8_t* uid2) {
     return memcmp(uid1, uid2, 4) == 0;
