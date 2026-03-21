@@ -84,7 +84,7 @@ public:
                 uid[i] = EEPROM.read(addr++);
             }
 
-            Serial.print("UID #");
+            Serial.print("Master UID #");
             Serial.print(index++);
             Serial.print(" (length ");
             Serial.print(len);

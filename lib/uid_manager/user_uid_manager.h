@@ -30,10 +30,10 @@ public:
 
         // Read all master UIDs
         bool readUIDs() {
-            uint16_t addr = MASTER_START;
+            uint16_t addr = USER_START;
             int index = 0;
 
-            while (addr < MASTER_START + MASTER_SIZE) {
+            while (addr < USER_START + USER_SIZE) {
                 uint8_t len = EEPROM.read(addr++);
                 if (len == 0xFF || len == 0) break; // end marker
                 if (len > UID_MAX_LEN) {
@@ -46,7 +46,7 @@ public:
                     uid[i] = EEPROM.read(addr++);
                 }
 
-                Serial.print("UID #");
+                Serial.print("User UID #");
                 Serial.print(index++);
                 Serial.print(" (length ");
                 Serial.print(len);
