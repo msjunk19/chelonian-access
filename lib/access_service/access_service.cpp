@@ -9,6 +9,11 @@
 
 #include "globals.hpp"
 
+#include "user_manager.hpp"
+#include <master_uid_manager.h>
+
+static UserManager userManager;
+
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
 
@@ -30,7 +35,8 @@ bool scanned = false;
 unsigned long relayActivatedTime = 0;
 bool relayActive = false;
 
-bool programmingMode = false;
+bool masterProgrammingMode = false;
+static bool userProgrammingModeActive = false;
 
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
                                                          23, 30, 38, 47, 57, 68};
@@ -164,12 +170,12 @@ static void updateHardware() {
 
 static bool handleBootProgrammingCheck() {
     static bool bootChecked = false;
-    static bool programmingMode = false;
+    static bool masterProgrammingMode = false;
 
     if (!bootChecked) {
         if (!uidManager.hasMasterUIDs) {
             Serial.println("No master UID stored. Enter programming mode.");
-            programmingMode = true;
+            masterProgrammingMode = true;
             LED_SET_SEQ(PROGRAMMING_MODE);
         }
         bootChecked = true;
@@ -178,18 +184,14 @@ static bool handleBootProgrammingCheck() {
     return false; // does not early-exit loop
 }
 
-static bool handleProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
-    static bool programmingMode = !uidManager.hasMasterUIDs;
+static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
+    static bool masterProgrammingMode = !uidManager.hasMasterUIDs;
 
-    if (!programmingMode) return false;
+    if (!masterProgrammingMode) return false;
 
     if (rfid.readCard(uid, &uidLength)) {
-        Serial.print("Programming card detected, UID: ");
-        for (int i = 0; i < uidLength; i++) {
-            Serial.print(uid[i], HEX);
-            Serial.print(" ");
-        }
-        Serial.println();
+        Serial.print("Programming user card detected, UID: ");
+        uidManager.printUID(uid, uidLength);
 
         // Wait for removal (debounce)
         while (rfid.readCard(uid, &uidLength)) {
@@ -201,7 +203,7 @@ static bool handleProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
         uidManager.writeUIDs(uids, lengths, 1);
         uidManager.hasMasterUIDs = true;
 
-        programmingMode = false;
+        masterProgrammingMode = false;
 
         LED_SET_SEQ(MASTER_CARD_SET);
         Serial.println("Master UID programmed, exiting programming mode.");
@@ -209,6 +211,70 @@ static bool handleProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
     return true; // skip rest of loop while programming
 }
+
+static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
+    if (!userProgrammingModeActive) return false;
+
+    bool cardDetected = rfid.readCard(uid, &uidLength);
+    if (!cardDetected) return true; // stay in programming mode, nothing scanned
+
+    // Ignore the master card while in programming mode
+    if (isMasterCardEEPROM(uid, uidLength)) {
+        Serial.println("Master card detected - ignore during user programming mode");
+        return true; // do nothing
+    }
+
+    Serial.print("Programming user card detected, UID: ");
+    uidManager.printUID(uid, uidLength);
+
+    // Debounce: wait for removal
+    while (rfid.readCard(uid, &uidLength)) {
+        delay(50);
+    }
+
+    // Add/remove logic
+    if (!userManager.hasUID(uid, uidLength)) {
+        userManager.addUID(uid, uidLength);
+        Serial.println("User card added");
+        LED_SET_SEQ(ACCESS_GRANTED);
+    } else {
+        userManager.removeUID(uid, uidLength);
+        Serial.println("User card removed");
+        LED_SET_SEQ(ACCESS_DENIED);
+    }
+
+    return true; // handled, skip normal processing
+}
+
+// static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
+//     if (!userProgrammingModeActive) return false;
+
+//     // Try to read a card
+//     bool cardDetected = rfid.readCard(uid, &uidLength);
+//     if (!cardDetected) return true; // stay in programming mode, nothing scanned
+
+//         Serial.print("Programming user card detected, UID: ");
+//         uidManager.printUID(uid, uidLength);
+
+//     // Debounce: wait for removal
+//     while (rfid.readCard(uid, &uidLength)) {
+//         delay(50);
+//     }
+
+//     // TODO: Decide add/remove logic
+//     // Example: if UID is not in user list, add it; if already present, remove it
+//     if (!userManager.hasUID(uid, uidLength)) {
+//         userManager.addUID(uid, uidLength);
+//         Serial.println("User card added");
+//         LED_SET_SEQ(ACCESS_GRANTED);
+//     } else {
+//         userManager.removeUID(uid, uidLength);
+//         Serial.println("User card removed");
+//         LED_SET_SEQ(ACCESS_DENIED);
+//     }
+
+//     return true; // handled, skip normal processing
+// }
 
 static AccessLoopState state;
 
@@ -254,11 +320,15 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
             ESP_LOGE(TAG, "Master hold confirmed (2s)");
 
             if (!led.isRunning() && !state.audioQueued) {
-                LED_SET_SEQ(ACCESS_GRANTED);
+                LED_SET_SEQ(PROGRAMMING_MODE);
                 state.queuedSound = AudioContoller::SOUND_ACCEPTED;
                 state.audioQueued = true;
 
-                programmingMode = true;
+                // masterProgrammingMode = true;
+
+                // Trigger user programming mode
+                userProgrammingModeActive = true;
+                Serial.println("User Programming Mode Enabled");
             }
 
             if (masterPresent && (now - masterLastSeen > 300)) {
@@ -312,8 +382,10 @@ void accessServiceLoop() {
     uint8_t uidLength = 0;
 
     if (handleBootProgrammingCheck()) return;
-    if (handleProgrammingMode(uid, uidLength)) return;
+    if (handleMasterProgrammingMode(uid, uidLength)) return;
     if (handleMasterTimeout()) return;
+
+    if (handleUserProgrammingMode(uid, uidLength)) return; // <-- user programming mode
 
     processCardScan(uid, uidLength);
     handleAudioPlayback();
