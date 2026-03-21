@@ -1,13 +1,21 @@
 #include <EEPROM.h>
+#include <config.hpp>
 
-#define EEPROM_SIZE 128   // Total EEPROM size to use
+// #define EEPROM_SIZE 128   // Total EEPROM size to use
 
 class MasterUIDManager {
 public:
-    MasterUIDManager(uint16_t eepromSize = EEPROM_SIZE) {
-        EEPROM.begin(eepromSize);
+    bool hasMasterUIDs = false;
+
+    void clearAll() {
+    for (uint16_t addr = 0; addr < EEPROM_SIZE; addr++) {
+        EEPROM.write(addr, 0xFF);  // mark all bytes as empty
+    }
+    EEPROM.commit();
+    Serial.println("EEPROM cleared.");
     }
 
+    
     void writeUIDs(uint8_t** uids, uint8_t* lengths, size_t count) {
         uint16_t addr = findFirstFreeAddress();
 
@@ -35,27 +43,39 @@ public:
         Serial.println("UIDs written/appended to EEPROM!");
     }
 
-    void readUIDs() {
-        uint16_t addr = 0;
-        int index = 0;
 
-        while (addr < EEPROM_SIZE) {
-            uint8_t len = EEPROM.read(addr++);
-            if (len == 0xFF || len == 0) break;
+bool readUIDs() {
+    uint16_t addr = 0;
+    int index = 0;
 
-            Serial.print("UID #");
-            Serial.print(index++);
-            Serial.print(" (length ");
-            Serial.print(len);
-            Serial.print("): ");
+    while (addr < EEPROM_SIZE) {
+        uint8_t len = EEPROM.read(addr++);
+        if (len == 0xFF || len == 0) break;
 
-            for (int i = 0; i < len; i++) {
-                Serial.print(EEPROM.read(addr++), HEX);
-                Serial.print(" ");
-            }
-            Serial.println();
+        Serial.print("UID #");
+        Serial.print(index++);
+        Serial.print(" (length ");
+        Serial.print(len);
+        Serial.print("): ");
+
+        uint8_t uid[7];
+
+        for (int i = 0; i < len; i++) {
+            uid[i] = EEPROM.read(addr++);
         }
+
+        printUID(uid, len);
     }
+
+    if (index == 0) {
+        Serial.println("No master UIDs stored in EEPROM!");
+        hasMasterUIDs = false;
+        return false;
+    }
+
+    hasMasterUIDs = true;
+    return true;
+}
 
     bool checkUID(uint8_t* uid, uint8_t len) {
         uint16_t addr = 0;
@@ -82,47 +102,44 @@ public:
 
     // Remove a UID from EEPROM
     bool removeUID(uint8_t* uid, uint8_t len) {
-        uint16_t addr = 0;
+    uint16_t addr = 0;
 
-        while (addr < EEPROM_SIZE) {
-            uint16_t uidStart = addr;
-            uint8_t storedLen = EEPROM.read(addr++);
-            if (storedLen == 0xFF || storedLen == 0) break;
+    while (addr < EEPROM_SIZE) {
+        uint16_t uidStart = addr;          // Start of length byte
+        uint8_t storedLen = EEPROM.read(addr++);
+        if (storedLen == 0xFF || storedLen == 0) break;
 
-            bool match = (storedLen == len);
-            for (int i = 0; i < len && match; i++) {
-                if (EEPROM.read(addr + i) != uid[i]) {
-                    match = false;
-                }
+        // Compare bytes
+        bool match = (storedLen == len);
+        for (int i = 0; i < len && match; i++) {
+            if (EEPROM.read(addr + i) != uid[i]) {
+                match = false;
             }
-
-            if (match) {
-                // Shift all subsequent UIDs left to overwrite this one
-                uint16_t nextAddr = addr + storedLen;
-                while (nextAddr < EEPROM_SIZE) {
-                    uint8_t b = EEPROM.read(nextAddr);
-                    EEPROM.write(addr, b);
-                    addr++;
-                    nextAddr++;
-                }
-
-                // Clear remaining space at the end
-                while (addr < EEPROM_SIZE) {
-                    EEPROM.write(addr++, 0xFF);
-                }
-
-                EEPROM.commit();
-                Serial.print("UID removed: ");
-                printUID(uid, len);
-                return true;
-            }
-
-            addr += storedLen; // move to next UID
         }
 
-        Serial.println("UID not found to remove.");
-        return false;
+        if (match) {
+            uint16_t nextAddr = addr + storedLen; // Start of next UID
+            // Shift all remaining bytes left
+            while (nextAddr < EEPROM_SIZE) {
+                EEPROM.write(uidStart++, EEPROM.read(nextAddr++));
+            }
+            // Fill the remaining space with 0xFF
+            while (uidStart < EEPROM_SIZE) {
+                EEPROM.write(uidStart++, 0xFF);
+            }
+
+            EEPROM.commit();
+            Serial.print("UID removed: ");
+            printUID(uid, len);
+            return true;
+        }
+
+        addr += storedLen; // Move to next UID
     }
+
+    Serial.println("UID not found to remove.");
+    return false;
+}
 
 private:
     uint16_t findFirstFreeAddress() {
@@ -136,10 +153,14 @@ private:
     }
 
     void printUID(uint8_t* uid, uint8_t len) {
-        for (int i = 0; i < len; i++) {
-            Serial.print(uid[i], HEX);
-            Serial.print(" ");
+        char uidStr[50] = "";
+
+        for (uint8_t i = 0; i < len; i++) {
+            char hexBuf[4];
+            sprintf(hexBuf, "%02X ", uid[i]);  // space instead of colon
+            strcat(uidStr, hexBuf);
         }
-        Serial.println();
+
+        Serial.println(uidStr);
     }
 };

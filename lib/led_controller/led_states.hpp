@@ -21,7 +21,7 @@ constexpr LEDState WIFI_CONNECTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREE
 constexpr LEDState WAITING_TIMEOUT   = { PATTERN_SLOW_BLINK, 0, LEDColor::ORANGE };
 constexpr LEDState POWER_ON_FADE     = { PATTERN_BREATHING, 3000, LEDColor::WHITE };
 constexpr LEDState UNKNOWN_UID_TYPE  = { PATTERN_DOUBLE_BLINK, 0, LEDColor::ORANGE };
-constexpr LEDState PROGRAMMING_MODE  = { PATTERN_FIVE_BLINK, 0, LEDColor::PURPLE };
+// constexpr LEDState PROGRAMMING_MODE  = { PATTERN_FIVE_BLINK, 0, LEDColor::PURPLE };
 
 // Access control indicators
 constexpr LEDState ACCESS_GRANTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
@@ -35,7 +35,8 @@ constexpr LEDState ERROR_AUDIO       = { PATTERN_FAST_BLINK, 0, LEDColor::PURPLE
 constexpr LEDState ERROR_WIFI        = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
 
 // Card Read States
-constexpr LEDState MASTER_CARD       = { PATTERN_SOLID, 2000, LEDColor::PURPLE };
+constexpr LEDState MASTER_CARD_SET   = { PATTERN_SOLID, 2000, LEDColor::PURPLE };
+constexpr LEDState PROGRAMMING_MODE  = { PATTERN_FIVE_BLINK, 0, LEDColor::PURPLE };
 
 // --- Optional helper macro for cleaner syntax ---
 #define LED_SET_SEQ(state) led.setPattern((state).pattern, (state).duration, (state).color)
