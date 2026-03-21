@@ -1,3 +1,4 @@
+#pragma once
 #include <EEPROM.h>
 #include <config.hpp>
 
@@ -14,6 +15,17 @@ public:
     Serial.println("EEPROM cleared.");
     }
 
+    void printUID(uint8_t* uid, uint8_t len) {
+    char uidStr[50] = "";
+
+    for (uint8_t i = 0; i < len; i++) {
+        char hexBuf[4];
+        sprintf(hexBuf, "%02X ", uid[i]);  // space instead of colon
+        strcat(uidStr, hexBuf);
+    }
+
+    Serial.println(uidStr);
+}
     
     void writeUIDs(uint8_t** uids, uint8_t* lengths, size_t count) {
         uint16_t addr = findFirstFreeAddress();
@@ -152,15 +164,5 @@ private:
         return addr;
     }
 
-    void printUID(uint8_t* uid, uint8_t len) {
-        char uidStr[50] = "";
 
-        for (uint8_t i = 0; i < len; i++) {
-            char hexBuf[4];
-            sprintf(hexBuf, "%02X ", uid[i]);  // space instead of colon
-            strcat(uidStr, hexBuf);
-        }
-
-        Serial.println(uidStr);
-    }
 };
