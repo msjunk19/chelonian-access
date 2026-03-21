@@ -7,6 +7,7 @@
 #include <led_controller.h>
 #include "led_states.hpp"
 
+
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
 
@@ -48,101 +49,7 @@ bool compareUID(uint8_t* a, uint8_t lenA, uint8_t* b, uint8_t lenB) {
     return true;
 }
 
-// --- Helper functions ---
 
-bool handleMasterPresenceTimeout(bool &masterPresent, unsigned long &masterLastSeen,
-                                 unsigned long &masterStartTime, uint8_t &lastMasterUIDLen) {
-    if (masterPresent && (millis() - masterLastSeen > 300)) {
-        ESP_LOGE(TAG, "Master card removed - resetting hold");
-        masterPresent = false;
-        masterStartTime = 0;
-        lastMasterUIDLen = 0;
-        return true;
-    }
-    return false;
-}
-
-bool validateUIDLength(uint8_t uidLength) {
-    switch (uidLength) {
-        case 4:
-            ESP_LOGE(TAG, "4B UID detected");
-            break;
-        case 7:
-            ESP_LOGE(TAG, "7B UID detected");
-            break;
-        default:
-            ESP_LOGE(TAG, "Unknown UID type/length");
-            if (!led.isRunning()) LED_SET_SEQ(UNKNOWN_UID_TYPE);
-            return false;
-    }
-    return true;
-}
-
-void handleMasterCard(uint8_t *uid, uint8_t uidLength, bool &masterPresent, uint8_t *lastMasterUID,
-                      uint8_t &lastMasterUIDLen, unsigned long &masterStartTime,
-                      unsigned long &masterLastSeen, bool &audioQueued, uint8_t &queuedSound) {
-    unsigned long now = millis();
-    masterLastSeen = now;
-
-    if (!masterPresent || !compareUID(uid, uidLength, lastMasterUID, lastMasterUIDLen)) {
-        memcpy(lastMasterUID, uid, uidLength);
-        lastMasterUIDLen = uidLength;
-        masterStartTime = now;
-        masterPresent = true;
-        ESP_LOGE(TAG, "Master card detected - hold started");
-    }
-
-    if (masterPresent && (now - masterStartTime >= 2000)) {
-        ESP_LOGE(TAG, "Master hold confirmed (2s)");
-        if (!led.isRunning() && !audioQueued) {
-            LED_SET_SEQ(PROGRAMMING_MODE);
-            queuedSound = AudioContoller::SOUND_ACCEPTED;
-            audioQueued = true;
-        }
-        masterPresent = false;
-        masterStartTime = 0;
-    }
-}
-
-void handleRegularCard(uint8_t *uid, uint8_t uidLength, bool &audioQueued, uint8_t &queuedSound,
-                       bool &impatientEnabled, unsigned long &startTime, unsigned long &invalidTimeoutEnd) {
-    bool validUID = rfid.validateUID(uid, uidLength);
-
-    if (validUID) {
-        ESP_LOGE(TAG, "Valid card");
-        if (!led.isRunning() && !audioQueued) {
-            LED_SET_SEQ(ACCESS_GRANTED);
-            queuedSound = AudioContoller::SOUND_ACCEPTED;
-            audioQueued = true;
-            activateRelays();
-            invalidAttempts = 0;
-            impatientEnabled = false;
-        }
-    } else {
-        ESP_LOGW(TAG, "Invalid card attempt #%u", invalidAttempts + 1);
-        if (!led.isRunning() && !audioQueued) {
-            LED_SET_SEQ(ACCESS_DENIED);
-            queuedSound = (invalidAttempts == 0) ? AudioContoller::SOUND_DENIED_1 :
-                          (invalidAttempts == 1) ? AudioContoller::SOUND_DENIED_2 :
-                                                    AudioContoller::SOUND_DENIED_3;
-            audioQueued = true;
-            invalidTimeoutEnd = millis() + (invalidDelays[invalidAttempts] * 1000) + 3000;
-            if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) invalidAttempts++;
-            impatientEnabled = true;
-            startTime = millis();
-        }
-    }
-}
-
-void handleImpatienceTimer(bool &audioQueued, uint8_t &queuedSound, unsigned long startTime,
-                           bool &impatient, bool impatientEnabled) {
-    if (impatientEnabled && (millis() - startTime > 10000) && !impatient) {
-        ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
-        queuedSound = AudioContoller::SOUND_WAITING;
-        audioQueued = true;
-        impatient = true;
-    }
-}
 
 
 void accessServiceSetup() {
@@ -204,64 +111,150 @@ void activateRelays() {
     ESP_LOGE(TAG, "Starting relay sequence (state 1)");
 }
 
+static AccessLoopState state;
 
 void accessServiceLoop() {
-    static uint8_t lastMasterUID[7];
-    static uint8_t lastMasterUIDLen = 0;
-    static bool masterPresent = false;
-    static unsigned long masterStartTime = 0;
-    static unsigned long masterLastSeen = 0;
-
-    static bool scanned = false;
-    static bool audioQueued = false;
-    static uint8_t queuedSound = 0;
-
-    static unsigned long startTime = millis(); // impatience timer
-    static bool impatient = false;
-    static bool impatientEnabled = true;
-
-    static unsigned long invalidTimeoutEnd = 0; // lockout timer
-
+    // --- Update hardware ---
     led.update();
     handleRelaySequence();
 
+    // --- Prepare card read ---
     uint8_t uid[7] = {0};
     uint8_t uidLength = 0;
 
-    if (handleMasterPresenceTimeout(masterPresent, masterLastSeen, masterStartTime, lastMasterUIDLen)) {
-        return;
+    // --- Master card presence timeout ---
+    if (handleMasterPresenceTimeout(state)) {
+        return; // Timeout handled, skip rest
     }
 
-    bool lockedOut = millis() < invalidTimeoutEnd;
-    bool success = !lockedOut && rfid.readCard(uid, &uidLength);
+    // --- Check if system is locked out ---
+    bool lockedOut = millis() < state.invalidTimeoutEnd;
+    bool cardDetected = !lockedOut && rfid.readCard(uid, &uidLength);
 
-    if (success) {
-        scanned = true;
-        startTime = millis();
-        impatient = false;
+    if (cardDetected) {
+        // --- Card detected ---
+        state.scanned = true;
+        state.startTime = millis();
+        state.impatient = false;
 
+        // --- Validate UID length ---
         if (!validateUIDLength(uidLength)) {
-            audioQueued = false;
+            state.audioQueued = false;
             return;
         }
 
-        bool isMaster = isMasterCard(uid, uidLength);
-        if (isMaster) {
-            handleMasterCard(uid, uidLength, masterPresent, lastMasterUID, lastMasterUIDLen,
-                             masterStartTime, masterLastSeen, audioQueued, queuedSound);
+        // --- Master card ---
+        if (isMasterCard(uid, uidLength)) {
+            handleMasterCard(uid, uidLength, state);
             return;
         }
 
-        handleRegularCard(uid, uidLength, audioQueued, queuedSound, impatientEnabled,
-                          startTime, invalidTimeoutEnd);
+        // --- Regular card ---
+        handleRegularCard(uid, uidLength, state);
     } else {
-        scanned = false;
-        handleImpatienceTimer(audioQueued, queuedSound, startTime, impatient, impatientEnabled);
+        // --- No card detected ---
+        state.scanned = false;
+        handleImpatienceTimer(state);
     }
 
-    // Play queued audio after LED finishes
-    if (audioQueued && !led.isRunning()) {
-        audio.playTrack(queuedSound);
-        audioQueued = false;
+    // --- Play queued audio if LED sequence finished ---
+    if (state.audioQueued && !led.isRunning()) {
+        audio.playTrack(state.queuedSound);
+        state.audioQueued = false;
+    }
+}
+
+// --- Helper functions using AccessLoopState ---
+
+bool handleMasterPresenceTimeout(AccessLoopState &state) {
+    if (state.masterPresent && (millis() - state.masterLastSeen > 300)) {
+        ESP_LOGE(TAG, "Master card removed - resetting hold");
+        state.masterPresent = false;
+        state.masterStartTime = 0;
+        state.lastMasterUIDLen = 0;
+        return true;
+    }
+    return false;
+}
+
+bool validateUIDLength(uint8_t uidLength) {
+    switch (uidLength) {
+        case 4:
+            ESP_LOGE(TAG, "4B UID detected");
+            break;
+        case 7:
+            ESP_LOGE(TAG, "7B UID detected");
+            break;
+        default:
+            ESP_LOGE(TAG, "Unknown UID type/length");
+            if (!led.isRunning()) LED_SET_SEQ(UNKNOWN_UID_TYPE);
+            return false;
+    }
+    return true;
+}
+
+void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
+    unsigned long now = millis();
+    state.masterLastSeen = now;
+
+    if (!state.masterPresent || !compareUID(uid, uidLength, state.lastMasterUID, state.lastMasterUIDLen)) {
+        memcpy(state.lastMasterUID, uid, uidLength);
+        state.lastMasterUIDLen = uidLength;
+        state.masterStartTime = now;
+        state.masterPresent = true;
+        ESP_LOGE(TAG, "Master card detected - hold started");
+    }
+
+    if (state.masterPresent && (now - state.masterStartTime >= 2000)) {
+        ESP_LOGE(TAG, "Master hold confirmed (2s)");
+        if (!led.isRunning() && !state.audioQueued) {
+            LED_SET_SEQ(PROGRAMMING_MODE);
+            state.queuedSound = AudioContoller::SOUND_ACCEPTED;
+            state.audioQueued = true;
+        }
+        // Prevent retrigger spam
+        state.masterPresent = false;
+        state.masterStartTime = 0;
+    }
+}
+
+void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
+    bool validUID = rfid.validateUID(uid, uidLength);
+
+    if (validUID) {
+        ESP_LOGE(TAG, "Valid card");
+        if (!led.isRunning() && !state.audioQueued) {
+            LED_SET_SEQ(ACCESS_GRANTED);
+            state.queuedSound = AudioContoller::SOUND_ACCEPTED;
+            state.audioQueued = true;
+            activateRelays();
+            invalidAttempts = 0;
+            state.impatientEnabled = false;
+            state.impatient = false;
+            state.startTime = millis();
+        }
+    } else {
+        ESP_LOGW(TAG, "Invalid card attempt #%u", invalidAttempts + 1);
+        if (!led.isRunning() && !state.audioQueued) {
+            LED_SET_SEQ(ACCESS_DENIED);
+            state.queuedSound = (invalidAttempts == 0) ? AudioContoller::SOUND_DENIED_1 :
+                                 (invalidAttempts == 1) ? AudioContoller::SOUND_DENIED_2 :
+                                                           AudioContoller::SOUND_DENIED_3;
+            state.audioQueued = true;
+            state.invalidTimeoutEnd = millis() + (invalidDelays[invalidAttempts] * 1000) + 3000;
+            if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) invalidAttempts++;
+            state.impatientEnabled = true;
+            state.impatient = false;
+            state.startTime = millis();
+        }
+    }
+}
+
+void handleImpatienceTimer(AccessLoopState &state) {
+    if (state.impatientEnabled && (millis() - state.startTime > 10000) && !state.impatient) {
+        ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
+        state.queuedSound = AudioContoller::SOUND_WAITING;
+        state.audioQueued = true;
+        state.impatient = true;
     }
 }

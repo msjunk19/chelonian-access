@@ -14,6 +14,25 @@ extern RFIDController rfid;
 extern RelayController relays;
 extern AudioContoller audio;
 
+// --- New: encapsulated state for the loop ---
+struct AccessLoopState {
+    uint8_t lastMasterUID[7] = {0};
+    uint8_t lastMasterUIDLen = 0;
+    bool masterPresent = false;
+    unsigned long masterStartTime = 0;
+    unsigned long masterLastSeen = 0;
+
+    bool scanned = false;
+    bool audioQueued = false;
+    uint8_t queuedSound = 0;
+
+    unsigned long startTime = millis();
+    bool impatient = false;
+    bool impatientEnabled = true;
+
+    unsigned long invalidTimeoutEnd = 0;
+};
+
 extern uint8_t invalidAttempts;
 extern bool scanned;
 extern bool impatient;
@@ -32,8 +51,17 @@ constexpr uint8_t RELAY2_PIN = 1;
 enum RelayState { RELAY_IDLE, RELAY1_ACTIVE, RELAY2_PENDING, RELAY2_ACTIVE };
 extern RelayState currentRelayState;
 
+
+
 // Service logic
 void accessServiceSetup();
 void accessServiceLoop();
 void handleRelaySequence();
 void activateRelays();
+
+// --- Helper functions ---
+bool handleMasterPresenceTimeout(AccessLoopState &state);
+bool validateUIDLength(uint8_t uidLength);
+void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state);
+void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state);
+void handleImpatienceTimer(AccessLoopState &state);
