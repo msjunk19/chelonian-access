@@ -7,7 +7,10 @@
 #include "esp_log.h"
 
 #include "hard_uids.hpp"
+#include "globals.hpp"
 
+// MasterUIDManager masterUidManager; 
+// UserUIDManager userUidManager; 
 
 static const char* TAG = "RFID";  // Add TAG definition
 
@@ -77,8 +80,11 @@ bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
     return result;
 }
 
+
 bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
     ESP_LOGE(TAG, "%lu ms - Validating UID=", millis());
+
+    // Print UID
     char uidStrValidate[50] = "";
     for (uint8_t i = 0; i < uidLength; i++) {
         char hexBuf[5];
@@ -88,28 +94,55 @@ bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
     uidStrValidate[strlen(uidStrValidate) - 1] = '\0';  // Remove last colon
     ESP_LOGE(TAG, "%s", uidStrValidate);
 
-    if (uidLength == 4) {
-        for (uint8_t i = 0; i < m_num4BUIDs; i++) {
-            if (compare4BUID(m_uids4B[i].data(), uid)) {
-                ESP_LOGE(TAG, " - Authentication successful (4B)");
-                return true;
-            }
-        }
-    } else if (uidLength == 7) {
-        for (uint8_t i = 0; i < m_num7BUIDs; i++) {
-            if (compare7BUID(m_uids7B[i].data(), uid)) {
-                ESP_LOGE(TAG, " - Authentication successful (7B)");
-                return true;
-            }
-        }
-    } else {
-        ESP_LOGW(TAG, " - Authentication failed: Invalid UID length");
-        return false;
+    // Check Master UIDs first
+    if (masterUidManager.checkUID((uint8_t*)uid, uidLength)) {
+        ESP_LOGE(TAG, " - Authentication successful (Master UID)");
+        return true;
+    }
+
+    // Then check normal User UIDs
+    if (userUidManager.checkUID((uint8_t*)uid, uidLength)) {
+        ESP_LOGE(TAG, " - Authentication successful (User UID)");
+        return true;
     }
 
     ESP_LOGW(TAG, " - Authentication failed: No matching UID");
     return false;
 }
+
+// bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
+//     ESP_LOGE(TAG, "%lu ms - Validating UID=", millis());
+//     char uidStrValidate[50] = "";
+//     for (uint8_t i = 0; i < uidLength; i++) {
+//         char hexBuf[5];
+//         sprintf(hexBuf, "%02X:", uid[i]);
+//         strcat(uidStrValidate, hexBuf);
+//     }
+//     uidStrValidate[strlen(uidStrValidate) - 1] = '\0';  // Remove last colon
+//     ESP_LOGE(TAG, "%s", uidStrValidate);
+
+//     if (uidLength == 4) {
+//         for (uint8_t i = 0; i < m_num4BUIDs; i++) {
+//             if (compare4BUID(m_uids4B[i].data(), uid)) {
+//                 ESP_LOGE(TAG, " - Authentication successful (4B)");
+//                 return true;
+//             }
+//         }
+//     } else if (uidLength == 7) {
+//         for (uint8_t i = 0; i < m_num7BUIDs; i++) {
+//             if (compare7BUID(m_uids7B[i].data(), uid)) {
+//                 ESP_LOGE(TAG, " - Authentication successful (7B)");
+//                 return true;
+//             }
+//         }
+//     } else {
+//         ESP_LOGW(TAG, " - Authentication failed: Invalid UID length");
+//         return false;
+//     }
+
+//     ESP_LOGW(TAG, " - Authentication failed: No matching UID");
+//     return false;
+// }
 
 void RFIDController::addUID4B(const uint8_t* uid) {
     if (m_num4BUIDs < MAX_4B_UIDS) {

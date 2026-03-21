@@ -233,18 +233,31 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         delay(50);
     }
 
-    // Add/remove logic
-    if (!userManager.hasUID(uid, uidLength)) {
-        userManager.addUID(uid, uidLength);
+    // Add/remove logic using EEPROM-backed UserUIDManager
+    if (!userUidManager.checkUID(uid, uidLength)) {
+        userUidManager.addUID(uid, uidLength);
         Serial.println("User card added");
         LED_SET_SEQ(ACCESS_GRANTED);
     } else {
-        userManager.removeUID(uid, uidLength);
+        userUidManager.removeUID(uid, uidLength);
         Serial.println("User card removed");
         LED_SET_SEQ(ACCESS_DENIED);
     }
 
     return true; // handled, skip normal processing
+
+    // // Add/remove logic
+    // if (!userManager.hasUID(uid, uidLength)) {
+    //     userManager.addUID(uid, uidLength);
+    //     Serial.println("User card added");
+    //     LED_SET_SEQ(ACCESS_GRANTED);
+    // } else {
+    //     userManager.removeUID(uid, uidLength);
+    //     Serial.println("User card removed");
+    //     LED_SET_SEQ(ACCESS_DENIED);
+    // }
+
+    // return true; // handled, skip normal processing
 }
 
 // static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
