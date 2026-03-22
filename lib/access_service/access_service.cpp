@@ -44,65 +44,6 @@ static bool userProgrammingModeActive = false;
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
                                                          23, 30, 38, 47, 57, 68};
 
-// bool isMasterCard(uint8_t* uid, uint8_t uidLength) {
-//     if (uidLength != MASTER_UID_LEN) return false;
-
-//     for (int i = 0; i < uidLength; i++) {
-//         if (uid[i] != MASTER_UID[i]) return false;
-//     }
-//     return true;
-// }
-
-
-
-// bool compareUID(uint8_t* a, uint8_t lenA, uint8_t* b, uint8_t lenB) {
-//     if (lenA != lenB) return false;
-//     for (int i = 0; i < lenA; i++) {
-//         if (a[i] != b[i]) return false;
-//     }
-//     return true;
-// }
-
-
-// bool readMasterUIDsFromEEPROM(uint8_t storedUIDs[][7], uint8_t* lengths, int maxMasters) {
-//     if (maxMasters <= 0) return false;
-
-//     uint16_t addr = 0;
-//     int index = 0;
-
-//     while (addr < EEPROM_SIZE && index < maxMasters) {
-//         uint8_t len = EEPROM.read(addr++);
-//         if (len == 0xFF || len == 0) break;  // end of stored UIDs
-
-//         lengths[index] = len;
-
-//         for (int i = 0; i < len; i++) {
-//             storedUIDs[index][i] = EEPROM.read(addr++);
-//         }
-
-//         index++;
-//     }
-
-//     return (index > 0); // true if any UID was read
-// }
-
-// bool isMasterCardEEPROM(uint8_t* uid, uint8_t uidLength) {
-//     if (!masterUidManager.hasMasterUIDs) return false;
-
-//     constexpr int maxMasters = 3;
-//     uint8_t storedUIDs[maxMasters][7] = {0};
-//     uint8_t lengths[maxMasters] = {0};
-
-//     if (!readMasterUIDsFromEEPROM(storedUIDs, lengths, maxMasters)) return false;
-
-//     for (int i = 0; i < maxMasters; i++) {
-//         if (compareUID(uid, uidLength, storedUIDs[i], lengths[i])) {
-//             return true;
-//         }
-//     }
-
-//     return false;
-// }
 
 void accessServiceSetup() {
 
