@@ -80,18 +80,6 @@ void LEDController::setPatternInternal(const uint16_t* sequence, uint8_t length,
     m_running = true;
 }
 
-// void LEDController::setPatternInternal(const uint16_t* sequence, uint8_t length, uint32_t duration){
-//     m_pattern = sequence;
-//     m_patternLength = length;
-//     m_step = 0;
-//     m_lastChange = millis();
-//     m_patternEndTime = (sequence == PATTERN_SOLID_SEQ) ? millis() + duration : 0;
-//     setLED(true);
-//     m_running = true;
-// }
-
-// --- Set pattern ---
-
 // --- Set pattern ---
 void LEDController::setPattern(LEDPattern pattern, uint32_t duration, uint32_t color){
     if (pattern >= sizeof(PATTERN_TABLE)/sizeof(PATTERN_TABLE[0])) return;
@@ -118,8 +106,6 @@ void LEDController::setPattern(LEDPattern pattern, uint32_t duration, uint32_t c
 
     setPatternInternal(def.sequence, def.length, duration, color);
 }
-
-// bool LEDController::isRunning() const { return m_running; }
 
 // --- Breathing ---
 void LEDController::breathe() {

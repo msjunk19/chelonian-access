@@ -77,8 +77,8 @@ void handleRelaySequence() {
             break;
         case RELAY1_ACTIVE:
             if (millis() - relayActivatedTime >= RELAY1_DURATION) {
-                relays.setRelay(RELAY1_PIN, false);
-                relays.setRelay(RELAY2_PIN, true);
+                relays.setRelay(RELAY_1, false);
+                relays.setRelay(RELAY_2, true);
                 relayActivatedTime = millis();
                 currentRelayState = RELAY2_ACTIVE;
                 ESP_LOGE(TAG, "Relay state transition 1->2");
@@ -86,7 +86,7 @@ void handleRelaySequence() {
             break;
         case RELAY2_ACTIVE:
             if (millis() - relayActivatedTime >= RELAY2_DURATION) {
-                relays.setRelay(RELAY2_PIN, false);
+                relays.setRelay(RELAY_2, false);
                 currentRelayState = RELAY_IDLE;
                 relayActive = false;
                 ESP_LOGE(TAG, "Relay sequence complete");
@@ -99,7 +99,7 @@ void handleRelaySequence() {
 }
 
 void activateRelays() {
-    relays.setRelay(RELAY1_PIN, true);
+    relays.setRelay(RELAY_1, true);
     relayActivatedTime = millis();
     currentRelayState = RELAY1_ACTIVE;
     relayActive = true;

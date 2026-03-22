@@ -41,11 +41,6 @@ extern bool relayActive;
 constexpr uint8_t MAXIMUM_INVALID_ATTEMPTS = 13;
 extern const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS];
 
-constexpr uint32_t RELAY1_DURATION = 1000;
-constexpr uint32_t RELAY2_DURATION = 1000;
-constexpr uint8_t RELAY1_PIN = 0;
-constexpr uint8_t RELAY2_PIN = 1;
-
 // Relay state enum
 enum RelayState { RELAY_IDLE, RELAY1_ACTIVE, RELAY2_PENDING, RELAY2_ACTIVE };
 extern RelayState currentRelayState;
