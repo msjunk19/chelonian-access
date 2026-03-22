@@ -11,9 +11,9 @@
 
 static const char* TAG = "RFID";  // Add TAG definition
 
+    // Using SPI interface with Adafruit_PN532, all pin mapping in globals/pin_mapping.h
 RFIDController::RFIDController(uint8_t clk, uint8_t miso, uint8_t mosi, uint8_t ss)
     : m_nfc(new Adafruit_PN532(clk, miso, mosi, ss)) {
-    // Using SPI interface with Adafruit_PN532
 }
 
 RFIDController::~RFIDController() {
@@ -21,57 +21,57 @@ RFIDController::~RFIDController() {
 }
 
 bool RFIDController::begin() {
-    if (!m_nfc->begin()) {  // Check if begin was successful
+    if (!m_nfc->begin()) {
         ESP_LOGE(TAG, "PN532 initialization failed!");
         return false;
-    } else {
-        ESP_LOGE(TAG, "PN532 initialized successfully");
     }
 
-    // Set SCK pin drive strength to be faster (assuming default SCK is GPIO5 for ESP32C3)
-    // This is a workaround for STM32F40x/F41x silicon limitation, might help with ESP32C3 as well
-    // gpio_set_drive_capability(GPIO_NUM_4, GPIO_DRIVE_CAP_3);
+    ESP_LOGI(TAG, "PN532 initialized successfully");
 
     uint32_t versiondata = m_nfc->getFirmwareVersion();
     if (!versiondata) {
-        // Try to reset the PN532
+        ESP_LOGW(TAG, "Failed to read firmware, attempting reset...");
+
         m_nfc->reset();
-        // Wait a bit for the reset to take effect
         delay(100);
+
         versiondata = m_nfc->getFirmwareVersion();
-        ESP_LOGE(TAG, "Firmware Version after reset: %X", versiondata);
+        ESP_LOGD(TAG, "Firmware Version after reset: %X", versiondata);
     }
 
     if (versiondata == 0) {
-        ESP_LOGE(TAG, "Didn't find PN532 board or get firmware version failed!");
+        ESP_LOGE(TAG, "PN532 not detected or firmware read failed!");
         return false;
     }
 
-    ESP_LOGE(TAG, "PN532 initialized successfully. Firmware Version: %X", versiondata);
+    ESP_LOGI(TAG, "PN532 ready. Firmware Version: %X", versiondata);
 
-    // Configure board to read RFID tags
     m_nfc->SAMConfig();
     return true;
 }
 
 //Adjusted readCard to prevent blocking the loop indefinitely unless a card is presented. 
 bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
-    // Set a short timeout (150 ms) to avoid blocking the loop, 20ms works but needs to be longer to read implants. 150 is working currently. Adjust as needed for implant.
-    constexpr uint16_t TIMEOUT_MS = 150;
-    bool result = m_nfc->readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, uidLength, TIMEOUT_MS);
+    bool result = m_nfc->readPassiveTargetID(
+        PN532_MIFARE_ISO14443A,
+        uid,
+        uidLength,
+        RFID_READ_TIMEOUT_MS
+    );
 
     if (result) {
-        ESP_LOGE(TAG, "%lu ms - Card detected: UID=", millis());
+        // ESP_LOGD(TAG, "%lu ms - Card detected", millis());
+
         char uidStr[50] = "";
         for (uint8_t i = 0; i < *uidLength; i++) {
             char hexBuf[5];
             sprintf(hexBuf, "%02X:", uid[i]);
             strcat(uidStr, hexBuf);
         }
-        uidStr[strlen(uidStr) - 1] = '\0';  // Remove last colon
-        ESP_LOGE(TAG, "%s", uidStr);
-    } else {
-        // ESP_LOGE(TAG, "No card detected");
+        uidStr[strlen(uidStr) - 1] = '\0';
+
+        // ESP_LOGD(TAG, "UID: %s", uidStr);
+        ESP_LOGD(TAG, "%lu ms - Card UID: %s", millis(), uidStr);
     }
 
     return result;
@@ -79,31 +79,30 @@ bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
 
 
 bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
-    ESP_LOGE(TAG, "%lu ms - Validating UID=", millis());
-
-    // Print UID
-    char uidStrValidate[50] = "";
+    // Build UID string once
+    char uidStr[50] = "";
     for (uint8_t i = 0; i < uidLength; i++) {
         char hexBuf[5];
         sprintf(hexBuf, "%02X:", uid[i]);
-        strcat(uidStrValidate, hexBuf);
+        strcat(uidStr, hexBuf);
     }
-    uidStrValidate[strlen(uidStrValidate) - 1] = '\0';  // Remove last colon
-    ESP_LOGE(TAG, "%s", uidStrValidate);
+    uidStr[strlen(uidStr) - 1] = '\0';
+
+    ESP_LOGD(TAG, "%lu ms - Validating UID: %s", millis(), uidStr);
 
     // Check Master UIDs first
     if (masterUidManager.checkUID((uint8_t*)uid, uidLength)) {
-        ESP_LOGE(TAG, " - Authentication successful (Master UID)");
+        ESP_LOGI(TAG, "Authentication successful (Master UID)");
         return true;
     }
 
     // Then check normal User UIDs
     if (userUidManager.checkUID((uint8_t*)uid, uidLength)) {
-        ESP_LOGE(TAG, " - Authentication successful (User UID)");
+        ESP_LOGI(TAG, "Authentication successful (User UID)");
         return true;
     }
 
-    ESP_LOGW(TAG, " - Authentication failed: No matching UID");
+    ESP_LOGW(TAG, "Authentication failed (UID: %s)", uidStr);
     return false;
 }
 
@@ -161,11 +160,10 @@ uint32_t RFIDController::getFirmwareVersion() {
 
 void RFIDController::printFirmwareVersion() {
     uint32_t versiondata = getFirmwareVersion();
-    if (versiondata != 0u) {
-        ESP_LOGE(TAG, "Found chip PN5");
-        ESP_LOGE(TAG, "%02X", (versiondata >> 24) & 0xFF);  // Log the value
-        ESP_LOGE(TAG, "Firmware ver. %u.%u", (versiondata >> 16) & 0xFF, (versiondata >> 8) & 0xFF);
-    }
+    ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",
+            (versiondata >> 24) & 0xFF,
+            (versiondata >> 16) & 0xFF,
+            (versiondata >> 8) & 0xFF);
 }
 
 

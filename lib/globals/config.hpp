@@ -29,3 +29,5 @@ const unsigned long EXIT_TIMEOUT      = 15000;
 
 const unsigned long MASTER_HOLD_TIME  = 2000;
 
+// Set a short timeout (150 ms) to avoid blocking the loop, 20ms works but needs to be longer to read implants. 150 is working currently. Adjust as needed for implant.
+constexpr uint16_t RFID_READ_TIMEOUT_MS = 150;
