@@ -9,8 +9,6 @@
 #include "hard_uids.hpp"
 #include "globals.hpp"
 
-// MasterUIDManager masterUidManager; 
-// UserUIDManager userUidManager; 
 
 static const char* TAG = "RFID";  // Add TAG definition
 
