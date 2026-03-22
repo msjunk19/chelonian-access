@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include "esp_log.h"
 
+//Logging levels corrected
+
 static const char* TAG = "Audio";
 
 AudioContoller::AudioContoller(uint8_t rx_pin, uint8_t tx_pin)
@@ -17,12 +19,12 @@ AudioContoller::~AudioContoller() {
 
 bool AudioContoller::begin() {
     delay(100);  // Small delay to ensure module is ready
-    ESP_LOGE(TAG, "%lu - Initializing audio controller...", millis());
+    ESP_LOGI(TAG, "%lu - Initializing audio controller...", millis());
 
     if (player == nullptr) {
         // Use UART1 for ESP32-C3
         player = new JQ6500_Serial(1);  // UART1
-        ESP_LOGE(TAG, "%lu - Created JQ6500_Serial on UART1", millis());
+        ESP_LOGI(TAG, "%lu - Created JQ6500_Serial on UART1", millis());
     }
 
     // Map UART1 to your pins (20 = RX, 21 = TX)
@@ -40,10 +42,10 @@ bool AudioContoller::begin() {
 
     // Print module status
     uint8_t status = player->getStatus();
-    ESP_LOGE(TAG, "%lu - JQ6500 status: %d", millis(), status);
+    ESP_LOGV(TAG, "%lu - JQ6500 status: %d", millis(), status);
 
     m_initialized = true;
-    ESP_LOGE(TAG, "%lu - Initialized successfully. Volume: %d, Source: %s",
+    ESP_LOGI(TAG, "%lu - Initialized successfully. Volume: %d, Source: %s",
              millis(),
              m_current_volume,
              m_current_source == MP3_SRC_BUILTIN ? "Built-in" : "SD Card");
@@ -55,7 +57,7 @@ void AudioContoller::setVolume(uint8_t volume) {
     if (!m_initialized) {
         return;
     }
-    ESP_LOGE(TAG, "%lu - Volume changing from %d to ", millis(), m_current_volume);
+    ESP_LOGI(TAG, "%lu - Volume changing from %d to ", millis(), m_current_volume);
 
     // Clamp volume between 0-30
     if (volume > 30) {
@@ -67,7 +69,7 @@ void AudioContoller::setVolume(uint8_t volume) {
     if (audio_enabled) {
         player->setVolume(m_current_volume);
     } else {
-        ESP_LOGE(TAG, " (audio disabled)");
+        ESP_LOGI(TAG, " (audio disabled)");
     }
 }
 
@@ -75,7 +77,7 @@ void AudioContoller::playTrack(uint8_t track) {
     if (!m_initialized) {
         return;
     }
-    ESP_LOGE(TAG, "%lu - Playing track %d", millis(), track);
+    ESP_LOGI(TAG, "%lu - Playing track %d", millis(), track);
 
     if (audio_enabled) {
         // Ensure track is within valid range (0-99)
@@ -85,14 +87,14 @@ void AudioContoller::playTrack(uint8_t track) {
         }
         // Play the track using JQ6500
         player->playFileByIndexNumber(track);
-        ESP_LOGE(TAG, "Track %d started", track);
+        ESP_LOGI(TAG, "Track %d started", track);
         m_last_played_track = track;
     }
 }
 
 void AudioContoller::reset() {
     if (player != nullptr) {
-        ESP_LOGE(TAG, "%lu - Resetting audio player", millis());
+        ESP_LOGW(TAG, "%lu - Resetting audio player", millis());
         player->reset();
     }
 }

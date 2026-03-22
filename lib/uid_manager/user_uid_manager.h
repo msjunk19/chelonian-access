@@ -3,6 +3,8 @@
 #include <config.hpp>
 #include "esp_log.h"
 
+//Logging levels corrected, only serial print in printUID, check later
+
 static const char* USERTAG = "USERUID";  // Add TAG definition
 
 class UserUIDManager {
