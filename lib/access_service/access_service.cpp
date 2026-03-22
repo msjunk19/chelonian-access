@@ -42,9 +42,6 @@ static bool userProgrammingModeActive = false;
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
                                                          23, 30, 38, 47, 57, 68};
 
-static bool bootChecked = false;
-static bool bootMasterProgrammingMode = false; //2
-static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
 
 
 void accessServiceSetup() {
@@ -119,8 +116,8 @@ static void updateHardware() {
 }
 
 static bool handleBootProgrammingCheck() {
-    // static bool bootChecked = false;
-    // static bool bootMasterProgrammingMode = false; //2
+    static bool bootChecked = false;
+    static bool bootMasterProgrammingMode = false; //2
 
     if (!bootChecked) {
         if (!masterUidManager.hasMasterUIDs) {
@@ -138,7 +135,7 @@ static bool handleBootProgrammingCheck() {
 static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
 
-    // static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
+    static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
 
     if (!masterProgrammingMode) return false;
 
