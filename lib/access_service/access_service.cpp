@@ -42,11 +42,25 @@ static bool userProgrammingModeActive = false;
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
                                                          23, 30, 38, 47, 57, 68};
 
+static bool bootChecked = false;
+static bool bootMasterProgrammingMode = false; //2
+static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
+
 
 void accessServiceSetup() {
 
-    led.begin(); 
-    led.setPattern(PATTERN_BREATHING, 10000);
+    // led.begin(); 
+    led.begin();
+    ESP_LOGI(TAG, "LED begin done");
+
+    // Test a basic flash to confirm LED hardware works immediately
+    LED_SET_SEQ(SYSTEM_READY);
+    ESP_LOGI(TAG, "Test flash sequence triggered");
+    // led.setPattern(PATTERN_BREATHING, 10000);
+
+    // ESP_LOGI(TAG, "bootChecked=%d, hasMasterUIDs=%d, masterProgrammingMode=%d", 
+    //      bootChecked, masterUidManager.hasMasterUIDs, masterProgrammingMode);
+
 
     rfid.begin();
 
@@ -61,6 +75,7 @@ void accessServiceSetup() {
     }
 
     ESP_LOGI(TAG, "Waiting for an ISO14443A card");
+
 }
 
 void handleRelaySequence() {
@@ -104,8 +119,8 @@ static void updateHardware() {
 }
 
 static bool handleBootProgrammingCheck() {
-    static bool bootChecked = false;
-    static bool bootMasterProgrammingMode = false; //2
+    // static bool bootChecked = false;
+    // static bool bootMasterProgrammingMode = false; //2
 
     if (!bootChecked) {
         if (!masterUidManager.hasMasterUIDs) {
@@ -123,7 +138,7 @@ static bool handleBootProgrammingCheck() {
 static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
 
-    static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
+    // static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
 
     if (!masterProgrammingMode) return false;
 
@@ -137,22 +152,29 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
         ESP_LOGI(TAG, "Programming master card detected, UID: %s", uidStr);
 
-        // Wait for removal (debounce)
-        while (rfid.readCard(uid, &uidLength)) {
-            delay(50);
+    static bool waitingForRemoval = false;
+
+if (masterProgrammingMode) {
+    if (!waitingForRemoval) {
+        if (rfid.readCard(uid, &uidLength)) {
+            waitingForRemoval = true;
+            LED_SET_SEQ(MASTER_CARD_SET); // show LED immediately
         }
+    } else {
+        if (!rfid.readCard(uid, &uidLength)) {
+            // Card removed
+            uint8_t* uids[] = {uid};
+            uint8_t lengths[] = {uidLength};
+            masterUidManager.writeUIDs(uids, lengths, 1);
 
-        uint8_t* uids[] = {uid};
-        uint8_t lengths[] = {uidLength};
-        masterUidManager.writeUIDs(uids, lengths, 1);
+            masterUidManager.hasMasterUIDs = true;
+            masterProgrammingMode = false;
+            waitingForRemoval = false;
 
-        masterUidManager.hasMasterUIDs = true;
-        masterProgrammingMode = false;
-
-        LED_SET_SEQ(MASTER_CARD_SET);
-        ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
-
+            ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
+        }
     }
+}}
 
     return true; // skip rest of loop while programming
 }

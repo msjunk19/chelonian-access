@@ -5,7 +5,7 @@
 #include <globals.hpp>
 #include <config.hpp>
 #include <eeprom_utils.hpp>
-
+#include <setup_ap.h>
 
 MasterUIDManager masterUidManager; //global updated
 UserUIDManager userUidManager; 
@@ -37,7 +37,16 @@ void setup() {
 
     // clearEntireEEPROM();
     // while (true); // stop here so it doesn't run normal code
+
+    // Start AP (either default or saved credentials)
+        
+    startAP();
+
+
+    // Setup web server routes (for first-time configuration)
+    setupWebServer();
     
+    Serial.println("Setup complete. AP running.");
 
 
     masterUidManager.readUIDs();
@@ -50,4 +59,5 @@ void setup() {
 void loop() {
     // Call the main service loop
     accessServiceLoop();
+    handleClient();
 }
