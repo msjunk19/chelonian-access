@@ -18,8 +18,8 @@ static UserManager userManager;
 LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
 
 // Master UID Variables
-static const uint8_t MASTER_UID[] = {0x04, 0x54, 0x6B, 0x32, 0x0A, 0x54, 0x81}; // replace later
-static const uint8_t MASTER_UID_LEN = 7;
+// static const uint8_t MASTER_UID[] = {0x04, 0x54, 0x6B, 0x32, 0x0A, 0x54, 0x81}; // replace later
+// static const uint8_t MASTER_UID_LEN = 7;
 
 static const char* TAG = "ACCESS";  // Add TAG definition
 // Instantiate controllers
@@ -265,11 +265,11 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!userUidManager.checkUID(uid, uidLength)) {
         userUidManager.addUID(uid, uidLength);
         Serial.println("User card added");
-        LED_SET_SEQ(ACCESS_GRANTED);
+        LED_SET_SEQ(USER_ADDED);
     } else {
         userUidManager.removeUID(uid, uidLength);
         Serial.println("User card removed");
-        LED_SET_SEQ(ACCESS_DENIED);
+        LED_SET_SEQ(USER_REMOVED);
     }
 
     return true; // handled, skip normal processing
