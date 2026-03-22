@@ -24,6 +24,12 @@ void setup() {
     ESP_LOGE(TAG, "Licensed under the MIT License");
     ESP_LOGE(TAG, "Starting up!");
 
+    ESP_LOGE("TEST", "ERROR");
+    ESP_LOGW("TEST", "WARN");
+    ESP_LOGI("TEST", "INFO");
+    ESP_LOGD("TEST", "DEBUG");
+    ESP_LOGV("TEST", "VERBOSE");
+
     delay(1000);
 
     // Init EEPROM, Check for Master UIDs
