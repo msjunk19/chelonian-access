@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+const unsigned long RELAY_COUNT = 4;
+
 const unsigned long IMPATIENCE_TIMEOUT= 10000;
 
 const unsigned long WARNING_TIMEOUT   = 10000;
@@ -17,3 +19,4 @@ static constexpr uint16_t MASTER_SIZE  = 64;
 
 static constexpr uint16_t USER_START   = 64;
 static constexpr uint16_t USER_SIZE    = 192;
+

@@ -14,3 +14,9 @@
 // RX and TX Pins for JQ6500
 #define RX_PIN (20)
 #define TX_PIN (21)
+
+// Relay Pin Mappings
+#define RELAY_1 (0)
+#define RELAY_2 (1)
+#define RELAY_3 (2)
+#define RELAY_4 (3)
