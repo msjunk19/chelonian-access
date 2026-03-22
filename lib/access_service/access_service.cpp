@@ -155,76 +155,9 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
     return true; // skip rest of loop while programming
 }
 
-// static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
-//     static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs;
-
-//     if (!masterProgrammingMode) return false;
-
-//     if (rfid.readCard(uid, &uidLength)) {
-//         Serial.print("Programming user card detected, UID: ");
-//         masterUidManager.printUID(uid, uidLength);
-
-//         // Wait for removal (debounce)
-//         while (rfid.readCard(uid, &uidLength)) {
-//             delay(50);
-//         }
-
-//         uint8_t* uids[] = {uid};
-//         uint8_t lengths[] = {uidLength};
-//         masterUidManager.writeUIDs(uids, lengths, 1);
-//         masterUidManager.hasMasterUIDs = true;
-
-//         masterProgrammingMode = false;
-        
-//         LED_SET_SEQ(MASTER_CARD_SET);
-//         Serial.println("Master UID programmed, exiting programming mode.");
-//     }
-
-//     return true; // skip rest of loop while programming
-// }
-
-// static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
-//     if (!userProgrammingModeActive) return false;
-
-//     bool cardDetected = rfid.readCard(uid, &uidLength);
-//     if (!cardDetected) return true; // stay in programming mode, nothing scanned
-
-//     // Ignore the master card while in programming mode
-//     if (masterUidManager.checkUID(uid, uidLength)) {
-//         Serial.println("Master card detected - ignore during user programming mode");
-//         return true; // do nothing
-//     }
-
-//     Serial.print("Programming user card detected, UID: ");
-//     masterUidManager.printUID(uid, uidLength);
-//     // masterUidManager.printUID(uid, uidLength);
-
-//     // Debounce: wait for removal
-//     while (rfid.readCard(uid, &uidLength)) {
-//         delay(50);
-//     }
-
-//     // Add/remove logic using EEPROM-backed UserUIDManager
-//     if (!userUidManager.checkUID(uid, uidLength)) {
-//         userUidManager.addUID(uid, uidLength);
-//         Serial.println("User card added");
-//         LED_SET_SEQ(USER_ADDED);
-//     } else {
-//         userUidManager.removeUID(uid, uidLength);
-//         Serial.println("User card removed");
-//         LED_SET_SEQ(USER_REMOVED);
-//     }
-
-//     return true; // handled, skip normal processing
-
-// }
-
 
 static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!userProgrammingModeActive) return false;
-
-    // const unsigned long WARNING_TIMEOUT = 10000;
-    // const unsigned long EXIT_TIMEOUT    = 15000;
 
     unsigned long now = millis();
 
@@ -334,7 +267,7 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
 
         // Continuous hold for 2s
         if (masterPresent && (now - masterStartTime >= MASTER_HOLD_TIME)) {
-            ESP_LOGE(TAG, "Master hold confirmed (2s)");
+            ESP_LOGE(TAG, "Master hold confirmed (%us)", (MASTER_HOLD_TIME/1000));
 
             if (!led.isRunning() && !state.audioQueued) {
                 LED_SET_SEQ(PROGRAMMING_MODE);
@@ -498,8 +431,9 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
 }
 
 void handleImpatienceTimer(AccessLoopState &state) {
-    if (state.impatientEnabled && (millis() - state.startTime > 10000) && !state.impatient) {
-        ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
+    if (state.impatientEnabled && (millis() - state.startTime > IMPATIENCE_TIMEOUT) && !state.impatient) {
+        // ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
+        ESP_LOGE(TAG, "%us elapsed, playing waiting sound", (IMPATIENCE_TIMEOUT/1000));
         state.queuedSound = AudioContoller::SOUND_WAITING;
         state.audioQueued = true;
         state.impatient = true;

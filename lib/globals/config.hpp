@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+const unsigned long IMPATIENCE_TIMEOUT= 10000;
+
 const unsigned long WARNING_TIMEOUT   = 10000;
 const unsigned long EXIT_TIMEOUT      = 15000;
 
