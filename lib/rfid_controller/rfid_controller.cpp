@@ -106,6 +106,20 @@ bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
     return false;
 }
 
+uint32_t RFIDController::getFirmwareVersion() {
+    return m_nfc->getFirmwareVersion();
+}
+
+void RFIDController::printFirmwareVersion() {
+    uint32_t versiondata = getFirmwareVersion();
+    ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",
+            (versiondata >> 24) & 0xFF,
+            (versiondata >> 16) & 0xFF,
+            (versiondata >> 8) & 0xFF);
+}
+
+
+
 // bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
 //     ESP_LOGE(TAG, "%lu ms - Validating UID=", millis());
 //     char uidStrValidate[50] = "";
@@ -153,18 +167,6 @@ bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
 //         m_num7BUIDs++;
 //     }
 // }
-
-uint32_t RFIDController::getFirmwareVersion() {
-    return m_nfc->getFirmwareVersion();
-}
-
-void RFIDController::printFirmwareVersion() {
-    uint32_t versiondata = getFirmwareVersion();
-    ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",
-            (versiondata >> 24) & 0xFF,
-            (versiondata >> 16) & 0xFF,
-            (versiondata >> 8) & 0xFF);
-}
 
 
 // void RFIDController::initializeDefaultUIDs() {

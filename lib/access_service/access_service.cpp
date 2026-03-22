@@ -183,11 +183,11 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
 
         if (!userUidManager.checkUID(uid, uidLength)) {
             userUidManager.addUID(uid, uidLength);
-            Serial.println("User card added");
+            // Serial.println("User card added");
             LED_SET_SEQ(USER_ADDED);
         } else {
             userUidManager.removeUID(uid, uidLength);
-            Serial.println("User card removed");
+            // Serial.println("User card removed");
             LED_SET_SEQ(USER_REMOVED);
         }
 
@@ -302,7 +302,7 @@ void accessServiceLoop() {
 
 bool handleMasterPresenceTimeout(AccessLoopState &state) {
     if (state.masterPresent && (millis() - state.masterLastSeen > 300)) {
-        ESP_LOGE(TAG, "Master card removed - resetting hold");
+        ESP_LOGI(TAG, "Master card removed - resetting hold");
         state.masterPresent = false;
         state.masterStartTime = 0;
         state.lastMasterUIDLen = 0;
@@ -314,10 +314,10 @@ bool handleMasterPresenceTimeout(AccessLoopState &state) {
 bool validateUIDLength(uint8_t uidLength) {
     switch (uidLength) {
         case 4:
-            ESP_LOGE(TAG, "4B UID detected");
+            ESP_LOGI(TAG, "4B UID detected");
             break;
         case 7:
-            ESP_LOGE(TAG, "7B UID detected");
+            ESP_LOGI(TAG, "7B UID detected");
             break;
         default:
             ESP_LOGE(TAG, "Unknown UID type/length");
@@ -347,14 +347,14 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
         lastMasterUIDLen = uidLength;
         masterStartTime = now;
         masterPresent = true;
-        ESP_LOGE(TAG, "Master card detected - hold started");
+        ESP_LOGI(TAG, "Master card detected - hold started");
     }
 
     masterLastSeen = now;
 
     // Continuous hold logic
     if (masterPresent && (now - masterStartTime >= MASTER_HOLD_TIME)) {
-        ESP_LOGE(TAG, "Master hold confirmed (%us)", (MASTER_HOLD_TIME / 1000));
+        ESP_LOGI(TAG, "Master hold confirmed (%us)", (MASTER_HOLD_TIME / 1000));
 
         if (!led.isRunning() && !state.audioQueued) {
             LED_SET_SEQ(PROGRAMMING_MODE);
@@ -370,8 +370,10 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
         }
 
         // Reset if master card removed for a short while
-        if (masterPresent && (now - masterLastSeen > 300)) {
-            ESP_LOGE(TAG, "Master card not detected - hold reset");
+        // if (masterPresent && (now - masterLastSeen > 300)) {
+        if (masterPresent && (now - masterLastSeen > MASTER_AWAY_DELAY)) {
+
+            ESP_LOGI(TAG, "Master card not detected - hold counter reset");
             masterPresent = false;
             masterStartTime = 0;
         }
@@ -385,7 +387,7 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
     bool validUID = rfid.validateUID(uid, uidLength);
 
     if (validUID) {
-        ESP_LOGE(TAG, "Valid card");
+        ESP_LOGI(TAG, "Valid card");
         if (!led.isRunning() && !state.audioQueued) {
             LED_SET_SEQ(ACCESS_GRANTED);
             state.queuedSound = AudioContoller::SOUND_ACCEPTED;
@@ -416,7 +418,7 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
 // --- Impatience Timeout ---
 void handleImpatienceTimer(AccessLoopState &state) {
     if (state.impatientEnabled && (millis() - state.startTime > IMPATIENCE_TIMEOUT) && !state.impatient) {
-        ESP_LOGE(TAG, "%us elapsed, playing waiting sound", (IMPATIENCE_TIMEOUT/1000));
+        ESP_LOGW(TAG, "%us elapsed, playing waiting sound", (IMPATIENCE_TIMEOUT/1000));
         state.queuedSound = AudioContoller::SOUND_WAITING;
         state.audioQueued = true;
         state.impatient = true;

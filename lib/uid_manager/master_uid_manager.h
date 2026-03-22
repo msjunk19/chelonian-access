@@ -1,8 +1,12 @@
 #pragma once
 #include <EEPROM.h>
 #include <config.hpp>
+#include "esp_log.h"
 
 static constexpr uint8_t UID_MAX_LEN = 7; // maximum UID length allowed
+
+static const char* MASTERTAG = "MASTERUID";  // Add TAG definition
+
 
 class MasterUIDManager {
 public:
@@ -14,10 +18,10 @@ public:
             EEPROM.write(addr, 0xFF);
         }
         EEPROM.commit();
-        Serial.println("MASTER EEPROM CLEARED");
+        ESP_LOGI(MASTERTAG, "Master User EEPROM Cleared");
     }
 
-    // Print a UID nicely
+    // Print a UID nicely, potentially remove after fixing logging
     void printUID(uint8_t* uid, uint8_t len) {
         char uidStr[50] = "";
         for (uint8_t i = 0; i < len; i++) {
@@ -35,25 +39,28 @@ public:
         for (size_t i = 0; i < count; i++) {
             uint8_t len = lengths[i];
 
-            // Validate length
+            // Skip invalid UID length
             if (len == 0 || len > UID_MAX_LEN) {
-                Serial.print("Skipping invalid UID length: ");
-                Serial.println(len);
+                ESP_LOGW(MASTERTAG, "Skipping invalid UID length: %u", len);
                 continue;
             }
 
             // Check for space
             if (addr + 1 + len > MASTER_START + MASTER_SIZE) {
-                Serial.println("Not enough space to append UID!");
+                ESP_LOGE(MASTERTAG, "Not enough space to append UID!");
                 break;
             }
 
             // Skip if UID already exists
             if (checkUID(uids[i], len)) {
-                Serial.print("UID already exists, skipping: ");
-                printUID(uids[i], len);
+                char uidStr[32] = {0};
+                for (uint8_t j = 0, pos = 0; j < len && pos + 3 < sizeof(uidStr); j++) {
+                    if (j > 0) uidStr[pos++] = ':';
+                    pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uids[i][j]);
+                }
+                ESP_LOGI(MASTERTAG, "UID already exists, skipping: %s", uidStr);
                 continue;
-            }
+}
 
             // Write length + bytes
             EEPROM.write(addr++, len);
@@ -63,7 +70,8 @@ public:
         }
 
         EEPROM.commit();
-        Serial.println("Master UIDs written/appended to EEPROM!");
+        ESP_LOGI(MASTERTAG, "Master UIDs written/appended to EEPROM!");
+
     }
 
     // Read all master UIDs
@@ -72,28 +80,37 @@ public:
         int index = 0;
 
         while (addr < MASTER_START + MASTER_SIZE) {
-            uint8_t len = EEPROM.read(addr++);
-            if (len == 0xFF || len == 0) break; // end marker
-            if (len > UID_MAX_LEN) {
-                Serial.println("Invalid UID length detected, aborting scan.");
-                break;
-            }
+            
+        // Read UID length
+        uint8_t len = EEPROM.read(addr++);
+        if (len == 0xFF || len == 0) break; // end marker
 
-            uint8_t uid[UID_MAX_LEN];
-            for (int i = 0; i < len; i++) {
-                uid[i] = EEPROM.read(addr++);
-            }
+        if (len > UID_MAX_LEN) {
+            ESP_LOGE(MASTERTAG, "Invalid UID length detected, aborting scan.");
+            break;
+        }
 
-            Serial.print("Master UID #");
-            Serial.print(index++);
-            Serial.print(" (length ");
-            Serial.print(len);
-            Serial.print("): ");
-            printUID(uid, len);
+        // Read UID bytes
+        uint8_t uid[UID_MAX_LEN];
+        for (uint8_t i = 0; i < len; i++) {
+            uid[i] = EEPROM.read(addr++);
+        }
+
+        // Format UID into a buffer
+        char uidStr[32] = {0};
+        for (uint8_t i = 0, pos = 0; i < len && pos + 3 < sizeof(uidStr); i++) {
+            if (i > 0) uidStr[pos++] = ':';
+            pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
+        }
+
+        // Single-line log for master UID
+        ESP_LOGI(MASTERTAG, "Master UID #%u (length %u): %s", index++, len, uidStr);
+
         }
 
         hasMasterUIDs = (index > 0);
-        if (!hasMasterUIDs) Serial.println("No master UIDs stored in EEPROM!");
+        if (!hasMasterUIDs) ESP_LOGE(MASTERTAG, "No master UIDs stored in EEPROM!");
+
         return hasMasterUIDs;
     }
 
@@ -106,7 +123,7 @@ public:
             uint8_t storedLen = EEPROM.read(addr++);
             if (storedLen == 0xFF || storedLen == 0) break;
             if (storedLen > UID_MAX_LEN) {
-                Serial.println("Invalid stored UID length detected, aborting check.");
+                ESP_LOGE(MASTERTAG, "Invalid stored UID length detected, aborting check.");
                 break;
             }
 
@@ -137,7 +154,7 @@ public:
             uint8_t storedLen = EEPROM.read(addr++);
             if (storedLen == 0xFF || storedLen == 0) break;
             if (storedLen > UID_MAX_LEN) {
-                Serial.println("Invalid stored UID length detected, aborting removal.");
+                ESP_LOGE(MASTERTAG, "Invalid UID length detected, aborting removal.");
                 break;
             }
 
@@ -159,15 +176,24 @@ public:
                     EEPROM.write(uidStart++, 0xFF);
                 }
                 EEPROM.commit();
-                Serial.print("UID removed: ");
-                printUID(uid, len);
+                char uidStr[32] = {0};
+                for (uint8_t i = 0, pos = 0; i < len && pos + 3 < sizeof(uidStr); i++) {
+                    if (i > 0) uidStr[pos++] = ':';
+                    pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
+                }
+                ESP_LOGI(MASTERTAG, "UID removed: %s", uidStr);
                 return true;
             }
 
             addr += (storedLen > 0 ? storedLen : 1);
         }
 
-        Serial.println("UID not found to remove.");
+        char uidStr[32] = {0};
+        for (uint8_t i = 0, pos = 0; i < len && pos + 3 < sizeof(uidStr); i++) {
+            if (i > 0) uidStr[pos++] = ':';
+            pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
+        }
+        ESP_LOGW(MASTERTAG, "UID Not Found To Remove: %s", uidStr);
         return false;
     }
 
@@ -179,7 +205,7 @@ private:
             uint8_t len = EEPROM.read(addr);
             if (len == 0xFF || len == 0) break;
             if (len > UID_MAX_LEN) {
-                Serial.println("Invalid UID length detected in findFirstFreeAddress, stopping.");
+                ESP_LOGE(MASTERTAG, "Invalid UID length detected in findFirstFreeAddress, stopping.");
                 break;
             }
             addr += (1 + len);
