@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Device Setup</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+        button { padding: 8px 16px; }
+    </style>
+</head>
+<body>
+    <h1>Device WiFi Setup</h1>
+    <form method="POST" action="/save">
+        <input name="ssid" placeholder="SSID" required><br>
+        <input name="pass" placeholder="Password" type="password" minlength="8"><br>
+        <button type="submit">Save</button>
+    </form>
+    <p>TESTING</p>
+</body>

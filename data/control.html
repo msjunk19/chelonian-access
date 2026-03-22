@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Access Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Access Controller</h1>
+
+    <button onclick="simulateAccess()">Simulate Valid Card</button>
+
+    <p id="status">Status: Idle</p>
+
+    <script>
+        function simulateAccess() {
+            fetch('/api/simulate', {
+                method: 'POST'
+            })
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById("status").innerText = data;
+            })
+            .catch(err => {
+                document.getElementById("status").innerText = "Error";
+            });
+        }
+    </script>
+
+</body>
+</html>
+
+
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Access Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; text-align: center; margin-top: 50px; }
+        button { font-size: 20px; padding: 15px 30px; margin: 10px; }
+    </style>
+</head>
+<body>
+
+<h1>Access Controller</h1>
+
+<button onclick="simulateAccess()">Simulate Valid Card</button>
+
+<p id="status">Status: Idle</p>
+
+<script>
+function simulateAccess() {
+    fetch('/api/simulate', { method: 'POST' })
+    .then(res => res.text())
+    .then(data => document.getElementById("status").innerText = data)
+    .catch(err => document.getElementById("status").innerText = "Error");
+}
+</script>
+
+</body>
+</html> -->
