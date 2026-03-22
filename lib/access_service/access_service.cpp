@@ -35,6 +35,9 @@ bool scanned = false;
 unsigned long relayActivatedTime = 0;
 bool relayActive = false;
 
+static unsigned long userProgLastActivityTime = 0;
+static bool userProgWarningGiven = false;
+
 bool masterProgrammingMode = false;
 static bool userProgrammingModeActive = false;
 
@@ -240,40 +243,108 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 //     return true; // skip rest of loop while programming
 // }
 
+// static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
+//     if (!userProgrammingModeActive) return false;
+
+//     bool cardDetected = rfid.readCard(uid, &uidLength);
+//     if (!cardDetected) return true; // stay in programming mode, nothing scanned
+
+//     // Ignore the master card while in programming mode
+//     if (masterUidManager.checkUID(uid, uidLength)) {
+//         Serial.println("Master card detected - ignore during user programming mode");
+//         return true; // do nothing
+//     }
+
+//     Serial.print("Programming user card detected, UID: ");
+//     masterUidManager.printUID(uid, uidLength);
+//     // masterUidManager.printUID(uid, uidLength);
+
+//     // Debounce: wait for removal
+//     while (rfid.readCard(uid, &uidLength)) {
+//         delay(50);
+//     }
+
+//     // Add/remove logic using EEPROM-backed UserUIDManager
+//     if (!userUidManager.checkUID(uid, uidLength)) {
+//         userUidManager.addUID(uid, uidLength);
+//         Serial.println("User card added");
+//         LED_SET_SEQ(USER_ADDED);
+//     } else {
+//         userUidManager.removeUID(uid, uidLength);
+//         Serial.println("User card removed");
+//         LED_SET_SEQ(USER_REMOVED);
+//     }
+
+//     return true; // handled, skip normal processing
+
+// }
+
+
 static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!userProgrammingModeActive) return false;
 
+    const unsigned long WARNING_TIMEOUT = 10000;
+    const unsigned long EXIT_TIMEOUT    = 15000;
+
+    unsigned long now = millis();
+
     bool cardDetected = rfid.readCard(uid, &uidLength);
-    if (!cardDetected) return true; // stay in programming mode, nothing scanned
 
-    // Ignore the master card while in programming mode
-    if (masterUidManager.checkUID(uid, uidLength)) {
-        Serial.println("Master card detected - ignore during user programming mode");
-        return true; // do nothing
+    if (cardDetected) {
+        userProgLastActivityTime = now;
+        userProgWarningGiven = false;
+
+        if (masterUidManager.checkUID(uid, uidLength)) {
+            Serial.println("Master card detected - ignore during user programming mode");
+            return true;
+        }
+
+        Serial.print("Programming user card detected, UID: ");
+        masterUidManager.printUID(uid, uidLength);
+
+        while (rfid.readCard(uid, &uidLength)) {
+            delay(50);
+        }
+
+        if (!userUidManager.checkUID(uid, uidLength)) {
+            userUidManager.addUID(uid, uidLength);
+            Serial.println("User card added");
+            LED_SET_SEQ(USER_ADDED);
+        } else {
+            userUidManager.removeUID(uid, uidLength);
+            Serial.println("User card removed");
+            LED_SET_SEQ(USER_REMOVED);
+        }
+
+        return true;
     }
 
-    Serial.print("Programming user card detected, UID: ");
-    masterUidManager.printUID(uid, uidLength);
-    // masterUidManager.printUID(uid, uidLength);
+    // Warning stage
+    if (!userProgWarningGiven && (now - userProgLastActivityTime > WARNING_TIMEOUT)) {
+        userProgWarningGiven = true;
 
-    // Debounce: wait for removal
-    while (rfid.readCard(uid, &uidLength)) {
-        delay(50);
+        Serial.println("Programming mode idle - warning");
+        // PLAY_SOUND(PROGRAMMING_TIMEOUT_WARNING);
+        
+        // LED_SET_SEQ(PROGRAMMING_WARNING);
+        LED_SET_SEQ(PLACEHOLDER);
     }
 
-    // Add/remove logic using EEPROM-backed UserUIDManager
-    if (!userUidManager.checkUID(uid, uidLength)) {
-        userUidManager.addUID(uid, uidLength);
-        Serial.println("User card added");
-        LED_SET_SEQ(USER_ADDED);
-    } else {
-        userUidManager.removeUID(uid, uidLength);
-        Serial.println("User card removed");
-        LED_SET_SEQ(USER_REMOVED);
+    // Exit stage
+    if (now - userProgLastActivityTime > EXIT_TIMEOUT) {
+        Serial.println("Exiting user programming mode");
+
+        userProgrammingModeActive = false;
+
+        // PLAY_SOUND(PROGRAMMING_EXIT);
+        // LED_SET_SEQ(IDLE);
+        LED_SET_SEQ(PLACEHOLDER);
+
+
+        return false;
     }
 
-    return true; // handled, skip normal processing
-
+    return true;
 }
 
 static AccessLoopState state;
@@ -329,10 +400,12 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
                 state.queuedSound = AudioContoller::SOUND_ACCEPTED;
                 state.audioQueued = true;
 
-                // masterProgrammingMode = true;
-
                 // Trigger user programming mode
                 userProgrammingModeActive = true;
+
+                userProgLastActivityTime = millis();
+                userProgWarningGiven = false;
+
                 Serial.println("User Programming Mode Enabled");
             }
 
