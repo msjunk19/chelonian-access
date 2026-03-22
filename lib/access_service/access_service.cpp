@@ -52,8 +52,6 @@ void accessServiceSetup() {
 
     rfid.printFirmwareVersion();
 
-    // rfid.initializeDefaultUIDs();
-
     relays.begin();
 
     if (audio.begin()) {
@@ -62,13 +60,7 @@ void accessServiceSetup() {
         audio.playTrack(AudioContoller::SOUND_STARTUP);
     }
 
-    if (masterUidManager.readUIDs()) {
-    Serial.println("Master UID(s) detected. Normal operation.");
-    } else {
-    Serial.println("No master UIDs found. Enter Master programming mode.");
-    }
-
-    ESP_LOGE(TAG, "Waiting for an ISO14443A card");
+    ESP_LOGI(TAG, "Waiting for an ISO14443A card");
 }
 
 void handleRelaySequence() {
@@ -81,7 +73,7 @@ void handleRelaySequence() {
                 relays.setRelay(RELAY_2, true);
                 relayActivatedTime = millis();
                 currentRelayState = RELAY2_ACTIVE;
-                ESP_LOGE(TAG, "Relay state transition 1->2");
+                ESP_LOGI(TAG, "Relay state transition 1->2");
             }
             break;
         case RELAY2_ACTIVE:
@@ -89,7 +81,7 @@ void handleRelaySequence() {
                 relays.setRelay(RELAY_2, false);
                 currentRelayState = RELAY_IDLE;
                 relayActive = false;
-                ESP_LOGE(TAG, "Relay sequence complete");
+                ESP_LOGI(TAG, "Relay sequence complete");
             }
             break;
         default:
@@ -103,7 +95,7 @@ void activateRelays() {
     relayActivatedTime = millis();
     currentRelayState = RELAY1_ACTIVE;
     relayActive = true;
-    ESP_LOGE(TAG, "Starting relay sequence (state 1)");
+    ESP_LOGI(TAG, "Starting relay sequence (state 1)");
 }
 
 static void updateHardware() {
@@ -117,7 +109,8 @@ static bool handleBootProgrammingCheck() {
 
     if (!bootChecked) {
         if (!masterUidManager.hasMasterUIDs) {
-            Serial.println("No master UID stored. Enter programming mode.");
+            ESP_LOGW(TAG, "No Master UID Stored. Enter Master Programming Mode.");
+            
             bootMasterProgrammingMode = true;
             LED_SET_SEQ(PROGRAMMING_MODE);
         }
@@ -135,8 +128,14 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
     if (!masterProgrammingMode) return false;
 
     if (rfid.readCard(uid, &uidLength)) {
-        Serial.print("Programming master card detected, UID: ");
-        masterUidManager.printUID(uid, uidLength);
+
+        char uidStr[32] = {0};
+        for (uint8_t i = 0, pos = 0; i < uidLength && pos + 3 < sizeof(uidStr); i++) {
+            if (i > 0) uidStr[pos++] = ':';
+            pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
+        }
+
+        ESP_LOGI(TAG, "Programming master card detected, UID: %s", uidStr);
 
         // Wait for removal (debounce)
         while (rfid.readCard(uid, &uidLength)) {
@@ -151,7 +150,8 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
         masterProgrammingMode = false;
 
         LED_SET_SEQ(MASTER_CARD_SET);
-        Serial.println("Master UID programmed, exiting programming mode.");
+        ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
+
     }
 
     return true; // skip rest of loop while programming
@@ -170,24 +170,22 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         userProgWarningGiven = false;
 
         if (masterUidManager.checkUID(uid, uidLength)) {
-            Serial.println("Master card detected - ignore during user programming mode");
+            ESP_LOGV(TAG, "Master card detected - ignore during user programming mode");
+            
             return true;
         }
 
-        Serial.print("Programming user card detected, UID: ");
-        masterUidManager.printUID(uid, uidLength);
-
+        // masterUidManager.printUID(uid, uidLength, "Programming user card detected, UID:");
+        
         while (rfid.readCard(uid, &uidLength)) {
             delay(50);
         }
 
         if (!userUidManager.checkUID(uid, uidLength)) {
             userUidManager.addUID(uid, uidLength);
-            // Serial.println("User card added");
             LED_SET_SEQ(USER_ADDED);
         } else {
             userUidManager.removeUID(uid, uidLength);
-            // Serial.println("User card removed");
             LED_SET_SEQ(USER_REMOVED);
         }
 
@@ -198,7 +196,8 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!userProgWarningGiven && (now - userProgLastActivityTime > WARNING_TIMEOUT)) {
         userProgWarningGiven = true;
 
-        Serial.println("Programming mode idle - warning");
+        ESP_LOGW(TAG, "Programming Mode Idle...Will Time Out Soon");
+        
         // PLAY_SOUND(PROGRAMMING_TIMEOUT_WARNING);
         
         // LED_SET_SEQ(PROGRAMMING_WARNING);
@@ -207,7 +206,7 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
 
     // Exit stage
     if (now - userProgLastActivityTime > EXIT_TIMEOUT) {
-        Serial.println("Exiting user programming mode");
+        ESP_LOGW(TAG, "Exiting User Programming Mode");
 
         userProgrammingModeActive = false;
 
@@ -327,10 +326,8 @@ bool validateUIDLength(uint8_t uidLength) {
     return true;
 }
 
-
-// --- Master Card Handler ---
 void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
-    constexpr int uidLenMax = 7;  // same as before
+    constexpr int uidLenMax = 7;
     static bool masterPresent = false;
     static unsigned long masterStartTime = 0;
     static uint8_t lastMasterUID[uidLenMax] = {0};
@@ -338,11 +335,11 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
     static unsigned long masterLastSeen = 0;
 
     unsigned long now = millis();
-    state.masterLastSeen = now;
 
-    // Check if it's a new card or re-presented after removal
-    if (!masterPresent || !uidMatches(uid, uidLength, lastMasterUID, lastMasterUIDLen) ||
-        (now - masterLastSeen > 500)) {
+    bool isSameCard = uidMatches(uid, uidLength, lastMasterUID, lastMasterUIDLen);
+
+    // Check if card is newly presented
+    if (!masterPresent || !isSameCard || (now - masterLastSeen > 500)) {
         memcpy(lastMasterUID, uid, uidLength);
         lastMasterUIDLen = uidLength;
         masterStartTime = now;
@@ -352,6 +349,11 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
 
     masterLastSeen = now;
 
+    // Update the shared state
+    state.masterPresent = masterPresent;
+    state.masterLastSeen = masterLastSeen;
+    state.masterStartTime = masterStartTime;
+
     // Continuous hold logic
     if (masterPresent && (now - masterStartTime >= MASTER_HOLD_TIME)) {
         ESP_LOGI(TAG, "Master hold confirmed (%us)", (MASTER_HOLD_TIME / 1000));
@@ -360,34 +362,23 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
             LED_SET_SEQ(PROGRAMMING_MODE);
             state.queuedSound = AudioContoller::SOUND_ACCEPTED;
             state.audioQueued = true;
-
-            // Enable user programming mode
             userProgrammingModeActive = true;
             userProgLastActivityTime = millis();
             userProgWarningGiven = false;
-
-            Serial.println("User Programming Mode Enabled");
+            ESP_LOGI(TAG, "User Programming Mode Enabled");
         }
-
-        // Reset if master card removed for a short while
-        // if (masterPresent && (now - masterLastSeen > 300)) {
-        if (masterPresent && (now - masterLastSeen > MASTER_AWAY_DELAY)) {
-
-            ESP_LOGI(TAG, "Master card not detected - hold counter reset");
-            masterPresent = false;
-            masterStartTime = 0;
-        }
-
-        return;
     }
+
+    // **Do NOT return here**; let removal be handled elsewhere
 }
+
 
 // --- User Card Handler ---
 void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
     bool validUID = rfid.validateUID(uid, uidLength);
 
     if (validUID) {
-        ESP_LOGI(TAG, "Valid card");
+        ESP_LOGI(TAG, "Valid Card, Access Granted");
         if (!led.isRunning() && !state.audioQueued) {
             LED_SET_SEQ(ACCESS_GRANTED);
             state.queuedSound = AudioContoller::SOUND_ACCEPTED;

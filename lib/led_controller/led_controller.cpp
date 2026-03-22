@@ -60,7 +60,7 @@ void LEDController::setLED(bool on) {
         m_strip->setPixelColor(0, color);
         m_strip->show();
     } else {
-        // ledcWrite(m_pwmChannel, on ? 255 : 0);
+        // ledcWrite(m_pwmChannel, on ? 255 : 0); //LED Logic for ESP32Devkit
         ledcWrite(m_pwmChannel, on ? 0 : 255); // LED Logic Inverted on ESP32C3
 
     }
@@ -170,7 +170,7 @@ void LEDController::update() {
                 m_strip->setPixelColor(0, m_strip->Color(0,0,0));
                 m_strip->show();
             } else {
-                // ledcWrite(m_pwmChannel, 0);
+                // ledcWrite(m_pwmChannel, 0); //Logic for ESP32Devkit
                 ledcWrite(m_pwmChannel, 255); //Flip LED Logic for ESP32C3 Internal LED
             }
             m_running = false;

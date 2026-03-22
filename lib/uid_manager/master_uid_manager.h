@@ -22,15 +22,28 @@ public:
     }
 
     // Print a UID nicely, potentially remove after fixing logging
-    void printUID(uint8_t* uid, uint8_t len) {
-        char uidStr[50] = "";
-        for (uint8_t i = 0; i < len; i++) {
-            char buf[4];
-            sprintf(buf, "%02X ", uid[i]);
-            strcat(uidStr, buf);
+    // ESP_LOG version
+    void printUID(const uint8_t* uid, uint8_t len, const char* prefix = nullptr) {
+        char uidStr[32] = {0};
+        for (uint8_t i = 0, pos = 0; i < len && pos + 3 < sizeof(uidStr); i++) {
+            if (i > 0) uidStr[pos++] = ':';
+            pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
         }
-        Serial.println(uidStr);
+        if (prefix) {
+            ESP_LOGI(MASTERTAG, "%s %s", prefix, uidStr);
+        } else {
+            ESP_LOGI(MASTERTAG, "%s", uidStr);
+        }
     }
+    // void printUID(uint8_t* uid, uint8_t len) {
+    //     char uidStr[50] = "";
+    //     for (uint8_t i = 0; i < len; i++) {
+    //         char buf[4];
+    //         sprintf(buf, "%02X ", uid[i]);
+    //         strcat(uidStr, buf);
+    //     }
+    //     Serial.println(uidStr);
+    // }
 
     // Write multiple UIDs to the master region
     void writeUIDs(uint8_t** uids, uint8_t* lengths, size_t count) {
