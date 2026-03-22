@@ -29,15 +29,14 @@ AudioContoller audio;
 // State variables
 enum RelayState currentRelayState = RELAY_IDLE;
 uint8_t invalidAttempts = 0;
-bool scanned = false;
-// bool impatient = false;
+
 unsigned long relayActivatedTime = 0;
-bool relayActive = false;
+
+bool relayActive = false; // see if we can remove
 
 static unsigned long userProgLastActivityTime = 0;
 static bool userProgWarningGiven = false;
 
-bool masterProgrammingMode = false;
 static bool userProgrammingModeActive = false;
 
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
@@ -113,12 +112,12 @@ static void updateHardware() {
 
 static bool handleBootProgrammingCheck() {
     static bool bootChecked = false;
-    static bool masterProgrammingMode = false;
+    static bool bootMasterProgrammingMode = false; //2
 
     if (!bootChecked) {
         if (!masterUidManager.hasMasterUIDs) {
             Serial.println("No master UID stored. Enter programming mode.");
-            masterProgrammingMode = true;
+            bootMasterProgrammingMode = true;
             LED_SET_SEQ(PROGRAMMING_MODE);
         }
         bootChecked = true;
@@ -128,7 +127,9 @@ static bool handleBootProgrammingCheck() {
 }
 
 static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
-    static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs;
+
+
+    static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
 
     if (!masterProgrammingMode) return false;
 
@@ -378,31 +379,7 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
     }
 }
 
-// void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
-//     unsigned long now = millis();
-//     state.masterLastSeen = now;
-
-//     if (!state.masterPresent || !uidMatches(uid, uidLength, state.lastMasterUID, state.lastMasterUIDLen)) {
-//         memcpy(state.lastMasterUID, uid, uidLength);
-//         state.lastMasterUIDLen = uidLength;
-//         state.masterStartTime = now;
-//         state.masterPresent = true;
-//         ESP_LOGE(TAG, "Master card detected - hold started");
-//     }
-
-//     if (state.masterPresent && (now - state.masterStartTime >= MASTER_HOLD_TIME)) {
-//         ESP_LOGE(TAG, "Master hold confirmed (2s)");
-//         if (!led.isRunning() && !state.audioQueued) {
-//             LED_SET_SEQ(PROGRAMMING_MODE);
-//             state.queuedSound = AudioContoller::SOUND_ACCEPTED;
-//             state.audioQueued = true;
-//         }
-//         // Prevent retrigger spam
-//         state.masterPresent = false;
-//         state.masterStartTime = 0;
-//     }
-// }
-
+// --- User Card Handler ---
 void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
     bool validUID = rfid.validateUID(uid, uidLength);
 
@@ -435,9 +412,9 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
     }
 }
 
+// --- Impatience Timeout ---
 void handleImpatienceTimer(AccessLoopState &state) {
     if (state.impatientEnabled && (millis() - state.startTime > IMPATIENCE_TIMEOUT) && !state.impatient) {
-        // ESP_LOGE(TAG, "10s elapsed, playing waiting sound");
         ESP_LOGE(TAG, "%us elapsed, playing waiting sound", (IMPATIENCE_TIMEOUT/1000));
         state.queuedSound = AudioContoller::SOUND_WAITING;
         state.audioQueued = true;
