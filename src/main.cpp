@@ -6,6 +6,7 @@
 #include <config.hpp>
 #include <eeprom_utils.hpp>
 #include <setup_ap.h>
+#include "webserver_manager.h"
 
 MasterUIDManager masterUidManager; //global updated
 UserUIDManager userUidManager; 
@@ -35,11 +36,16 @@ void setup() {
     // Init EEPROM, Check for Master UIDs
     EEPROM.begin(EEPROM_SIZE);
 
-    // clearEntireEEPROM();
-    // while (true); // stop here so it doesn't run normal code
+    // clearEntireEEPROM(); 
+    // while (true); // stop here so it doesn't run normal code 
 
     // Start AP (either default or saved credentials)
-        
+    
+    // if (!LittleFS.begin()) {
+    // Serial.println("LittleFS mount failed");
+    // return;
+    // }
+
     startAP();
 
 

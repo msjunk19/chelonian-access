@@ -7,9 +7,14 @@
 
 const byte DNS_PORT = 53;
 DNSServer dnsServer;
+// DNSServer dnsServer;
 
 
 WebServer server(80);
+
+// // Default AP credentials
+// constexpr char DEFAULT_SSID[] = "ACCESS-CTRL-XXXX";
+// constexpr char DEFAULT_PASS[] = "default1234";
 
 // Hardcoded lengths
 constexpr uint8_t SSID_LEN = 32;
@@ -70,7 +75,27 @@ inline void startAP() {
         server.begin();
     }
 }
+// inline void startAP() {
+//     char ssid[SSID_LEN + 1];
+//     char pass[PASS_LEN + 1];
 
+//     if (isSetupComplete()) {
+//         for (int i = 0; i < SSID_LEN; i++)
+//             ssid[i] = EEPROM.read(AP_SSID_ADDR + i);
+//         ssid[SSID_LEN] = 0;
+
+//         for (int i = 0; i < PASS_LEN; i++)
+//             pass[i] = EEPROM.read(AP_PASS_ADDR + i);
+//         pass[PASS_LEN] = 0;
+
+//         WiFi.softAP(ssid, pass);
+//     } else {
+//         // WiFi.softAP(DEFAULT_SSID, DEFAULT_PASS);
+//           WiFi.softAP("ESP32-Portal"); // SSID for the portal
+//             dnsServer.start(DNS_PORT, "*", WiFi.softAPIP()); // Redirect all DNS to AP
+//             server.begin();
+//     }
+// }
 
 // -------------------------
 // Web server + captive portal

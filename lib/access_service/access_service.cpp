@@ -132,36 +132,45 @@ static bool handleBootProgrammingCheck() {
     return false; // does not early-exit loop
 }
 
+
 static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
+    static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs;
+    static bool waitingForRemoval = false;
 
-    static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
+    static uint8_t storedUID[7];
+    static uint8_t storedLength = 0;
 
     if (!masterProgrammingMode) return false;
 
-    if (rfid.readCard(uid, &uidLength)) {
+    bool cardDetected = rfid.readCard(uid, &uidLength);
 
-        char uidStr[32] = {0};
-        for (uint8_t i = 0, pos = 0; i < uidLength && pos + 3 < sizeof(uidStr); i++) {
-            if (i > 0) uidStr[pos++] = ':';
-            pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
-        }
-
-        ESP_LOGI(TAG, "Programming master card detected, UID: %s", uidStr);
-
-    static bool waitingForRemoval = false;
-
-if (masterProgrammingMode) {
+    // 🟢 STEP 1: Detect card ONCE
     if (!waitingForRemoval) {
-        if (rfid.readCard(uid, &uidLength)) {
+        if (cardDetected) {
+
+            storedLength = uidLength > sizeof(storedUID) ? sizeof(storedUID) : uidLength;
+            memcpy(storedUID, uid, storedLength);
+
+            char uidStr[32] = {0};
+            for (uint8_t i = 0, pos = 0; i < storedLength && pos + 3 < sizeof(uidStr); i++) {
+                if (i > 0) uidStr[pos++] = ':';
+                pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", storedUID[i]);
+            }
+
+            ESP_LOGI(TAG, "Detected New Master Card: UID: %s", uidStr);
+
             waitingForRemoval = true;
-            LED_SET_SEQ(MASTER_CARD_SET); // show LED immediately
+            LED_SET_SEQ(MASTER_CARD_SET);
         }
-    } else {
-        if (!rfid.readCard(uid, &uidLength)) {
-            // Card removed
-            uint8_t* uids[] = {uid};
-            uint8_t lengths[] = {uidLength};
+    }
+    // 🔴 STEP 2: Wait for removal (simple debounce)
+    else {
+        if (!cardDetected) {
+
+            uint8_t* uids[] = {storedUID};
+            uint8_t lengths[] = {storedLength};
+
             masterUidManager.writeUIDs(uids, lengths, 1);
 
             masterUidManager.hasMasterUIDs = true;
@@ -171,10 +180,53 @@ if (masterProgrammingMode) {
             ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
         }
     }
-}}
 
-    return true; // skip rest of loop while programming
+    return true;
 }
+
+// static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
+
+
+//     static bool masterProgrammingMode = !masterUidManager.hasMasterUIDs; //3
+
+//     if (!masterProgrammingMode) return false;
+
+//     if (rfid.readCard(uid, &uidLength)) {
+
+//         char uidStr[32] = {0};
+//         for (uint8_t i = 0, pos = 0; i < uidLength && pos + 3 < sizeof(uidStr); i++) {
+//             if (i > 0) uidStr[pos++] = ':';
+//             pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
+//         }
+
+//         ESP_LOGI(TAG, "Detected New Master Card: UID: %s", uidStr);
+
+//     static bool waitingForRemoval = false;
+
+// if (masterProgrammingMode) {
+//     if (!waitingForRemoval) {
+//         if (rfid.readCard(uid, &uidLength)) {
+//             waitingForRemoval = true;
+//             LED_SET_SEQ(MASTER_CARD_SET); // show LED immediately
+//         }
+//     } else {
+//         if (!rfid.readCard(uid, &uidLength)) {
+//             // Card removed
+//             uint8_t* uids[] = {uid};
+//             uint8_t lengths[] = {uidLength};
+//             masterUidManager.writeUIDs(uids, lengths, 1);
+
+//             masterUidManager.hasMasterUIDs = true;
+//             masterProgrammingMode = false;
+//             waitingForRemoval = false;
+
+//             ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
+//         }
+//     }
+// }}
+
+//     return true; // skip rest of loop while programming
+// }
 
 
 static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
