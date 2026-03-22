@@ -1,17 +1,12 @@
 #pragma once
 #include <array>
+#include "config.hpp"
 
 #include <Adafruit_PN532.h>
 #include <Arduino.h>
 
 class RFIDController {
 public:
-// ESP32-C3 SPI pins
-#define PN532_SCK (4)
-#define PN532_MISO (5)
-#define PN532_MOSI (6)
-#define PN532_SS (7)
-
     RFIDController(uint8_t clk = PN532_SCK, uint8_t miso = PN532_MISO, uint8_t mosi = PN532_MOSI,
                    uint8_t ss = PN532_SS);
     ~RFIDController();

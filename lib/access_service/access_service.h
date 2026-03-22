@@ -6,8 +6,7 @@
 #include "rfid_controller.h"
 #include "led_controller.h"
 
-#define PN_LED (8)
-#define PN_NEOPIXEL (10)
+#include "config.hpp"
 
 // State and configuration
 extern RFIDController rfid;

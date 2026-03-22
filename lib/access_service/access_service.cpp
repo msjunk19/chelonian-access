@@ -8,6 +8,7 @@
 #include "led_states.hpp"
 
 #include "globals.hpp"
+// #include "config.hpp"
 
 #include "user_manager.hpp"
 #include <master_uid_manager.h>
@@ -66,7 +67,7 @@ void accessServiceSetup() {
     if (masterUidManager.readUIDs()) {
     Serial.println("Master UID(s) detected. Normal operation.");
     } else {
-    Serial.println("No master UIDs found. Enter programming mode.");
+    Serial.println("No master UIDs found. Enter Master programming mode.");
     }
 
     ESP_LOGE(TAG, "Waiting for an ISO14443A card");
