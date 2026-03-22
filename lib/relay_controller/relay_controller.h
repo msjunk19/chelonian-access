@@ -5,8 +5,6 @@
 #include <Arduino.h>
 #include <array>
 
-// const unsigned long RELAY_COUNT = 4;
-
 class RelayController {
 public:
     RelayController(uint8_t relay1_pin = RELAY_1, uint8_t relay2_pin = RELAY_2, uint8_t relay3_pin = RELAY_3,
