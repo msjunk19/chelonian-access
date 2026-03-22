@@ -5,7 +5,8 @@
 static constexpr uint8_t UID_MAX_LEN = 7; // maximum UID length allowed
 
 // Default AP credentials
-constexpr char DEFAULT_SSID[] = "ACCESS-CTRL-XXXX";
+// constexpr char DEFAULT_SSID[] = "ACCESS-CTRL-XXXX";
+constexpr char DEFAULT_SSID[] = "AC_FALLBACK_AP";
 constexpr char DEFAULT_PASS[] = "default1234";
 
 
