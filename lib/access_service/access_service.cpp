@@ -241,61 +241,13 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
         return;
     }
 
-    constexpr int uidLenMax = 7;  // replace UID_LEN with actual length used
-    static bool masterPresent = false;
-    static unsigned long masterStartTime = 0;
-    static uint8_t lastMasterUID[uidLenMax] = {0};
-    static uint8_t lastMasterUIDLen = 0;
-    static unsigned long masterLastSeen = 0;
-
-    unsigned long now = millis();
-
-    // Master card detection
-    // handleMasterCard(uid, uidLength, state);
+    // Handle master card first
     if (masterUidManager.checkUID(uid, uidLength)) {
-        // New card or re-presented after removal
-        if (!masterPresent || !uidMatches(uid, uidLength, lastMasterUID, lastMasterUIDLen) ||
-            (now - masterLastSeen > 500)) {
-            memcpy(lastMasterUID, uid, uidLength);
-            lastMasterUIDLen = uidLength;
-            masterStartTime = now;       // reset hold timer
-            masterPresent = true;
-            ESP_LOGE(TAG, "Master card detected - hold started");
-        }
-
-        masterLastSeen = now;  // update last seen time
-
-        // Continuous hold for 2s
-        if (masterPresent && (now - masterStartTime >= MASTER_HOLD_TIME)) {
-            ESP_LOGE(TAG, "Master hold confirmed (%us)", (MASTER_HOLD_TIME/1000));
-
-            if (!led.isRunning() && !state.audioQueued) {
-                LED_SET_SEQ(PROGRAMMING_MODE);
-                state.queuedSound = AudioContoller::SOUND_ACCEPTED;
-                state.audioQueued = true;
-
-                // Trigger user programming mode
-                userProgrammingModeActive = true;
-
-                userProgLastActivityTime = millis();
-                userProgWarningGiven = false;
-
-                Serial.println("User Programming Mode Enabled");
-            }
-
-            if (masterPresent && (now - masterLastSeen > 300)) {
-                ESP_LOGE(TAG, "Master card not detected - hold reset");
-                masterPresent = false;
-                masterStartTime = 0;
-            }
-
-            return;
-        }
-
-        return;  // still holding, skip regular card processing
+        handleMasterCard(uid, uidLength, state);
+        return;  // skip regular card if master
     }
 
-    // --- REGULAR CARD ---
+    // Regular card processing
     handleRegularCard(uid, uidLength, state);
 }
 
@@ -371,6 +323,59 @@ bool validateUIDLength(uint8_t uidLength) {
             return false;
     }
     return true;
+}
+
+
+// --- Master Card Handler ---
+void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
+    constexpr int uidLenMax = 7;  // same as before
+    static bool masterPresent = false;
+    static unsigned long masterStartTime = 0;
+    static uint8_t lastMasterUID[uidLenMax] = {0};
+    static uint8_t lastMasterUIDLen = 0;
+    static unsigned long masterLastSeen = 0;
+
+    unsigned long now = millis();
+    state.masterLastSeen = now;
+
+    // Check if it's a new card or re-presented after removal
+    if (!masterPresent || !uidMatches(uid, uidLength, lastMasterUID, lastMasterUIDLen) ||
+        (now - masterLastSeen > 500)) {
+        memcpy(lastMasterUID, uid, uidLength);
+        lastMasterUIDLen = uidLength;
+        masterStartTime = now;
+        masterPresent = true;
+        ESP_LOGE(TAG, "Master card detected - hold started");
+    }
+
+    masterLastSeen = now;
+
+    // Continuous hold logic
+    if (masterPresent && (now - masterStartTime >= MASTER_HOLD_TIME)) {
+        ESP_LOGE(TAG, "Master hold confirmed (%us)", (MASTER_HOLD_TIME / 1000));
+
+        if (!led.isRunning() && !state.audioQueued) {
+            LED_SET_SEQ(PROGRAMMING_MODE);
+            state.queuedSound = AudioContoller::SOUND_ACCEPTED;
+            state.audioQueued = true;
+
+            // Enable user programming mode
+            userProgrammingModeActive = true;
+            userProgLastActivityTime = millis();
+            userProgWarningGiven = false;
+
+            Serial.println("User Programming Mode Enabled");
+        }
+
+        // Reset if master card removed for a short while
+        if (masterPresent && (now - masterLastSeen > 300)) {
+            ESP_LOGE(TAG, "Master card not detected - hold reset");
+            masterPresent = false;
+            masterStartTime = 0;
+        }
+
+        return;
+    }
 }
 
 // void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
