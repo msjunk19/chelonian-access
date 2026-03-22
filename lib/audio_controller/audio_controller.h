@@ -1,10 +1,12 @@
 #pragma once
 
+#include <pin_mapping.hpp>
 #include <Arduino.h>
 #include <SoftwareSerial.h>  // For SoftwareSerial on ESP32-C3
 #ifdef USINGMP3
 #include <JQ6500_Serial.h>
 #endif
+
 
 // JQ6500 Status constants
 #define MP3_STATUS_STOPPED 0
@@ -17,7 +19,8 @@
 
 class AudioContoller {
 public:
-    AudioContoller(uint8_t rx_pin = 20, uint8_t tx_pin = 21);  // ESP32-C3 Serial1 pins
+        AudioContoller(uint8_t rx_pin = RX_PIN, uint8_t tx_pin = TX_PIN);  // ESP32-C3 Serial1 pins
+
     ~AudioContoller();                                         // Add destructor
 
     bool begin();

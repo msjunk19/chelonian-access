@@ -8,7 +8,9 @@
 #include "led_states.hpp"
 
 #include "globals.hpp"
-// #include "config.hpp"
+#include "config.hpp"
+#include "pin_mapping.hpp"
+
 
 #include "user_manager.hpp"
 #include <master_uid_manager.h>
@@ -221,8 +223,8 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!userProgrammingModeActive) return false;
 
-    const unsigned long WARNING_TIMEOUT = 10000;
-    const unsigned long EXIT_TIMEOUT    = 15000;
+    // const unsigned long WARNING_TIMEOUT = 10000;
+    // const unsigned long EXIT_TIMEOUT    = 15000;
 
     unsigned long now = millis();
 
@@ -316,6 +318,7 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
     unsigned long now = millis();
 
     // Master card detection
+    // handleMasterCard(uid, uidLength, state);
     if (masterUidManager.checkUID(uid, uidLength)) {
         // New card or re-presented after removal
         if (!masterPresent || !uidMatches(uid, uidLength, lastMasterUID, lastMasterUIDLen) ||
@@ -330,7 +333,7 @@ static void handleCardDetected(uint8_t* uid, uint8_t uidLength) {
         masterLastSeen = now;  // update last seen time
 
         // Continuous hold for 2s
-        if (masterPresent && (now - masterStartTime >= 2000)) {
+        if (masterPresent && (now - masterStartTime >= MASTER_HOLD_TIME)) {
             ESP_LOGE(TAG, "Master hold confirmed (2s)");
 
             if (!led.isRunning() && !state.audioQueued) {
@@ -437,30 +440,30 @@ bool validateUIDLength(uint8_t uidLength) {
     return true;
 }
 
-void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
-    unsigned long now = millis();
-    state.masterLastSeen = now;
+// void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
+//     unsigned long now = millis();
+//     state.masterLastSeen = now;
 
-    if (!state.masterPresent || !uidMatches(uid, uidLength, state.lastMasterUID, state.lastMasterUIDLen)) {
-        memcpy(state.lastMasterUID, uid, uidLength);
-        state.lastMasterUIDLen = uidLength;
-        state.masterStartTime = now;
-        state.masterPresent = true;
-        ESP_LOGE(TAG, "Master card detected - hold started");
-    }
+//     if (!state.masterPresent || !uidMatches(uid, uidLength, state.lastMasterUID, state.lastMasterUIDLen)) {
+//         memcpy(state.lastMasterUID, uid, uidLength);
+//         state.lastMasterUIDLen = uidLength;
+//         state.masterStartTime = now;
+//         state.masterPresent = true;
+//         ESP_LOGE(TAG, "Master card detected - hold started");
+//     }
 
-    if (state.masterPresent && (now - state.masterStartTime >= 2000)) {
-        ESP_LOGE(TAG, "Master hold confirmed (2s)");
-        if (!led.isRunning() && !state.audioQueued) {
-            LED_SET_SEQ(PROGRAMMING_MODE);
-            state.queuedSound = AudioContoller::SOUND_ACCEPTED;
-            state.audioQueued = true;
-        }
-        // Prevent retrigger spam
-        state.masterPresent = false;
-        state.masterStartTime = 0;
-    }
-}
+//     if (state.masterPresent && (now - state.masterStartTime >= MASTER_HOLD_TIME)) {
+//         ESP_LOGE(TAG, "Master hold confirmed (2s)");
+//         if (!led.isRunning() && !state.audioQueued) {
+//             LED_SET_SEQ(PROGRAMMING_MODE);
+//             state.queuedSound = AudioContoller::SOUND_ACCEPTED;
+//             state.audioQueued = true;
+//         }
+//         // Prevent retrigger spam
+//         state.masterPresent = false;
+//         state.masterStartTime = 0;
+//     }
+// }
 
 void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
     bool validUID = rfid.validateUID(uid, uidLength);

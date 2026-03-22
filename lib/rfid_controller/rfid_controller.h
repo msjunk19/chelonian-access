@@ -1,6 +1,6 @@
 #pragma once
 #include <array>
-#include "config.hpp"
+#include "pin_mapping.hpp"
 
 #include <Adafruit_PN532.h>
 #include <Arduino.h>
