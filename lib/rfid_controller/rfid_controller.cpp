@@ -8,6 +8,7 @@
 // #include "hard_uids.hpp"
 #include "globals.hpp"
 
+//Logging levels corrected
 
 static const char* TAG = "RFID";  // Add TAG definition
 
@@ -60,8 +61,6 @@ bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
     );
 
     if (result) {
-        // ESP_LOGD(TAG, "%lu ms - Card detected", millis());
-
         char uidStr[50] = "";
         for (uint8_t i = 0; i < *uidLength; i++) {
             char hexBuf[5];
@@ -70,7 +69,6 @@ bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
         }
         uidStr[strlen(uidStr) - 1] = '\0';
 
-        // ESP_LOGD(TAG, "UID: %s", uidStr);
         ESP_LOGD(TAG, "%lu ms - Card UID: %s", millis(), uidStr);
     }
 

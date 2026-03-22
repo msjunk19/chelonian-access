@@ -1,6 +1,8 @@
 #include "relay_controller.h"
 #include "esp_log.h"
 
+//Logging levels corrected
+
 static const char* TAG = "RELAY";  // Add TAG definition
 RelayController::RelayController(uint8_t relay1_pin, uint8_t relay2_pin, uint8_t relay3_pin,
                                  uint8_t relay4_pin) {
@@ -14,7 +16,7 @@ void RelayController::begin() {
     for (uint8_t i = 0; i < NUM_RELAYS; i++) {
         pinMode(m_relays[i].pin, OUTPUT);
 
-        ESP_LOGE(TAG, "Relay %u initialized on pin %u", i + 1, m_relays[i].pin);
+        ESP_LOGI(TAG, "Relay %u initialized on pin %u", i + 1, m_relays[i].pin);
 
         setRelay(i, false);  // Initialize all relays to OFF state
     }
@@ -26,12 +28,12 @@ void RelayController::setRelay(uint8_t relay, bool state) {
         // Active LOW relay logic
         digitalWrite(m_relays[relay].pin, static_cast<uint8_t>(!state));
 
-        ESP_LOGE(TAG, "%lu ms - Relay %u set to %s", millis(), relay + 1, state ? "ON" : "OFF");
+        ESP_LOGI(TAG, "%lu ms - Relay %u set to %s", millis(), relay + 1, state ? "ON" : "OFF");
     }
 }
 
 void RelayController::setAllRelays(bool state) {
-    ESP_LOGE(TAG, "%lu ms - All relays set to %s", millis(), state ? "ON" : "OFF");
+    ESP_LOGI(TAG, "%lu ms - All relays set to %s", millis(), state ? "ON" : "OFF");
 
     for (uint8_t i = 0; i < NUM_RELAYS; i++) {
         setRelay(i, state);
