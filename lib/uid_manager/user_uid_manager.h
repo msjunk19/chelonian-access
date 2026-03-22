@@ -2,8 +2,6 @@
 #include <EEPROM.h>
 #include <config.hpp>
 
-// static constexpr uint8_t UID_MAX_LEN = 7; // maximum UID length allowed
-
 class UserUIDManager {
 public:
     bool hasUserUIDs = false;
@@ -136,7 +134,7 @@ public:
                 }
 
                 EEPROM.commit();
-                Serial.print("UID removed: ");
+                Serial.print("User UID removed: ");
                 printUID(uid, len);
                 return true;
             }

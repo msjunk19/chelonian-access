@@ -5,8 +5,7 @@
 #include <Adafruit_PN532.h>
 #include <Arduino.h>
 #include "esp_log.h"
-
-#include "hard_uids.hpp"
+// #include "hard_uids.hpp"
 #include "globals.hpp"
 
 
@@ -142,19 +141,19 @@ bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
 //     return false;
 // }
 
-void RFIDController::addUID4B(const uint8_t* uid) {
-    if (m_num4BUIDs < MAX_4B_UIDS) {
-        memcpy(m_uids4B[m_num4BUIDs].data(), uid, 4);
-        m_num4BUIDs++;
-    }
-}
+// void RFIDController::addUID4B(const uint8_t* uid) {
+//     if (m_num4BUIDs < MAX_4B_UIDS) {
+//         memcpy(m_uids4B[m_num4BUIDs].data(), uid, 4);
+//         m_num4BUIDs++;
+//     }
+// }
 
-void RFIDController::addUID7B(const uint8_t* uid) {
-    if (m_num7BUIDs < MAX_7B_UIDS) {
-        memcpy(m_uids7B[m_num7BUIDs].data(), uid, 7);
-        m_num7BUIDs++;
-    }
-}
+// void RFIDController::addUID7B(const uint8_t* uid) {
+//     if (m_num7BUIDs < MAX_7B_UIDS) {
+//         memcpy(m_uids7B[m_num7BUIDs].data(), uid, 7);
+//         m_num7BUIDs++;
+//     }
+// }
 
 uint32_t RFIDController::getFirmwareVersion() {
     return m_nfc->getFirmwareVersion();
@@ -170,22 +169,22 @@ void RFIDController::printFirmwareVersion() {
 }
 
 
-void RFIDController::initializeDefaultUIDs() {
-    // Add all 4B UIDs
-    for (const auto& uid4b : TEST_UIDS_4B) {
-        addUID4B(uid4b.data());
-    }
+// void RFIDController::initializeDefaultUIDs() {
+//     // Add all 4B UIDs
+//     for (const auto& uid4b : TEST_UIDS_4B) {
+//         addUID4B(uid4b.data());
+//     }
 
-    // Add all 7B UIDs
-    for (const auto& uid7b : TEST_UIDS_7B) {
-        addUID7B(uid7b.data());
-    }
-}
+//     // Add all 7B UIDs
+//     for (const auto& uid7b : TEST_UIDS_7B) {
+//         addUID7B(uid7b.data());
+//     }
+// }
 
-bool RFIDController::compare4BUID(const uint8_t* uid1, const uint8_t* uid2) {
-    return memcmp(uid1, uid2, 4) == 0;
-}
+// bool RFIDController::compare4BUID(const uint8_t* uid1, const uint8_t* uid2) {
+//     return memcmp(uid1, uid2, 4) == 0;
+// }
 
-bool RFIDController::compare7BUID(const uint8_t* uid1, const uint8_t* uid2) {
-    return memcmp(uid1, uid2, 7) == 0;
-}
+// bool RFIDController::compare7BUID(const uint8_t* uid1, const uint8_t* uid2) {
+//     return memcmp(uid1, uid2, 7) == 0;
+// }

@@ -12,10 +12,10 @@
 #include "pin_mapping.hpp"
 
 
-#include "user_manager.hpp"
+// #include "user_manager.hpp"
 #include <master_uid_manager.h>
 
-static UserManager userManager;
+// static UserManager userManager;
 
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
@@ -51,7 +51,8 @@ void accessServiceSetup() {
     rfid.begin();
 
     rfid.printFirmwareVersion();
-    rfid.initializeDefaultUIDs();
+
+    // rfid.initializeDefaultUIDs();
 
     relays.begin();
 

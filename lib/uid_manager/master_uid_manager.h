@@ -63,7 +63,7 @@ public:
         }
 
         EEPROM.commit();
-        Serial.println("UIDs written/appended to EEPROM!");
+        Serial.println("Master UIDs written/appended to EEPROM!");
     }
 
     // Read all master UIDs
