@@ -18,11 +18,11 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
 
-    ESP_LOGE(TAG, "Chelonian Access Service");
-    ESP_LOGE(TAG, "Version 1.0.0");
-    ESP_LOGE(TAG, "Copyright (C) 2023 Derek Molloy");
-    ESP_LOGE(TAG, "Licensed under the MIT License");
-    ESP_LOGE(TAG, "Starting up!");
+    ESP_LOGV(TAG, "Chelonian Access Service");
+    ESP_LOGV(TAG, "Version 1.0.0");
+    ESP_LOGV(TAG, "Copyright (C) 2023 Derek Molloy");
+    ESP_LOGV(TAG, "Licensed under the MIT License");
+    ESP_LOGV(TAG, "Starting up!");
 
     ESP_LOGE("TEST", "ERROR");
     ESP_LOGW("TEST", "WARN");
