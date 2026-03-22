@@ -2,6 +2,9 @@
 #include <stdint.h>
 
 
+static constexpr uint8_t UID_MAX_LEN = 7; // maximum UID length allowed
+
+
 // Total EEPROM size
 static constexpr uint16_t EEPROM_SIZE = 256;
 

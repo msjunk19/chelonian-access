@@ -5,8 +5,6 @@
 
 //Logging levels corrected, only serial print in printUID, check later
 
-static constexpr uint8_t UID_MAX_LEN = 7; // maximum UID length allowed
-
 static const char* MASTERTAG = "MASTERUID";  // Add TAG definition
 
 
