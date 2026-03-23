@@ -153,12 +153,35 @@ inline void startAP() {
     // -------------------------
     // Web server setup
     inline void setupWebServer() {
-    server.on("/", HTTP_GET, []() {
-        File file = LittleFS.open("/index.html", "r");
+    // server.on("/", HTTP_GET, []() {
+    //     File file = LittleFS.open("/index.html", "r");
+    //     if (!file) {
+    //         server.send(200, "text/html", "<h1>Fallback page</h1>");
+    //         return;
+    //     }
+    //     server.streamFile(file, "text/html");
+    //     file.close();
+    // });
+        server.on("/", HTTP_GET, []() {
+        File file;
+        if (isSetupComplete()) {
+            // User AP → serve main user page
+            file = LittleFS.open("/control.html", "r");
+        } else {
+            // Default AP → serve setup page
+            file = LittleFS.open("/index.html", "r");
+        }
+
         if (!file) {
-            server.send(200, "text/html", "<h1>Fallback page</h1>");
+            // fallback inline page
+            if (isSetupComplete()) {
+                server.send(200, "text/html", "<h1>User AP Configured. User page missing!</h1>");
+            } else {
+                server.send(200, "text/html", "<h1>Default AP. Setup page missing!</h1>");
+            }
             return;
         }
+
         server.streamFile(file, "text/html");
         file.close();
     });
@@ -228,6 +251,41 @@ inline void startAP() {
     server.onNotFound([]() {
         server.sendHeader("Location", "/", true);
         server.send(302, "text/plain", "");
+    });
+
+        // -----------------------------
+    // // Catch-all redirect or forbidden
+    // server.onNotFound([]() {
+    //     // Decide: fallback AP = redirect to index.html, user AP = 403
+    //     if (isSetupComplete()) {
+    //         // User-configured AP → 403 for unknown paths
+    //         server.send(403, "text/html", "<h1>403 Forbidden</h1><p>Access denied.</p>");
+    //     } else {
+    //         // Fallback AP → redirect to setup page
+    //         server.sendHeader("Location", "/", true);
+    //         server.send(302, "text/plain", "");
+    //     }
+    // });
+
+    // LittleFS Version
+    // Catch-all: redirect or show 403
+    server.onNotFound([]() {
+        if (isSetupComplete()) {
+            // User-configured AP → show cute bunny 403 page
+            File file = LittleFS.open("/403.html", "r");
+            if (!file) {
+                // fallback inline 403
+                server.send(403, "text/html",
+                            "<h1>403 Forbidden 🐰</h1><p>How did you get down my bunny trail?! Hop back to the proper pages. 🥕🐾</p>");
+            } else {
+                server.streamFile(file, "text/html");
+                file.close();
+            }
+        } else {
+            // Default AP → always redirect to setup page
+            server.sendHeader("Location", "/", true);
+            server.send(302, "text/plain", "");
+        }
     });
 
     server.begin();
