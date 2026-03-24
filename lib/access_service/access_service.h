@@ -1,12 +1,8 @@
-#pragma once
-
 #include <stdint.h>
-#include "audio_controller.h"
-#include "relay_controller.h"
-#include "rfid_controller.h"
-#include "led_controller.h"
-
-#include "config.hpp"
+#include <audio_controller.h>
+#include <relay_controller.h>
+#include <rfid_controller.h>
+#include <config.hpp>
 
 // State and configuration
 extern RFIDController rfid;
