@@ -15,11 +15,11 @@ constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, 0, LEDColor::WHITE 
 constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::ORANGE };
 // constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::AMBER };
 
-constexpr LEDState SYSTEM_SCANNING   = { PATTERN_FAST_BLINK, 0, LEDColor::BLUE };
-constexpr LEDState WIFI_CONNECTING   = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
-constexpr LEDState WIFI_CONNECTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
+// constexpr LEDState SYSTEM_SCANNING   = { PATTERN_FAST_BLINK, 0, LEDColor::BLUE };
+// constexpr LEDState WIFI_CONNECTING   = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
+// constexpr LEDState WIFI_CONNECTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
 constexpr LEDState WAITING_TIMEOUT   = { PATTERN_SLOW_BLINK, 0, LEDColor::ORANGE };
-constexpr LEDState POWER_ON_FADE     = { PATTERN_BREATHING, 3000, LEDColor::WHITE };
+// constexpr LEDState POWER_ON_FADE     = { PATTERN_BREATHING, 3000, LEDColor::WHITE };
 constexpr LEDState POWERING_ON       = { PATTERN_SLOW_BLINK, 3000, LEDColor::BLUE };
 constexpr LEDState UNKNOWN_UID_TYPE  = { PATTERN_DOUBLE_BLINK, 0, LEDColor::ORANGE };
 
@@ -28,14 +28,14 @@ constexpr LEDState MASTER_CARD       = { PATTERN_FAST_BLINK, 0, LEDColor::PURPLE
 constexpr LEDState ACCESS_GRANTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
 constexpr LEDState ACCESS_DENIED     = { PATTERN_FIVE_BLINK, 0, LEDColor::RED };
 
-constexpr LEDState DOOR_UNLOCKED     = { PATTERN_SOLID, 5000, LEDColor::GREEN };
+// constexpr LEDState DOOR_UNLOCKED     = { PATTERN_SOLID, 5000, LEDColor::GREEN };
 
-constexpr LEDState BRUTE_FORCE_LOCK  = { PATTERN_SOS, 0, LEDColor::RED };
+// constexpr LEDState BRUTE_FORCE_LOCK  = { PATTERN_SOS, 0, LEDColor::RED };
 
 // Error Indicators
-constexpr LEDState ERROR_RFID        = { PATTERN_SOS, 0, LEDColor::RED };
-constexpr LEDState ERROR_AUDIO       = { PATTERN_FAST_BLINK, 0, LEDColor::PURPLE };
-constexpr LEDState ERROR_WIFI        = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
+// constexpr LEDState ERROR_RFID        = { PATTERN_SOS, 0, LEDColor::RED };
+// constexpr LEDState ERROR_AUDIO       = { PATTERN_FAST_BLINK, 0, LEDColor::PURPLE };
+// constexpr LEDState ERROR_WIFI        = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
 
 // Card Programming
 constexpr LEDState PROGRAMMING_MODE  = { PATTERN_FIVE_BLINK, 0, LEDColor::PURPLE };
