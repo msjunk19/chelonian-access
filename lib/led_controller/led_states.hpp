@@ -13,6 +13,8 @@ struct LEDState {
 constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, 0, LEDColor::WHITE };
 // constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::YELLOW };
 constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::ORANGE };
+// constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::AMBER };
+
 constexpr LEDState SYSTEM_SCANNING   = { PATTERN_FAST_BLINK, 0, LEDColor::BLUE };
 constexpr LEDState WIFI_CONNECTING   = { PATTERN_DOUBLE_BLINK, 0, LEDColor::YELLOW };
 constexpr LEDState WIFI_CONNECTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };

@@ -2,15 +2,22 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
-// Default NeoPixel colors
 namespace LEDColor {
-    constexpr uint32_t WHITE  = 0xFFFFFFFF;
+    constexpr uint32_t WHITE  = 0xFFFFFF; // R=255, G=255, B=255
     constexpr uint32_t RED    = 0xFF0000;
-    constexpr uint32_t GREEN  = 0x00FF00;
+    constexpr uint32_t GREEN  = 0x00B400; // 180 green
     constexpr uint32_t BLUE   = 0x0000FF;
-    constexpr uint32_t PURPLE = 0x800080;
-    constexpr uint32_t YELLOW = 0xFFFF00;
-    constexpr uint32_t ORANGE = 0xFFA500;
+    constexpr uint32_t PURPLE = 0xA000A0;
+
+    constexpr uint32_t YELLOW = 0xFFC800; // 255, 200, 0
+    // constexpr uint32_t ORANGE = 0xFF6400; // 255, 100, 0
+    constexpr uint32_t ORANGE = 0xFF6400; // 255, 10, 0
+
+    constexpr uint32_t AMBER  = 0xFF8C00; // 255, 140, 0
+    constexpr uint32_t GOLD   = 0xFFAA14; // 255, 170, 20
+
+    constexpr uint32_t CYAN   = 0x00B4B4; // 0, 180, 180
+    constexpr uint32_t PINK   = 0xFF64B4; // 255, 100, 180
 }
 
 enum LEDPattern {
