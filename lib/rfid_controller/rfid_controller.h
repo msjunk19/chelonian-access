@@ -1,9 +1,7 @@
-#pragma once
-#include <array>
-#include "pin_mapping.hpp"
-
 #include <Adafruit_PN532.h>
 #include <Arduino.h>
+#include <array>
+#include <pin_mapping.hpp>
 
 class RFIDController {
 public:

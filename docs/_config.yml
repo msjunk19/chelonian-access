@@ -3,7 +3,7 @@ title: "Chelonian Access"
 description: >-
   Modern, modular RFID Access System
 baseurl: "/chelonian-access"
-url: "https://dapperdivers.github.io"
+url: "https://msjunk.github.io"
 
 # Theme
 remote_theme: just-the-docs/just-the-docs
@@ -14,12 +14,12 @@ search_enabled: true
 search_tokenizer_separator: /[\s/]+/
 
 # Footer content
-footer_content: "Copyright &copy; 2025 DapperDivers. MIT License."
+footer_content: "Copyright &copy; 2025 DapperDivers, 2026 msjunk19. MIT License."
 
 # External links
 aux_links:
   "GitHub Repository":
-    - "//github.com/dapperdivers/chelonian-access"
+    - "//github.com/msjunk19/chelonian-access"
 
 # Navigation structure
 nav_order_separator: 1000

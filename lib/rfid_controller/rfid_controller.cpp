@@ -5,7 +5,6 @@
 #include <Adafruit_PN532.h>
 #include <Arduino.h>
 #include "esp_log.h"
-// #include "hard_uids.hpp"
 #include "globals.hpp"
 
 //Logging levels corrected
@@ -115,74 +114,3 @@ void RFIDController::printFirmwareVersion() {
             (versiondata >> 16) & 0xFF,
             (versiondata >> 8) & 0xFF);
 }
-
-
-
-// bool RFIDController::validateUID(const uint8_t* uid, uint8_t uidLength) {
-//     ESP_LOGE(TAG, "%lu ms - Validating UID=", millis());
-//     char uidStrValidate[50] = "";
-//     for (uint8_t i = 0; i < uidLength; i++) {
-//         char hexBuf[5];
-//         sprintf(hexBuf, "%02X:", uid[i]);
-//         strcat(uidStrValidate, hexBuf);
-//     }
-//     uidStrValidate[strlen(uidStrValidate) - 1] = '\0';  // Remove last colon
-//     ESP_LOGE(TAG, "%s", uidStrValidate);
-
-//     if (uidLength == 4) {
-//         for (uint8_t i = 0; i < m_num4BUIDs; i++) {
-//             if (compare4BUID(m_uids4B[i].data(), uid)) {
-//                 ESP_LOGE(TAG, " - Authentication successful (4B)");
-//                 return true;
-//             }
-//         }
-//     } else if (uidLength == 7) {
-//         for (uint8_t i = 0; i < m_num7BUIDs; i++) {
-//             if (compare7BUID(m_uids7B[i].data(), uid)) {
-//                 ESP_LOGE(TAG, " - Authentication successful (7B)");
-//                 return true;
-//             }
-//         }
-//     } else {
-//         ESP_LOGW(TAG, " - Authentication failed: Invalid UID length");
-//         return false;
-//     }
-
-//     ESP_LOGW(TAG, " - Authentication failed: No matching UID");
-//     return false;
-// }
-
-// void RFIDController::addUID4B(const uint8_t* uid) {
-//     if (m_num4BUIDs < MAX_4B_UIDS) {
-//         memcpy(m_uids4B[m_num4BUIDs].data(), uid, 4);
-//         m_num4BUIDs++;
-//     }
-// }
-
-// void RFIDController::addUID7B(const uint8_t* uid) {
-//     if (m_num7BUIDs < MAX_7B_UIDS) {
-//         memcpy(m_uids7B[m_num7BUIDs].data(), uid, 7);
-//         m_num7BUIDs++;
-//     }
-// }
-
-
-// void RFIDController::initializeDefaultUIDs() {
-//     // Add all 4B UIDs
-//     for (const auto& uid4b : TEST_UIDS_4B) {
-//         addUID4B(uid4b.data());
-//     }
-
-//     // Add all 7B UIDs
-//     for (const auto& uid7b : TEST_UIDS_7B) {
-//         addUID7B(uid7b.data());
-//     }
-// }
-
-// bool RFIDController::compare4BUID(const uint8_t* uid1, const uint8_t* uid2) {
-//     return memcmp(uid1, uid2, 4) == 0;
-// }
-
-// bool RFIDController::compare7BUID(const uint8_t* uid1, const uint8_t* uid2) {
-//     return memcmp(uid1, uid2, 7) == 0;
-// }
