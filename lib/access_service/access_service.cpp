@@ -38,10 +38,17 @@ void accessServiceSetup() {
     relays.begin();
 
     if (audio.begin()) {
-        audio.setVolume(20);
-        delay(500);
-        audio.playTrack(AudioContoller::SOUND_STARTUP);
+    audio.setVolume(AUDIO_DEFAULT_VOLUME);
+
+    // wait up to 500ms for the controller to be ready, non-blocking-ish
+    unsigned long start = millis();
+    while (millis() - start < 500) {
+        // tiny sleep to yield CPU to other tasks
+        delay(1);  
     }
+
+    audio.playTrack(AudioContoller::SOUND_STARTUP);
+}
 
     ESP_LOGI(TAG, "Waiting for an ISO14443A card");
     markUserActivity(state);

@@ -57,3 +57,5 @@ static const uint32_t DETECTION_COOLDOWN_MS = 1000; // adjust (500–1500ms work
 
 // Set a short timeout (150 ms) to avoid blocking the loop, 20ms works but needs to be longer to read implants. 150 is working currently. Adjust as needed for implant.
 constexpr uint16_t RFID_READ_TIMEOUT_MS = 150;
+
+const unsigned long AUDIO_DEFAULT_VOLUME = 20;

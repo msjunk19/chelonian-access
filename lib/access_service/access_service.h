@@ -26,6 +26,14 @@ struct AccessLoopState {
     bool scanned = false;
     bool audioQueued = false;
     uint8_t queuedSound = 0;
+    // // Add this somewhere in your class or global state
+    // unsigned long audioStartupTime = 0;
+    // bool audioStartupPlayed = false;
+    // bool audioStartupScheduled = false;
+    // bool audioInitialized = false;
+
+// static unsigned long audioStartupTime = 0;
+// static bool audioStartupScheduled = false;
 
     // Timing
     unsigned long startTime = 0;
