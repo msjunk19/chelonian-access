@@ -162,11 +162,73 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 }
 
 
+// static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
+//     if (!state.userProgrammingModeActive) return false;
+
+//     unsigned long now = millis();
+
+//     // state.impatientEnabled = false;
+
+//     bool cardDetected = rfid.readCard(uid, &uidLength);
+
+//     if (cardDetected) {
+//         state.userProgLastActivityTime = now;
+//         state.userProgWarningGiven = false;
+//         // state.impatient = false;
+
+//         if (masterUidManager.checkUID(uid, uidLength)) {
+//             ESP_LOGV(TAG, "Master card detected - ignore during user programming mode");
+            
+//             return true;
+//         }
+
+//         while (rfid.readCard(uid, &uidLength)) {
+//             delay(50);
+//         }
+
+//         if (!userUidManager.checkUID(uid, uidLength)) {
+//             userUidManager.addUID(uid, uidLength);
+//             LED_SET_SEQ(USER_ADDED);
+//         } else {
+//             userUidManager.removeUID(uid, uidLength);
+//             LED_SET_SEQ(USER_REMOVED);
+//         }
+
+//         return true;
+//     }
+
+//     // Warning stage
+//     if (!state.userProgWarningGiven && (now - state.userProgLastActivityTime > WARNING_TIMEOUT)) {
+//         state.userProgWarningGiven = true;
+
+//         ESP_LOGW(TAG, "Programming Mode Idle...Will Time Out Soon");
+        
+//         // PLAY_SOUND(PROGRAMMING_TIMEOUT_WARNING);
+        
+//         // LED_SET_SEQ(PROGRAMMING_WARNING);
+//         LED_SET_SEQ(PLACEHOLDER);
+//     }
+
+//     // Exit stage
+//     if (now - state.userProgLastActivityTime > EXIT_TIMEOUT) {
+//         ESP_LOGW(TAG, "Exiting User Programming Mode");
+//         state.userProgrammingModeActive = false;
+
+//         // PLAY_SOUND(PROGRAMMING_EXIT);
+//         // LED_SET_SEQ(IDLE);
+//         LED_SET_SEQ(PLACEHOLDER);
+//         return false;
+//     }
+//     return true;
+// }
 static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!state.userProgrammingModeActive) return false;
 
-    unsigned long now = millis();
+    // Disable impatient timer while in programming mode
+    state.impatientEnabled = false;  // stops the normal impatience loop
+    state.impatient = false;         // reset any current impatience state
 
+    unsigned long now = millis();
     bool cardDetected = rfid.readCard(uid, &uidLength);
 
     if (cardDetected) {
@@ -175,10 +237,10 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
 
         if (masterUidManager.checkUID(uid, uidLength)) {
             ESP_LOGV(TAG, "Master card detected - ignore during user programming mode");
-            
             return true;
         }
 
+        // Ensure the card is fully removed
         while (rfid.readCard(uid, &uidLength)) {
             delay(50);
         }
@@ -197,12 +259,7 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     // Warning stage
     if (!state.userProgWarningGiven && (now - state.userProgLastActivityTime > WARNING_TIMEOUT)) {
         state.userProgWarningGiven = true;
-
         ESP_LOGW(TAG, "Programming Mode Idle...Will Time Out Soon");
-        
-        // PLAY_SOUND(PROGRAMMING_TIMEOUT_WARNING);
-        
-        // LED_SET_SEQ(PROGRAMMING_WARNING);
         LED_SET_SEQ(PLACEHOLDER);
     }
 
@@ -211,11 +268,13 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         ESP_LOGW(TAG, "Exiting User Programming Mode");
         state.userProgrammingModeActive = false;
 
-        // PLAY_SOUND(PROGRAMMING_EXIT);
-        // LED_SET_SEQ(IDLE);
+        // Re-enable impatience timer for normal operation
+        state.impatientEnabled = true;
+
         LED_SET_SEQ(PLACEHOLDER);
         return false;
     }
+
     return true;
 }
 
