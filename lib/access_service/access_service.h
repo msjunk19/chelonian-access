@@ -75,3 +75,4 @@ void handleMasterCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state);
 void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state);
 void handleImpatienceTimer(AccessLoopState &state);
 void markUserActivity(AccessLoopState &state);
+void disableImpatience(AccessLoopState &state);

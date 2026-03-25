@@ -456,7 +456,8 @@ if (state.impatientEnabled &&
 {
     state.impatient = true;
 
-    ESP_LOGW(TAG, " %ds elapsed, playing waiting sound", IMPATIENCE_TIMEOUT / 1000);
+    ESP_LOGW(TAG, " %ds elapsed, notifying", IMPATIENCE_TIMEOUT / 1000);
+    LED_SET_SEQ(SYSTEM_IDLE);
     audio.playTrack(AudioContoller::SOUND_WAITING);
 }
 }
@@ -466,4 +467,12 @@ void markUserActivity(AccessLoopState& state)
     state.lastActivityTime = millis();
     state.impatient = false;
     ESP_LOGI(TAG, "No User Interaction...Timer Starting...");
+}
+
+void disableImpatience(AccessLoopState& state)
+{
+    // Disable impatient timer while in programming mode
+    state.impatientEnabled = false;  // stops the normal impatience loop
+    state.impatient = false;         // reset any current impatience state
+    ESP_LOGI(TAG, "Disabling Impatience Timer...");
 }
