@@ -59,7 +59,7 @@ It is designed to unlock vehicle doors (or other access points) via **RFID cards
 | Component | Notes |
 |-----------|-------|
 | ESP32-C3 SuperMini | MCU |
-| PN532 | RFID reader (I2C or SPI interface) |
+| PN532 | RFID reader (SPI interface) |
 | 4-channel relay module | Relay 1 triggers door unlock |
 | JQ6500 | Audio module (optional; speaker can be disconnected) |
 | Mini360 buck converter | Stable 3.3V/5V power supply |
