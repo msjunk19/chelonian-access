@@ -369,14 +369,18 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
             state.invalidAttempts = 0;
         }
     } else {
-        ESP_LOGW(TAG, "Invalid card attempt #%u", state.invalidAttempts + 1);
+        uint32_t delayMs = (invalidDelays[state.invalidAttempts] * 1000) + 3000;
+        state.invalidTimeoutEnd = millis() + delayMs;
+
+        ESP_LOGW(TAG, "Invalid card attempt #%u, please wait %u seconds before trying again",
+            state.invalidAttempts + 1, delayMs / 1000);
+
         if (!led.isRunning() && !state.audioQueued) {
             LED_SET_SEQ(ACCESS_DENIED);
             state.queuedSound = (state.invalidAttempts == 0) ? AudioContoller::SOUND_DENIED_1 :
                                  (state.invalidAttempts == 1) ? AudioContoller::SOUND_DENIED_2 :
                                                            AudioContoller::SOUND_DENIED_3;
             state.audioQueued = true;
-            state.invalidTimeoutEnd = millis() + (invalidDelays[state.invalidAttempts] * 1000) + 3000;
             if (state.invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) state.invalidAttempts++;
 
             markUserActivity(state);
