@@ -389,7 +389,7 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
         state.lastMasterUIDLen = uidLength;
         state.masterStartTime = now;
         state.masterPresent = true;
-
+        LED_SET_SEQ(MASTER_CARD);
         ESP_LOGI(TAG, "Master card detected - hold started");
     }
 
@@ -426,6 +426,9 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
             state.audioQueued = true;
             activateRelays();
             state.invalidAttempts = 0;
+            // Disable impatient timer after access granted
+            state.impatientEnabled = false;  // stops the normal impatience loop
+            state.impatient = false;         // reset any current impatience state
         }
     } else {
         uint32_t delayMs = (invalidDelays[state.invalidAttempts] * 1000) + 3000;
