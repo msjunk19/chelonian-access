@@ -117,15 +117,15 @@ It is designed to unlock vehicle doors (or other access points) via **RFID cards
 Full documentation is organized in `/docs`:
 
 docs/
-├── 00-introduction.md
-├── 01-getting-started.md
-├── 02-hardware-overview.md
-├── 03-software-architecture.md
-├── 04-current-features.md
-├── 05-roadmap.md
-├── 06-contributing.md
-├── 07-faq.md - not yet implemented
-└── 08-troubleshooting.md - not yet implemented
+├── [00-introduction.md](docs/00-introduction.md)
+├── [01-getting-started.md](docs/01-getting-started.md)
+├── [02-hardware-overview.md](docs/02-hardware-overview.md)
+├── [03-software-architecture.md](docs/03-software-architecture.md)
+├── [04-current-features.md](docs/04-current-features.md)
+├── [05-roadmap.md](docs/05-roadmap.md)
+├── [06-contributing.md](docs/06-contributing.md)
+├── [07-faq.md](docs/07-faq.md) (not yet implemented)
+└── [08-troubleshooting.md](docs/08-troubleshooting.md) (not yet implemented)
 
 - **Current features**: Only stable, tested functionality  
 - **Roadmap**: Planned enhancements, clearly marked  
