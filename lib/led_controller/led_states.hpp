@@ -26,7 +26,10 @@ constexpr LEDState UNKNOWN_UID_TYPE  = { PATTERN_DOUBLE_BLINK, 0, LEDColor::ORAN
 // Access Control Indicators
 constexpr LEDState MASTER_CARD       = { PATTERN_FAST_BLINK, 0, LEDColor::PURPLE };
 constexpr LEDState ACCESS_GRANTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
+// constexpr LEDState ACCESS_DENIED     = { PATTERN_FIVE_BLINK, 0, LEDColor::RED };
+
 constexpr LEDState ACCESS_DENIED     = { PATTERN_FIVE_BLINK, 0, LEDColor::RED };
+
 
 // constexpr LEDState DOOR_UNLOCKED     = { PATTERN_SOLID, 5000, LEDColor::GREEN };
 

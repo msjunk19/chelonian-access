@@ -11,6 +11,7 @@ static const char* TAG = "ACCESS";  // Add TAG definition
 
 // Instantiate controllers
 
+// LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
 
@@ -26,17 +27,10 @@ static AccessLoopState state;
 
 void accessServiceSetup() {
     led.begin();
-    ESP_LOGI(TAG, "LED begin done");
-    // Test a basic flash to confirm LED hardware works immediately
     LED_SET_SEQ(SYSTEM_READY);
-    ESP_LOGI(TAG, "Test flash sequence triggered");
-
-
     rfid.begin();
     rfid.printFirmwareVersion();
-
     relays.begin();
-
     if (audio.begin()) {
     audio.setVolume(AUDIO_DEFAULT_VOLUME);
 
@@ -46,13 +40,11 @@ void accessServiceSetup() {
         // tiny sleep to yield CPU to other tasks
         delay(1);  
     }
-
+    ESP_LOGI(TAG, "System Boot Complete...");
     audio.playTrack(AudioContoller::SOUND_STARTUP);
 }
-
     ESP_LOGI(TAG, "Waiting for an ISO14443A card");
     markUserActivity(state);
-
 }
 
 void handleRelaySequence() {
@@ -267,10 +259,8 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (now - state.userProgLastActivityTime > EXIT_TIMEOUT) {
         ESP_LOGW(TAG, "Exiting User Programming Mode");
         state.userProgrammingModeActive = false;
-
         // Re-enable impatience timer for normal operation
         state.impatientEnabled = true;
-
         LED_SET_SEQ(PLACEHOLDER);
         return false;
     }

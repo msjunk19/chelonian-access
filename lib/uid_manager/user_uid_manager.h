@@ -59,8 +59,8 @@ public:
                 pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
             }
 
-            // Single-line log for master UID
-            ESP_LOGI(USERTAG, "Master UID #%u (length %u): %s", index++, len, uidStr);
+            // Single-line log for User UID
+            ESP_LOGI(USERTAG, "User UID #%u (length %u): %s", index++, len, uidStr);
             
             }
 
