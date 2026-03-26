@@ -88,6 +88,7 @@ static void updateHardware() {
 }
 
 static bool handleBootProgrammingCheck() {
+    // ESP_LOGI(TAG, "Boot Programming Check Code Executing...");
     static bool bootChecked = false;
     static bool bootMasterProgrammingMode = false; //2
 
@@ -98,6 +99,7 @@ static bool handleBootProgrammingCheck() {
             LED_SET_SEQ(PROGRAMMING_MODE);
         }
         bootChecked = true;
+        disableImpatience(state);
     }
     return false; // does not early-exit loop
 }
@@ -116,6 +118,7 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
     // 🟢 STEP 1: Detect card ONCE
     if (!waitingForRemoval) {
+
         if (cardDetected) {
 
             storedLength = uidLength > sizeof(storedUID) ? sizeof(storedUID) : uidLength;
@@ -130,6 +133,7 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
             ESP_LOGI(TAG, "Detected New Master Card: UID: %s", uidStr);
 
             waitingForRemoval = true;
+
             LED_SET_SEQ(MASTER_CARD_SET);
         }
     }
@@ -141,11 +145,11 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
             uint8_t lengths[] = {storedLength};
 
             masterUidManager.writeUIDs(uids, lengths, 1);
+            yield(); // feed the WDT
 
             masterUidManager.hasMasterUIDs = true;
             masterProgrammingMode = false;
             waitingForRemoval = false;
-
             ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
         }
     }
