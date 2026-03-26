@@ -52,3 +52,9 @@ static const uint32_t DETECTION_COOLDOWN_MS = 1000; // adjust (500–1500ms work
 constexpr uint16_t RFID_READ_TIMEOUT_MS = 150;
 
 const unsigned long AUDIO_DEFAULT_VOLUME = 20;
+
+
+// Phone auth
+static constexpr uint8_t MAX_PAIRED_PHONES = 10;
+static constexpr uint8_t PHONE_SECRET_LEN  = 32;
+static constexpr uint8_t PHONE_ID_MAX_LEN  = 36; // standard UUID length

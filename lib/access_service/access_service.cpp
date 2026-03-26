@@ -97,9 +97,10 @@ static bool handleBootProgrammingCheck() {
             ESP_LOGW(TAG, "No Master UID Stored. Enter Master Programming Mode.");
             bootMasterProgrammingMode = true;
             LED_SET_SEQ(PROGRAMMING_MODE);
+        // disableImpatience(state);
+
         }
         bootChecked = true;
-        disableImpatience(state);
     }
     return false; // does not early-exit loop
 }
@@ -113,6 +114,7 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
     static uint8_t storedLength = 0;
 
     if (!masterProgrammingMode) return false;
+    // disableImpatience(state);
 
     bool cardDetected = rfid.readCard(uid, &uidLength);
 
@@ -151,6 +153,8 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
             masterProgrammingMode = false;
             waitingForRemoval = false;
             ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
+            // ESP_LOGI(TAG, "Waiting for an ISO14443A card");
+            // markUserActivity(state);
         }
     }
 
@@ -224,6 +228,9 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     state.impatientEnabled = false;  // stops the normal impatience loop
     state.impatient = false;         // reset any current impatience state
 
+    // ESP_LOGI(TAG, "User Programming Mode. Disabling Impatience Timer");
+    // disableImpatience(state);
+
     unsigned long now = millis();
     bool cardDetected = rfid.readCard(uid, &uidLength);
 
@@ -264,6 +271,7 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         ESP_LOGW(TAG, "Exiting User Programming Mode");
         state.userProgrammingModeActive = false;
         // Re-enable impatience timer for normal operation
+        ESP_LOGI(TAG, "Exit Stage. Enabling Impatience Timer...");
         state.impatientEnabled = true;
         LED_SET_SEQ(PLACEHOLDER);
         return false;
@@ -421,6 +429,8 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
             activateRelays();
             state.invalidAttempts = 0;
             // Disable impatient timer after access granted
+            ESP_LOGI(TAG, "Access Granted. Disabling Impatience Timer");
+            // disableImpatience(state);
             state.impatientEnabled = false;  // stops the normal impatience loop
             state.impatient = false;         // reset any current impatience state
         }
@@ -440,12 +450,15 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
             if (state.invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) state.invalidAttempts++;
 
             markUserActivity(state);
+            // state.impatientEnabled = true;
         }
     }
 }
 
 
 // --- Impatience Timeout ---
+// Currently working. Impatient at boot with known MasterUID, Impatient after unknown tag, impatient after short master card hold, Not impatient after access granted, impatience disabled during programming mode
+// Not working. markUserActivity blocks programming mode boot announcements
 void handleImpatienceTimer(AccessLoopState &state) {
 if (state.impatientEnabled &&
     !state.impatient &&
@@ -459,11 +472,13 @@ if (state.impatientEnabled &&
 }
 }
 
+// Not working. markUserActivity blocks programming mode boot announcements
 void markUserActivity(AccessLoopState& state)
 {
     state.lastActivityTime = millis();
+    // state.impatientEnabled = true;
     state.impatient = false;
-    ESP_LOGI(TAG, "No User Interaction...Timer Starting...");
+    ESP_LOGI(TAG, "FUNCTION: No User Interaction...Timer Starting...");
 }
 
 void disableImpatience(AccessLoopState& state)

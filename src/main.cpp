@@ -5,11 +5,21 @@
 #include <globals.hpp>
 #include <config.hpp>
 #include <eeprom_utils.hpp>
-#include <setup_ap.h>
+// #include <setup_ap.h>
+#include <wifi_manager.hpp>
 #include "webserver_manager.h"
+#include <pairing_button.hpp>
+
+// Instances — defined once here, extern'd everywhere else
 
 MasterUIDManager masterUidManager; //global updated
 UserUIDManager userUidManager; 
+
+PhoneTokenManager phoneTokenManager;
+AuthManager authManager(phoneTokenManager);
+
+PairingButton pairingButton;
+
 
 static const char* TAG = "Main";
 
@@ -36,11 +46,27 @@ void setup() {
     // masterUidManager.clearMasters();
     // while(true);
 
+    pairingButton.begin();
+
     startAP();
 
 
     // Setup web server routes (for first-time configuration)
-    setupWebServer();
+    // setupWebServer();
+    setupWebServer([](PhoneCommand cmd) {
+    switch (cmd) {
+        case PhoneCommand::UNLOCK:
+            // your relay unlock call
+            break;
+        case PhoneCommand::LOCK:
+            // your relay lock call
+            break;
+        case PhoneCommand::STATUS:
+            break;
+        default:
+            break;
+    }
+});
     
     Serial.println("Setup complete. AP running.");
 
@@ -50,10 +76,17 @@ void setup() {
 
     accessServiceSetup();
 
+
+        
+    phoneTokenManager.readPhones();
+    
+    // openPairingWindow(); // TEMP — remove after testing
+
 }
 
 void loop() {
     // Call the main service loop
+    pairingButton.update();
     accessServiceLoop();
     handleClient();
 }
