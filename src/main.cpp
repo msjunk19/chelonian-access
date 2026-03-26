@@ -33,18 +33,8 @@ void setup() {
 
     delay(1000);
 
-    // Init EEPROM, Check for Master UIDs
-    EEPROM.begin(EEPROM_SIZE);
-
-    // clearEntireEEPROM(); 
-    // while (true); // stop here so it doesn't run normal code 
-
-    // Start AP (either default or saved credentials)
-    
-    // if (!LittleFS.begin()) {
-    // Serial.println("LittleFS mount failed");
-    // return;
-    // }
+    // masterUidManager.clearMasters();
+    // while(true);
 
     startAP();
 

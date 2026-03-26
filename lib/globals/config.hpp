@@ -9,31 +9,24 @@ static constexpr uint8_t UID_MAX_LEN = 7; // maximum UID length allowed
 constexpr char DEFAULT_SSID[] = "AC_FALLBACK_AP";
 constexpr char DEFAULT_PASS[] = "default1234";
 
+// EEPROM SETTINGS, ON HOLD
+// Total EEPROM size
+// static constexpr uint16_t EEPROM_SIZE = 512;
 
-// // Total EEPROM size
-// static constexpr uint16_t EEPROM_SIZE = 256;
-
-// // Split regions
 // static constexpr uint16_t MASTER_START = 0;
 // static constexpr uint16_t MASTER_SIZE  = 64;
 
 // static constexpr uint16_t USER_START   = 64;
-// static constexpr uint16_t USER_SIZE    = 192;
+// static constexpr uint16_t USER_SIZE    = 384;
 
-// Total EEPROM size
-static constexpr uint16_t EEPROM_SIZE = 512;
+// static constexpr uint16_t AP_START     = 448;
+// static constexpr uint16_t AP_MAGIC_ADDR= 448;
+// static constexpr uint8_t  AP_MAGIC_VALUE = 0xA5; // arbitrary "magic" byte
+// static constexpr uint16_t AP_SSID_ADDR = 449;
+// static constexpr uint16_t AP_PASS_ADDR = 481;
 
-static constexpr uint16_t MASTER_START = 0;
-static constexpr uint16_t MASTER_SIZE  = 64;
-
-static constexpr uint16_t USER_START   = 64;
-static constexpr uint16_t USER_SIZE    = 384;
-
-static constexpr uint16_t AP_START     = 448;
-static constexpr uint16_t AP_MAGIC_ADDR= 448;
-static constexpr uint8_t  AP_MAGIC_VALUE = 0xA5; // arbitrary "magic" byte
-static constexpr uint16_t AP_SSID_ADDR = 449;
-static constexpr uint16_t AP_PASS_ADDR = 481;
+static constexpr uint8_t MAX_MASTER_UIDS = 10;
+static constexpr uint8_t MAX_USER_UIDS = 24; 
 
 // Relay Related Variables
 const unsigned long RELAY_COUNT = 4; //How many relays are connected
