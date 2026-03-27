@@ -1,13 +1,16 @@
 #pragma once
 #include <Arduino.h>
 #include <esp_log.h>
+#include <led_states.hpp>
 #include <wifi_auth_endpoints.hpp>
+// #include <led_states.hpp>
 
 static const char* BTNTAG = "PAIRBUTTON";
 
 static constexpr uint8_t  PAIRING_BUTTON_PIN   = 9;
 static constexpr uint32_t PAIRING_HOLD_MS       = 3000;  // 3s hold to open pairing
 // static constexpr uint32_t FACTORY_RESET_HOLD_MS = 10000; // 10s hold — TODO
+// LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10 . this needs to move to a global
 
 class PairingButton {
 public:
@@ -42,6 +45,7 @@ public:
                     _actionFired = true;
                     ESP_LOGI(BTNTAG, "Pairing hold detected (%lums)", heldMs);
                     openPairingWindow();
+                    LED_SET_SEQ(SYSTEM_PAIR);
                 }
             }
         } else {

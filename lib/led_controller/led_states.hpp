@@ -1,6 +1,8 @@
 #pragma once
 #include "led_controller.h"
 
+// LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
+
 // --- LED State Mapping ---
 // Duration 0 means indefinite (until another pattern is set)
 struct LEDState {
@@ -13,6 +15,8 @@ struct LEDState {
 constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, 0, LEDColor::WHITE };
 // constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::YELLOW };
 constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::ORANGE };
+constexpr LEDState SYSTEM_PAIR       = { PATTERN_FAST_BLINK, 10000, LEDColor::BLUE };
+
 // constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::AMBER };
 
 // constexpr LEDState SYSTEM_SCANNING   = { PATTERN_FAST_BLINK, 0, LEDColor::BLUE };

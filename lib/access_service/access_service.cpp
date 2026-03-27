@@ -13,7 +13,7 @@ static const char* TAG = "ACCESS";  // Add TAG definition
 
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
-LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
+// LEDController led(0, true, PN_NEOPIXEL); //Neopixel on pin 10
 
 RFIDController rfid;
 RelayController relays;
