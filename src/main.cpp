@@ -54,19 +54,19 @@ void setup() {
     // Setup web server routes (for first-time configuration)
     // setupWebServer();
     setupWebServer([](PhoneCommand cmd) {
-    switch (cmd) {
-        case PhoneCommand::UNLOCK:
-            // your relay unlock call
-            break;
-        case PhoneCommand::LOCK:
-            // your relay lock call
-            break;
-        case PhoneCommand::STATUS:
-            break;
-        default:
-            break;
-    }
-});
+        switch (cmd) {
+            case PhoneCommand::UNLOCK:
+                activateRelays();
+                break;
+            case PhoneCommand::LOCK:
+                // TODO: add deactivateRelays() or similar when you implement re-locking
+                break;
+            case PhoneCommand::STATUS:
+                break;
+            default:
+                break;
+        }
+    });
     
     Serial.println("Setup complete. AP running.");
 
