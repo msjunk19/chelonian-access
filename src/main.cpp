@@ -10,8 +10,13 @@
 #include "webserver_manager.h"
 #include <pairing_button.hpp>
 
-// Instances — defined once here, extern'd everywhere else
 
+
+// LED Selection, only use one. 
+// LEDController led(PN_LED); //Single Color LED on pin 8
+LEDController led(0, true, PN_NEOPIXEL);  // definition lives here
+
+// Instances — defined once here, extern'd everywhere else
 MasterUIDManager masterUidManager; //global updated
 UserUIDManager userUidManager; 
 
@@ -49,10 +54,6 @@ void setup() {
     pairingButton.begin();
 
     startAP();
-
-
-    // Setup web server routes (for first-time configuration)
-    // setupWebServer();
     setupWebServer([](PhoneCommand cmd) {
         switch (cmd) {
             case PhoneCommand::UNLOCK:
@@ -73,14 +74,10 @@ void setup() {
 
     masterUidManager.readUIDs();
     userUidManager.readUIDs();
-
-    accessServiceSetup();
-
-
-        
     phoneTokenManager.readPhones();
-    
-    // openPairingWindow(); // TEMP — remove after testing
+
+    accessServiceSetup();   
+
 
 }
 
