@@ -9,6 +9,7 @@
 #include <wifi_manager.hpp>
 #include "webserver_manager.h"
 #include <pairing_button.hpp>
+#include <auth_manager.hpp>
 
 
 
@@ -21,7 +22,7 @@ MasterUIDManager masterUidManager; //global updated
 UserUIDManager userUidManager; 
 
 PhoneTokenManager phoneTokenManager;
-AuthManager authManager(phoneTokenManager);
+// AuthManager authManager(phoneTokenManager);
 
 PairingButton pairingButton;
 

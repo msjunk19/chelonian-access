@@ -7,12 +7,9 @@
         body {
             font-family: Arial;
             text-align: center;
-            margin-top: 50px;
             max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 50px auto;
         }
-
         h2 {
             color: #555;
             font-size: 16px;
@@ -20,66 +17,41 @@
             border-top: 1px solid #ddd;
             padding-top: 20px;
         }
-
         button {
             font-size: 20px;
             padding: 15px 30px;
             margin: 10px;
             width: 80%;
             cursor: pointer;
-        }
-
-        #pairBtn {
-            background-color: #4CAF50;
-            color: white;
             border: none;
             border-radius: 8px;
         }
-
-        #pairBtn:disabled {
-            background-color: #aaa;
-            cursor: not-allowed;
-        }
-
-        #unpairBtn {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            display: none; /* hidden until paired */
-        }
-
-        #status {
-            margin-top: 20px;
-            font-size: 16px;
-            color: #333;
-        }
-
-        #pairStatus {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
-        }
+        #pairBtn   { background-color: #4CAF50; color: white; }
+        #unpairBtn { background-color: #e74c3c; color: white; }
+        #unlockBtn { background-color: #3498db; color: white; }
+        #lockBtn   { background-color: #888;    color: white; }
+        button:disabled { background-color: #aaa; cursor: not-allowed; }
+        #status     { margin-top: 20px; font-size: 16px; color: #333; }
+        #pairStatus { margin-top: 10px; font-size: 14px; color: #666; }
     </style>
 </head>
 <body>
-
     <h1>Access Controller</h1>
 
-    <!-- Existing functionality -->
     <h2>Card Simulation</h2>
     <button onclick="simulateAccess()">Simulate Valid Card</button>
     <p id="status">Status: Idle</p>
 
-    <!-- Pairing section -->
     <h2>Phone Pairing</h2>
     <p id="pairStatus">Checking pairing status...</p>
-    <button id="pairBtn" onclick="pairDevice()">Pair This Device</button>
-    <button id="unpairBtn" onclick="unpairDevice()">Unpair This Device</button>
+    <button id="pairBtn"   onclick="pairDevice()">Pair This Device</button>
+    <button id="unpairBtn" onclick="unpairDevice()" style="display:none">Unpair This Device</button>
+
+    <h2>Control</h2>
+    <button id="unlockBtn" onclick="sendCommand(1)">Unlock</button>
+    <button id="lockBtn"   onclick="sendCommand(2)">Lock</button>
 
     <script>
-        // -------------------------
-        // Existing simulate function
         function simulateAccess() {
             fetch('/api/simulate', { method: 'POST' })
                 .then(r => r.text())
@@ -91,10 +63,6 @@
                 });
         }
 
-        // -------------------------
-        // Pairing helpers
-
-        // Generate a UUID v4
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
                 const r = Math.random() * 16 | 0;
@@ -102,94 +70,56 @@
             });
         }
 
-        // HMAC-SHA256 using Web Crypto API (built into all modern browsers)
-        async function computeHMAC(secretHex, deviceId, timestamp, command) {
-            const secretBytes = hexToBytes(secretHex);
-            const key = await crypto.subtle.importKey(
-                "raw", secretBytes,
-                { name: "HMAC", hash: "SHA-256" },
-                false, ["sign"]
-            );
-
-            // Build message: deviceId + timestamp (4 bytes BE) + command
-            const idBytes  = new TextEncoder().encode(deviceId);
-            const tsBytes  = new Uint8Array(4);
-            new DataView(tsBytes.buffer).setUint32(0, timestamp, false); // big-endian
-            const cmdBytes = new Uint8Array([command]);
-
-            const message = new Uint8Array([...idBytes, ...tsBytes, ...cmdBytes]);
-            const sig     = await crypto.subtle.sign("HMAC", key, message);
-            return bytesToHex(new Uint8Array(sig));
-        }
-
-        function hexToBytes(hex) {
-            const bytes = new Uint8Array(hex.length / 2);
-            for (let i = 0; i < hex.length; i += 2)
-                bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-            return bytes;
-        }
-
-        function bytesToHex(bytes) {
-            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-
-        // -------------------------
-        // Storage — localStorage keeps secret on this browser/device
         function getStoredPairing() {
-            const id     = localStorage.getItem('device_id');
-            const secret = localStorage.getItem('device_secret');
-            return (id && secret) ? { id, secret } : null;
+            const id    = localStorage.getItem('device_id');
+            const token = localStorage.getItem('device_token');
+            return (id && token) ? { id, token } : null;
         }
 
-        function storePairing(deviceId, secret) {
+        function storePairing(deviceId, token) {
             localStorage.setItem('device_id', deviceId);
-            localStorage.setItem('device_secret', secret);
+            localStorage.setItem('device_token', token);
         }
 
         function clearPairing() {
             localStorage.removeItem('device_id');
-            localStorage.removeItem('device_secret');
+            localStorage.removeItem('device_token');
         }
 
-        // -------------------------
-        // UI state
         function setPairStatus(msg, paired) {
-            document.getElementById('pairStatus').innerText = msg;
-            document.getElementById('pairBtn').style.display    = paired ? 'none'  : 'inline-block';
-            document.getElementById('unpairBtn').style.display  = paired ? 'inline-block' : 'none';
+            document.getElementById('pairStatus').innerText    = msg;
+            document.getElementById('pairBtn').style.display   = paired ? 'none'         : 'inline-block';
+            document.getElementById('unpairBtn').style.display = paired ? 'inline-block' : 'none';
         }
 
         function checkPairingStatus() {
             const pairing = getStoredPairing();
             if (pairing) {
-                setPairStatus(`Paired — device ID: ${pairing.id.substring(0, 8)}...`, true);
+                setPairStatus(`Paired — ID: ${pairing.id.substring(0, 8)}...`, true);
             } else {
-                setPairStatus('Not paired. Hold pairing button on device (3s), then click Pair.', false);
+                setPairStatus('Not paired. Hold button on device (3s), then click Pair.', false);
             }
         }
 
-        // -------------------------
-        // Pair this browser/device
         async function pairDevice() {
             const btn = document.getElementById('pairBtn');
             btn.disabled = true;
             setPairStatus('Pairing...', false);
 
-            const deviceId  = generateUUID();
-            const timestamp = Math.floor(Date.now() / 1000);
+            const deviceId = generateUUID();
 
             try {
                 const resp = await fetch('/pair', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: deviceId, timestamp })
+                    body: JSON.stringify({ device_id: deviceId })
                 });
 
                 const data = await resp.json();
 
-                if (data.ok && data.secret) {
-                    storePairing(deviceId, data.secret);
-                    setPairStatus(`Paired — device ID: ${deviceId.substring(0, 8)}...`, true);
+                if (data.ok && data.token) {
+                    storePairing(deviceId, data.token);
+                    setPairStatus(`Paired — ID: ${deviceId.substring(0, 8)}...`, true);
                 } else {
                     setPairStatus(`Pairing failed: ${data.error || 'Unknown error'}`, false);
                 }
@@ -200,16 +130,9 @@
             btn.disabled = false;
         }
 
-        // -------------------------
-        // Unpair this browser/device
         async function unpairDevice() {
             const pairing = getStoredPairing();
             if (!pairing) { checkPairingStatus(); return; }
-
-            const timestamp = Math.floor(Date.now() / 1000);
-            const hmac      = await computeHMAC(
-                pairing.secret, pairing.id, timestamp, 0x04 // UNPAIR
-            );
 
             try {
                 const resp = await fetch('/unpair', {
@@ -217,8 +140,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         device_id: pairing.id,
-                        timestamp,
-                        hmac
+                        token: pairing.token
                     })
                 });
 
@@ -234,8 +156,6 @@
             }
         }
 
-        // -------------------------
-        // Unlock / Lock buttons — signed commands
         async function sendCommand(command) {
             const pairing = getStoredPairing();
             if (!pairing) {
@@ -243,20 +163,14 @@
                 return;
             }
 
-            const timestamp = Math.floor(Date.now() / 1000);
-            const hmac      = await computeHMAC(
-                pairing.secret, pairing.id, timestamp, command
-            );
-
             try {
                 const resp = await fetch('/cmd', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         device_id: pairing.id,
-                        timestamp,
-                        command,
-                        hmac
+                        token:     pairing.token,
+                        command:   command
                     })
                 });
 
@@ -268,16 +182,8 @@
             }
         }
 
-        // -------------------------
-        // Init
         checkPairingStatus();
     </script>
-
-    <!-- Command buttons — only useful once paired -->
-    <h2>Control</h2>
-    <button onclick="sendCommand(0x01)">Unlock</button>
-    <button onclick="sendCommand(0x02)">Lock</button>
-
 </body>
 </html>
 
