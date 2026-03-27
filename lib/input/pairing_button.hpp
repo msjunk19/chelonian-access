@@ -45,7 +45,7 @@ public:
                     _actionFired = true;
                     ESP_LOGI(BTNTAG, "Pairing hold detected (%lums)", heldMs);
                     openPairingWindow();
-                    LED_SET_SEQ(SYSTEM_PAIR);
+                    // LED_SET_SEQ(SYSTEM_PAIR);
                 }
             }
         } else {

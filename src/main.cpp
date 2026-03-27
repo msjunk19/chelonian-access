@@ -53,7 +53,6 @@ void setup() {
 
     pairingButton.begin();
 
-    startAP();
     setupWebServer([](PhoneCommand cmd) {
         switch (cmd) {
             case PhoneCommand::UNLOCK:
@@ -68,6 +67,7 @@ void setup() {
                 break;
         }
     });
+    startAP();
     
     Serial.println("Setup complete. AP running.");
 
