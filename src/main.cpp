@@ -49,6 +49,7 @@ void setup() {
 
     delay(1000);
 
+    // phoneTokenManager.clearAll();
     // masterUidManager.clearMasters();
     // while(true);
 

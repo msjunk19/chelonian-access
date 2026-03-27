@@ -5,6 +5,7 @@
 #include <auth_manager.hpp>
 #include "esp_log.h"
 #include "esp_random.h"
+#include <led_states.hpp>
 
 static const char* WIFIAUTHTAG = "WIFIAUTH";
 
@@ -22,6 +23,8 @@ inline void openPairingWindow() {
     pairingWindowOpen = true;
     pairingWindowStart = millis();
     ESP_LOGI(WIFIAUTHTAG, "Pairing window opened (60s)");
+    LED_SET_SEQ(SYSTEM_PAIR);
+
 }
 
 inline void updatePairingWindow() {
