@@ -9,6 +9,8 @@ static constexpr uint8_t UID_MAX_LEN = 7; // maximum UID length allowed
 constexpr char DEFAULT_SSID[] = "AC_FALLBACK_AP";
 constexpr char DEFAULT_PASS[] = "default1234";
 
+constexpr char DOMAIN[] = "chelonian.local";
+
 // EEPROM SETTINGS, ON HOLD
 // Total EEPROM size
 // static constexpr uint16_t EEPROM_SIZE = 512;

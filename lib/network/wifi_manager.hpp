@@ -84,6 +84,11 @@ inline void startAP() {
     if (!safeLittleFSBegin()) {
         ESP_LOGE(WIFICFG_TAG, "Starting fallback AP due to LittleFS failure");
         WiFi.softAP("AC_FALLBACK_AP");
+        dnsServer.start(DNS_PORT, "*", WiFi.softAPIP()); 
+        // dnsServer.start(DNS_PORT, DOMAIN, WiFi.softAPIP());
+        // dnsServer.start(DNS_PORT, "chelonian.local", WiFi.softAPIP());
+
+
         server.begin();
         return;
     }
@@ -99,6 +104,9 @@ inline void startAP() {
             ESP_LOGW(WIFICFG_TAG, "Invalid stored password, reverting to default AP");
             WiFi.softAP(DEFAULT_SSID, DEFAULT_PASS);
             dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+            // dnsServer.start(DNS_PORT, DOMAIN, WiFi.softAPIP());
+            // dnsServer.start(DNS_PORT, "chelonian.local", WiFi.softAPIP());
+
             server.begin();
             return;
         }
@@ -111,6 +119,10 @@ inline void startAP() {
     }
 
     dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+    // dnsServer.start(DNS_PORT, DOMAIN, WiFi.softAPIP());
+    // dnsServer.start(DNS_PORT, "chelonian.local", WiFi.softAPIP());
+
+
     server.begin();
 }
 
