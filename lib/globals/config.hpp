@@ -45,3 +45,8 @@ const unsigned long AUDIO_DEFAULT_VOLUME = 20;
 static constexpr uint8_t MAX_PAIRED_PHONES = 10;
 static constexpr uint8_t PHONE_SECRET_LEN  = 32;
 static constexpr uint8_t PHONE_ID_MAX_LEN  = 36; // standard UUID length
+
+
+#define IBEACON_MAJOR    0x0001
+#define IBEACON_MINOR    0x0001
+#define IBEACON_TX_POWER 0xC5
