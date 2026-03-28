@@ -61,6 +61,7 @@ void setup() {
     setupWebServer([](PhoneCommand cmd) {
         switch (cmd) {
             case PhoneCommand::UNLOCK:
+                LED_SET_SEQ(UNLOCK);
                 activateRelays();
                 break;
             case PhoneCommand::LOCK:
@@ -83,7 +84,7 @@ void setup() {
 
     bleManager.begin([](PhoneCommand cmd) {
     switch (cmd) {
-        case PhoneCommand::UNLOCK: activateRelays(); break;
+        case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); activateRelays(); break;
         case PhoneCommand::LOCK:   break;
         case PhoneCommand::STATUS: break;
         default: break;
