@@ -186,12 +186,13 @@ class _HomePageState extends State<HomePage> {
       for (BluetoothService service in services) {
         if (service.uuid.toString() == SERVICE_UUID) {
           for (BluetoothCharacteristic c in service.characteristics) {
-            String uuid = c.uuid.toString();
-            if (uuid == CMD_UUID)         _cmdChar                  = c;
-            if (uuid == STATUS_UUID)      _statusChar               = c;
-            if (uuid == PAIR_UUID)        _pairChar                 = c;
-            if (uuid == BEACON_UUID_CHAR) _beaconUUIDCharacteristic = c;
-            if (uuid == MAC_UUID_CHAR)    _macCharacteristic        = c;
+              String uuid = c.uuid.toString();
+              debugPrint("Found characteristic: $uuid");  // add this
+              if (uuid == CMD_UUID)         _cmdChar                  = c;
+              if (uuid == STATUS_UUID)      _statusChar               = c;
+              if (uuid == PAIR_UUID)        _pairChar                 = c;
+              if (uuid == BEACON_UUID_CHAR) _beaconUUIDCharacteristic = c;
+              if (uuid == MAC_UUID_CHAR)    _macCharacteristic        = c;
           }
         }
       }
@@ -492,10 +493,10 @@ class _HomePageState extends State<HomePage> {
                           style: const TextStyle(
                               fontSize: 12, color: Colors.grey)),
                     ],
-                    Text(
-                      "Beacon: ${_beaconUUID ?? 'null'}",
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
+Text(
+  "Chars: ${_cmdChar != null ? 'CMD ' : ''}${_beaconUUIDCharacteristic != null ? 'BCN ' : ''}${_macCharacteristic != null ? 'MAC' : ''}",
+  style: const TextStyle(fontSize: 11, color: Colors.grey),
+),
                     if (_proximityEnabled) ...[
                       const SizedBox(height: 4),
                       Text(_proximityStatus,
