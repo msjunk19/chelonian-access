@@ -45,6 +45,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // BLE state
   BluetoothDevice?         _device;
   BluetoothCharacteristic? _cmdChar;
   BluetoothCharacteristic? _statusChar;
@@ -55,10 +56,12 @@ class _HomePageState extends State<HomePage> {
   bool _scanning  = false;
   bool _paired    = false;
 
+  // Auth
   String? _deviceId;
   String? _token;
   String? _savedMac;
 
+  // Beacon / proximity
   String?             _beaconUUID;
   StreamSubscription? _beaconSub;
   bool   _proximityEnabled = false;
@@ -66,6 +69,7 @@ class _HomePageState extends State<HomePage> {
   int    _lastRSSI         = -999;
   String _proximityStatus  = "Proximity: Off";
 
+  // UI
   String _status     = "Disconnected";
   String _lastAction = "";
 
@@ -80,6 +84,9 @@ class _HomePageState extends State<HomePage> {
     _beaconSub?.cancel();
     super.dispose();
   }
+
+  // -------------------------
+  // Storage
 
   Future<void> _loadPairing() async {
     final prefs = await SharedPreferences.getInstance();
@@ -129,6 +136,9 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // -------------------------
+  // BLE scan and connect
+
   Future<void> _scanAndConnect() async {
     setState(() {
       _scanning = true;
@@ -148,6 +158,7 @@ class _HomePageState extends State<HomePage> {
     subscription = FlutterBluePlus.scanResults.listen((results) async {
       for (ScanResult r in results) {
         if (r.advertisementData.advName == "Chelonian") {
+          // If we have a saved MAC, only connect to that specific device
           if (_savedMac != null &&
               r.device.remoteId.toString() != _savedMac) {
             continue;
@@ -187,9 +198,9 @@ class _HomePageState extends State<HomePage> {
         if (service.uuid.toString() == SERVICE_UUID) {
           for (BluetoothCharacteristic c in service.characteristics) {
             String uuid = c.uuid.toString();
-            if (uuid == CMD_UUID)         _cmdChar                  = c;
-            if (uuid == STATUS_UUID)      _statusChar               = c;
-            if (uuid == PAIR_UUID)        _pairChar                 = c;
+            if (uuid == CMD_UUID)         _cmdChar                 = c;
+            if (uuid == STATUS_UUID)      _statusChar              = c;
+            if (uuid == PAIR_UUID)        _pairChar                = c;
             if (uuid == BEACON_UUID_CHAR) _beaconUUIDCharacteristic = c;
             if (uuid == MAC_UUID_CHAR)    _macCharacteristic        = c;
           }
@@ -212,7 +223,7 @@ class _HomePageState extends State<HomePage> {
         }
       });
 
-      setState(() {
+setState(() {
         _connected = true;
         _scanning  = false;
         _status    = "Connected to Chelonian";
@@ -245,6 +256,9 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // -------------------------
+  // Pairing
+
   Future<void> _pair() async {
     if (_pairChar == null) {
       setState(() { _status = "Not connected"; });
@@ -265,7 +279,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       await _savePairing(deviceId, token);
-      await _fetchDeviceInfo();
+      await _fetchDeviceInfo(); // auto-fetch beacon UUID and MAC
       setState(() { _status = "Paired successfully!"; });
 
     } catch (e) {
@@ -275,6 +289,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _fetchDeviceInfo() async {
     try {
+      // Read and save beacon UUID
       if (_beaconUUIDCharacteristic != null) {
         List<int> value = await _beaconUUIDCharacteristic!.read();
         String uuid = utf8.decode(value).trim();
@@ -282,6 +297,7 @@ class _HomePageState extends State<HomePage> {
         debugPrint("Got beacon UUID: $uuid");
       }
 
+      // Read and save device MAC
       if (_macCharacteristic != null) {
         List<int> value = await _macCharacteristic!.read();
         String mac = utf8.decode(value).trim();
@@ -291,6 +307,7 @@ class _HomePageState extends State<HomePage> {
         debugPrint("Got device MAC: $mac");
       }
 
+      // Start proximity monitoring now that we have beacon UUID
       if (_beaconUUID != null) {
         _startProximityMonitoring();
       }
@@ -304,6 +321,9 @@ class _HomePageState extends State<HomePage> {
     await _clearPairing();
     setState(() { _status = "Unpaired"; });
   }
+
+  // -------------------------
+  // Commands
 
   Future<void> _sendCommand(int command) async {
     if (!_connected || _cmdChar == null) {
@@ -330,6 +350,9 @@ class _HomePageState extends State<HomePage> {
       setState(() { _status = "Command failed: $e"; });
     }
   }
+
+  // -------------------------
+  // Proximity monitoring
 
   Future<void> _requestPermissions() async {
     await Permission.location.request();
@@ -443,6 +466,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // -------------------------
+  // UI
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -450,18 +476,18 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Chelonian'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          IconButton(
-            icon: Icon(
-              _proximityEnabled ? Icons.sensors : Icons.sensors_off,
-              color: _proximityEnabled ? Colors.green : Colors.grey,
-            ),
-            onPressed: _proximityEnabled
-                ? _stopProximityMonitoring
-                : (_beaconUUID != null
-                    ? _startProximityMonitoring
-                    : _showBeaconUUIDDialog),
-            tooltip: 'Proximity unlock',
-          ),
+IconButton(
+    icon: Icon(
+      _proximityEnabled ? Icons.sensors : Icons.sensors_off,
+      color: _proximityEnabled ? Colors.green : Colors.grey,
+    ),
+    onPressed: _proximityEnabled
+        ? _stopProximityMonitoring
+        : (_beaconUUID != null
+            ? _startProximityMonitoring
+            : _showBeaconUUIDDialog),
+    tooltip: 'Proximity unlock',
+),
         ],
       ),
       body: Padding(
@@ -470,6 +496,7 @@ class _HomePageState extends State<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
 
+            // Status card
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -492,10 +519,6 @@ class _HomePageState extends State<HomePage> {
                           style: const TextStyle(
                               fontSize: 12, color: Colors.grey)),
                     ],
-                    Text(
-                      "Beacon: ${_beaconUUID ?? 'null'}",
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
                     if (_proximityEnabled) ...[
                       const SizedBox(height: 4),
                       Text(_proximityStatus,
@@ -512,6 +535,7 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 24),
 
+            // Connect / disconnect
             if (!_connected)
               ElevatedButton.icon(
                 onPressed: _scanning ? null : _scanAndConnect,
@@ -536,6 +560,7 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 16),
 
+            // Pairing
             if (_connected && !_paired)
               ElevatedButton(
                 onPressed: _pair,
@@ -563,6 +588,7 @@ class _HomePageState extends State<HomePage> {
 
             const Spacer(),
 
+            // Lock status indicator
             Center(
               child: Icon(
                 _isUnlocked ? Icons.lock_open : Icons.lock,
@@ -573,6 +599,7 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 16),
 
+            // Control buttons
             Row(
               children: [
                 Expanded(
