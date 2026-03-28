@@ -234,8 +234,8 @@ private:
         CommandCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-            std::string raw = pChar->getValue();
-            ESP_LOGI(BLETAG, "CMD received: %s", raw.c_str());
+    std::string raw = pChar->getValue();
+    ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
 
             String payload = String(raw.c_str());
             int sep1 = payload.indexOf('|');

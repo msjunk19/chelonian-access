@@ -191,6 +191,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       await device.connect(license: License.free);
+      await device.requestMtu(128);
       _device = device;
 
       List<BluetoothService> services = await device.discoverServices();
