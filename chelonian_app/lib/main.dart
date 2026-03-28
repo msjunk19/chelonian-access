@@ -228,10 +228,11 @@ class _HomePageState extends State<HomePage> {
         _scanning  = false;
         _status    = "Connected to Chelonian";
       });
+
       // Auto-fetch device info if paired but missing beacon UUID
-    if (_paired && _beaconUUID == null) {
-      await _fetchDeviceInfo();
-}
+      if (_paired && _beaconUUID == null) {
+        await _fetchDeviceInfo();
+      }
 
     } catch (e) {
       setState(() {
@@ -475,18 +476,18 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Chelonian'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          IconButton(
-              icon: Icon(
-                _proximityEnabled ? Icons.sensors : Icons.sensors_off,
-                color: _proximityEnabled ? Colors.green : Colors.grey,
-              ),
-              onPressed: _proximityEnabled
-                  ? _stopProximityMonitoring
-                  : (_beaconUUID != null
-                      ? _startProximityMonitoring
-                      : _showBeaconUUIDDialog),
-              tooltip: 'Proximity unlock',
-          ),
+        IconButton(
+            icon: Icon(
+              _proximityEnabled ? Icons.sensors : Icons.sensors_off,
+              color: _proximityEnabled ? Colors.green : Colors.grey,
+            ),
+            onPressed: _proximityEnabled
+                ? _stopProximityMonitoring
+                : (_beaconUUID != null
+                    ? _startProximityMonitoring
+                    : _showBeaconUUIDDialog),
+            tooltip: 'Proximity unlock',
+        ),
         ],
       ),
       body: Padding(
