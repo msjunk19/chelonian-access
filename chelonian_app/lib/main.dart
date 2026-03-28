@@ -270,7 +270,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final payload = "$_deviceId|$_token|$command";
+    // final payload = "$_deviceId|$_token|$command";
+    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command";
     try {
       await _cmdChar!.write(utf8.encode(payload));
       setState(() {
