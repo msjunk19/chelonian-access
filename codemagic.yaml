@@ -1,0 +1,22 @@
+workflows:
+  ios-unsigned:
+    name: iOS Unsigned Build
+    max_build_duration: 60
+    environment:
+      flutter: stable
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd chelonian_app
+          flutter pub get
+      - name: Build iOS
+        script: |
+          cd chelonian_app
+          flutter build ios --release --no-codesign
+      - name: Package IPA
+        script: |
+          mkdir -p Payload
+          cp -r chelonian_app/build/ios/iphoneos/Runner.app Payload/
+          zip -r chelonian_app.ipa Payload/
+    artifacts:
+      - chelonian_app.ipa
