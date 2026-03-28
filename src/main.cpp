@@ -5,7 +5,7 @@
 #include <globals.hpp>
 #include <config.hpp>
 #include <eeprom_utils.hpp>
-// #include <setup_ap.h>
+#include <setup_ap.h>
 #include <wifi_manager.hpp>
 #include "webserver_manager.h"
 #include <pairing_button.hpp>
@@ -22,7 +22,7 @@ MasterUIDManager masterUidManager; //global updated
 UserUIDManager userUidManager; 
 
 PhoneTokenManager phoneTokenManager;
-// AuthManager authManager(phoneTokenManager);
+AuthManager authManager(phoneTokenManager);
 
 PairingButton pairingButton;
 BLEManager bleManager;
@@ -53,6 +53,13 @@ void setup() {
     // masterUidManager.clearMasters();
     // while(true);
 
+    masterUidManager.readUIDs();
+    userUidManager.readUIDs();
+    phoneTokenManager.readPhones();
+
+    accessServiceSetup();   
+
+
     pairingButton.begin([]() {
     openPairingWindow();           // WiFi
     bleManager.openPairingWindow(); // BLE
@@ -78,9 +85,7 @@ void setup() {
     Serial.println("Setup complete. AP running.");
 
 
-    masterUidManager.readUIDs();
-    userUidManager.readUIDs();
-    phoneTokenManager.readPhones();
+
 
     bleManager.begin([](PhoneCommand cmd) {
     switch (cmd) {
@@ -91,15 +96,15 @@ void setup() {
         }
     });
 
-    accessServiceSetup();   
 
 
 }
 
 void loop() {
     // Call the main service loop
-    pairingButton.update();
     accessServiceLoop();
+    pairingButton.update();
+
     handleClient();
     bleManager.update();
     bleManager.updatePairingWindow();
