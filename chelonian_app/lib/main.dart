@@ -340,9 +340,12 @@ setState(() {
       return;
     }
 
-    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command";
+    // final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command";
+    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command".trim();
     try {
-      await _cmdChar!.write(utf8.encode(payload));
+      // await _cmdChar!.write(utf8.encode(payload));
+      await _cmdChar!.write(utf8.encode(payload), withoutResponse: false);
+
       setState(() {
         _status     = command == 1 ? "Unlock sent" : "Lock sent";
         _isUnlocked = command == 1;
