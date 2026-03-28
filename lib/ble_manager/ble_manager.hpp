@@ -7,10 +7,12 @@
 
 static const char* BLETAG = "BLE";
 
-#define BLE_SERVICE_UUID  "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define BLE_CMD_UUID      "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-#define BLE_STATUS_UUID   "beb5483f-36e1-4688-b7f5-ea07361b26a8"
-#define BLE_PAIR_UUID     "beb54840-36e1-4688-b7f5-ea07361b26a8"
+#define BLE_SERVICE_UUID     "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define BLE_CMD_UUID         "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define BLE_STATUS_UUID      "beb5483f-36e1-4688-b7f5-ea07361b26a8"
+#define BLE_PAIR_UUID        "beb54840-36e1-4688-b7f5-ea07361b26a8"
+#define BLE_BEACON_UUID_CHAR "beb54841-36e1-4688-b7f5-ea07361b26a8" // read only
+#define BLE_MAC_UUID_CHAR    "beb54842-36e1-4688-b7f5-ea07361b26a8" // read only
 
 #define BLE_CMD_UNLOCK  0x01
 #define BLE_CMD_LOCK    0x02
@@ -35,30 +37,56 @@ public:
 
         NimBLEService* service = _server->createService(BLE_SERVICE_UUID);
 
+        // Command characteristic
         _cmdChar = service->createCharacteristic(
             BLE_CMD_UUID,
             NIMBLE_PROPERTY::WRITE
         );
         _cmdChar->setCallbacks(new CommandCallbacks(this));
 
+        // Status characteristic
         _statusChar = service->createCharacteristic(
             BLE_STATUS_UUID,
             NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
         );
 
+        // Pairing characteristic
         _pairChar = service->createCharacteristic(
             BLE_PAIR_UUID,
             NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ
         );
         _pairChar->setCallbacks(new PairingCallbacks(this));
 
-        // service->start();
+        // Beacon UUID characteristic — app reads this after pairing
+        _beaconUUIDChar = service->createCharacteristic(
+            BLE_BEACON_UUID_CHAR,
+            NIMBLE_PROPERTY::READ
+        );
+
+        // MAC address characteristic — app reads this to identify specific device
+        _macChar = service->createCharacteristic(
+            BLE_MAC_UUID_CHAR,
+            NIMBLE_PROPERTY::READ
+        );
+
         _server->start();
 
         // Generate unique iBeacon UUID from MAC address
         char beaconUUID[37];
         _generateBeaconUUID(beaconUUID);
         ESP_LOGI(BLETAG, "iBeacon UUID: %s", beaconUUID);
+
+        // Set beacon UUID characteristic value
+        _beaconUUIDChar->setValue(beaconUUID);
+
+        // Set MAC address characteristic value
+        uint8_t mac[6];
+        esp_read_mac(mac, ESP_MAC_BT);
+        char macStr[18];
+        snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        _macChar->setValue(macStr);
+        ESP_LOGI(BLETAG, "BLE MAC: %s", macStr);
 
         _startAdvertising(beaconUUID);
 
@@ -94,10 +122,12 @@ public:
     }
 
 private:
-    NimBLEServer*          _server     = nullptr;
-    NimBLECharacteristic*  _cmdChar    = nullptr;
-    NimBLECharacteristic*  _statusChar = nullptr;
-    NimBLECharacteristic*  _pairChar   = nullptr;
+    NimBLEServer*          _server         = nullptr;
+    NimBLECharacteristic*  _cmdChar        = nullptr;
+    NimBLECharacteristic*  _statusChar     = nullptr;
+    NimBLECharacteristic*  _pairChar       = nullptr;
+    NimBLECharacteristic*  _beaconUUIDChar = nullptr;
+    NimBLECharacteristic*  _macChar        = nullptr;
 
     bool     _pairingWindowOpen  = false;
     uint32_t _pairingWindowStart = 0;
@@ -111,7 +141,7 @@ private:
         uint8_t mac[6];
         esp_read_mac(mac, ESP_MAC_BT);
         snprintf(uuidOut, 37,
-            "43484c4e-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", //prefix is CHLN in hex, change when name changes
+            "43484c4e-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
             mac[0], mac[1],
             mac[2], mac[3],
             mac[4], mac[5],
@@ -141,10 +171,10 @@ private:
         NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
 
         uint8_t beaconData[25];
-        beaconData[0] = 0x4C; // Apple company ID
+        beaconData[0] = 0x4C;
         beaconData[1] = 0x00;
-        beaconData[2] = 0x02; // iBeacon type
-        beaconData[3] = 0x15; // length
+        beaconData[2] = 0x02;
+        beaconData[3] = 0x15;
         _parseUUID(beaconUUID, &beaconData[4]);
         beaconData[20] = (IBEACON_MAJOR >> 8) & 0xFF;
         beaconData[21] =  IBEACON_MAJOR       & 0xFF;
@@ -160,7 +190,6 @@ private:
 
         NimBLEAdvertisementData advData;
         advData.setFlags(0x04);
-        // advData.setManufacturerData(std::string((char*)beaconData, 25)); //1.42
         advData.setManufacturerData(beaconData, 25);
 
         NimBLEAdvertisementData scanData;
@@ -188,7 +217,7 @@ private:
         }
 
         void onDisconnect(NimBLEServer* server, NimBLEConnInfo& connInfo,
-                        int reason) override {
+                          int reason) override {
             ESP_LOGI(BLETAG, "Client disconnected, reason: %d", reason);
             NimBLEDevice::getAdvertising()->start();
         }
@@ -199,7 +228,6 @@ private:
 
     // -------------------------
     // Command characteristic callbacks
-    // Format: "<device_id>|<token>|<command>"
 
     class CommandCallbacks : public NimBLECharacteristicCallbacks {
     public:
@@ -272,8 +300,6 @@ private:
 
     // -------------------------
     // Pairing characteristic callbacks
-    // Phone writes: "<device_id>"
-    // Device responds: "<token>" or "error:..."
 
     class PairingCallbacks : public NimBLECharacteristicCallbacks {
     public:
