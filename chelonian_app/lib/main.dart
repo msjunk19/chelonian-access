@@ -324,11 +324,9 @@ class _HomePageState extends State<HomePage> {
       final regions = <Region>[
         Region(
           identifier: 'chelonian',
-          beaconId: IBeaconId(
-            proximityUUID: _beaconUUID!,
-            major: 1,
-            minor: 1,
-          ),
+          proximityUUID: _beaconUUID!,
+          major: 1,
+          minor: 1,
         ),
       ];
 

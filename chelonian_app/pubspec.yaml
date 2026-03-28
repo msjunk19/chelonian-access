@@ -11,7 +11,7 @@ dependencies:
   flutter_blue_plus: 2.2.1
   shared_preferences: ^2.2.0
   uuid: ^4.0.0
-  flutter_beacon: ^0.4.0
+  flutter_beacon: ^0.5.1
   permission_handler: ^11.0.0
 
 dev_dependencies:
