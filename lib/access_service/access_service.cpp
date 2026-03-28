@@ -357,43 +357,86 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
 
 
 // --- User Card Handler ---
-void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
-    bool validUID = rfid.validateUID(uid, uidLength);
 
-    if (validUID) {
-        ESP_LOGI(TAG, "Valid Card, Access Granted");
-        if (!led.isRunning() && !state.audioQueued) {
-            LED_SET_SEQ(ACCESS_GRANTED);
-            state.queuedSound = AudioContoller::SOUND_ACCEPTED;
-            state.audioQueued = true;
-            activateRelays();
-            state.invalidAttempts = 0;
-            // Disable impatient timer after access granted
-            ESP_LOGI(TAG, "Access Granted. Disabling Impatience Timer");
-            // disableImpatience(state);
-            state.impatientEnabled = false;  // stops the normal impatience loop
-            state.impatient = false;         // reset any current impatience state
-        }
-    } else {
-        uint32_t delayMs = (invalidDelays[state.invalidAttempts] * 1000) + 3000;
-        state.invalidTimeoutEnd = millis() + delayMs;
-
-        ESP_LOGW(TAG, "Invalid card attempt #%u, please wait %u seconds before trying again",
-            state.invalidAttempts + 1, delayMs / 1000);
-
-        if (!led.isRunning() && !state.audioQueued) {
-            LED_SET_SEQ(ACCESS_DENIED);
-            state.queuedSound = (state.invalidAttempts == 0) ? AudioContoller::SOUND_DENIED_1 :
-                                 (state.invalidAttempts == 1) ? AudioContoller::SOUND_DENIED_2 :
-                                                           AudioContoller::SOUND_DENIED_3;
-            state.audioQueued = true;
-            if (state.invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) state.invalidAttempts++;
-
-            markUserActivity(state);
-            // state.impatientEnabled = true;
-        }
+static void handleAccessGranted(AccessLoopState &state) {
+    ESP_LOGI(TAG, "Valid Card, Access Granted");
+    if (!led.isRunning() && !state.audioQueued) {
+        LED_SET_SEQ(ACCESS_GRANTED);
+        state.queuedSound      = AudioContoller::SOUND_ACCEPTED;
+        state.audioQueued      = true;
+        activateRelays();
+        state.invalidAttempts  = 0;
+        state.impatientEnabled = false;
+        state.impatient        = false;
+        ESP_LOGI(TAG, "Access Granted. Disabling Impatience Timer");
     }
 }
+
+static void handleAccessDenied(AccessLoopState &state) {
+    uint32_t delayMs = (invalidDelays[state.invalidAttempts] * 1000) + 3000;
+    state.invalidTimeoutEnd = millis() + delayMs;
+
+    ESP_LOGW(TAG, "Invalid card attempt #%u, please wait %u seconds before trying again",
+        state.invalidAttempts + 1, delayMs / 1000);
+
+    if (!led.isRunning() && !state.audioQueued) {
+        LED_SET_SEQ(ACCESS_DENIED);
+        state.queuedSound = (state.invalidAttempts == 0) ? AudioContoller::SOUND_DENIED_1 :
+                             (state.invalidAttempts == 1) ? AudioContoller::SOUND_DENIED_2 :
+                                                            AudioContoller::SOUND_DENIED_3;
+        state.audioQueued = true;
+        if (state.invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) 
+            state.invalidAttempts++;
+        markUserActivity(state);
+    }
+}
+
+void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
+    bool validUID = rfid.validateUID(uid, uidLength);
+    if (validUID) {
+        handleAccessGranted(state);
+    } else {
+        handleAccessDenied(state);
+    }
+}
+
+// void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) {
+//     bool validUID = rfid.validateUID(uid, uidLength);
+
+//     if (validUID) {
+//         ESP_LOGI(TAG, "Valid Card, Access Granted");
+//         if (!led.isRunning() && !state.audioQueued) {
+//             LED_SET_SEQ(ACCESS_GRANTED);
+//             state.queuedSound = AudioContoller::SOUND_ACCEPTED;
+//             state.audioQueued = true;
+//             activateRelays();
+//             state.invalidAttempts = 0;
+//             // Disable impatient timer after access granted
+//             ESP_LOGI(TAG, "Access Granted. Disabling Impatience Timer");
+//             // disableImpatience(state);
+//             state.impatientEnabled = false;  // stops the normal impatience loop
+//             state.impatient = false;         // reset any current impatience state
+//         }
+//     } else {
+//         uint32_t delayMs = (invalidDelays[state.invalidAttempts] * 1000) + 3000;
+//         state.invalidTimeoutEnd = millis() + delayMs;
+
+//         ESP_LOGW(TAG, "Invalid card attempt #%u, please wait %u seconds before trying again",
+//             state.invalidAttempts + 1, delayMs / 1000);
+
+//         if (!led.isRunning() && !state.audioQueued) {
+//             LED_SET_SEQ(ACCESS_DENIED);
+//             state.queuedSound = (state.invalidAttempts == 0) ? AudioContoller::SOUND_DENIED_1 :
+//                                  (state.invalidAttempts == 1) ? AudioContoller::SOUND_DENIED_2 :
+//                                                            AudioContoller::SOUND_DENIED_3;
+//             state.audioQueued = true;
+//             if (state.invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) state.invalidAttempts++;
+
+//             markUserActivity(state);
+//             // state.impatientEnabled = true;
+//         }
+//     }
+// }
 
 
 // --- Impatience Timeout ---
