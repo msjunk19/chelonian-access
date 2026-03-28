@@ -34,6 +34,8 @@ constexpr LEDState ACCESS_GRANTED    = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREE
 
 constexpr LEDState ACCESS_DENIED     = { PATTERN_FIVE_BLINK, 0, LEDColor::RED };
 
+constexpr LEDState UNLOCK            = { PATTERN_SLOW_BLINK, 2000, LEDColor::GREEN };
+
 
 // constexpr LEDState DOOR_UNLOCKED     = { PATTERN_SOLID, 5000, LEDColor::GREEN };
 
