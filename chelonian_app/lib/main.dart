@@ -492,6 +492,10 @@ class _HomePageState extends State<HomePage> {
                           style: const TextStyle(
                               fontSize: 12, color: Colors.grey)),
                     ],
+                    Text(
+                      "Beacon: ${_beaconUUID ?? 'null'}",
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
                     if (_proximityEnabled) ...[
                       const SizedBox(height: 4),
                       Text(_proximityStatus,
