@@ -8,6 +8,17 @@
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>Chelonian uses Bluetooth to communicate with your access controller</string>
 
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>Chelonian needs location access to detect your car's beacon and automatically unlock it</string>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Chelonian needs location access to detect your car's beacon</string>
+<key>UIBackgroundModes</key>
+<array>
+    <string>bluetooth-central</string>
+    <string>bluetooth-peripheral</string>
+    <string>location</string>
+</array>
+
 
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>

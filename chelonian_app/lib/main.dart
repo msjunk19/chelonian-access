@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_beacon/flutter_beacon.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'dart:async';
 
-// -------------------------
-// BLE UUIDs — must match ESP32
-const String SERVICE_UUID  = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-const String CMD_UUID      = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-const String STATUS_UUID   = "beb5483f-36e1-4688-b7f5-ea07361b26a8";
-const String PAIR_UUID     = "beb54840-36e1-4688-b7f5-ea07361b26a8";
+const String SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const String CMD_UUID     = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+const String STATUS_UUID  = "beb5483f-36e1-4688-b7f5-ea07361b26a8";
+const String PAIR_UUID    = "beb54840-36e1-4688-b7f5-ea07361b26a8";
+
+// RSSI thresholds
+const int RSSI_UNLOCK_THRESHOLD = -70; // closer than this = unlock (~3-5m)
+const int RSSI_LOCK_THRESHOLD   = -85; // farther than this = lock
 
 void main() {
   runApp(const ChelonianApp());
@@ -32,9 +36,6 @@ class ChelonianApp extends StatelessWidget {
   }
 }
 
-// -------------------------
-// Home page
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -44,19 +45,27 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   // BLE state
-  BluetoothDevice?      _device;
+  BluetoothDevice?         _device;
   BluetoothCharacteristic? _cmdChar;
   BluetoothCharacteristic? _statusChar;
   BluetoothCharacteristic? _pairChar;
-  bool _connected    = false;
-  bool _scanning     = false;
-  bool _paired       = false;
+  bool _connected  = false;
+  bool _scanning   = false;
+  bool _paired     = false;
 
-  // Auth state
+  // Auth
   String? _deviceId;
   String? _token;
 
-  // UI state
+  // Beacon / proximity
+  String?              _beaconUUID;
+  StreamSubscription?  _beaconSub;
+  bool   _proximityEnabled = false;
+  bool   _isUnlocked       = false;
+  int    _lastRSSI         = -999;
+  String _proximityStatus  = "Proximity: Off";
+
+  // UI
   String _status     = "Disconnected";
   String _lastAction = "";
 
@@ -66,16 +75,28 @@ class _HomePageState extends State<HomePage> {
     _loadPairing();
   }
 
+  @override
+  void dispose() {
+    _beaconSub?.cancel();
+    super.dispose();
+  }
+
   // -------------------------
-  // Persistent storage
+  // Storage
 
   Future<void> _loadPairing() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _deviceId = prefs.getString('device_id');
-      _token    = prefs.getString('device_token');
-      _paired   = _deviceId != null && _token != null;
+      _deviceId   = prefs.getString('device_id');
+      _token      = prefs.getString('device_token');
+      _beaconUUID = prefs.getString('beacon_uuid');
+      _paired     = _deviceId != null && _token != null;
     });
+
+    // Auto-start proximity if we have a beacon UUID
+    if (_beaconUUID != null && _paired) {
+      _startProximityMonitoring();
+    }
   }
 
   Future<void> _savePairing(String deviceId, String token) async {
@@ -89,14 +110,23 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> _saveBeaconUUID(String uuid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('beacon_uuid', uuid);
+    setState(() { _beaconUUID = uuid; });
+  }
+
   Future<void> _clearPairing() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('device_id');
     await prefs.remove('device_token');
+    await prefs.remove('beacon_uuid');
+    _stopProximityMonitoring();
     setState(() {
-      _deviceId = null;
-      _token    = null;
-      _paired   = false;
+      _deviceId   = null;
+      _token      = null;
+      _beaconUUID = null;
+      _paired     = false;
     });
   }
 
@@ -109,7 +139,6 @@ class _HomePageState extends State<HomePage> {
       _status   = "Scanning...";
     });
 
-    // Check BLE is on
     BluetoothAdapterState state = await FlutterBluePlus.adapterState.first;
     if (state != BluetoothAdapterState.on) {
       setState(() {
@@ -119,7 +148,6 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // Listen for scan results
     StreamSubscription? subscription;
     subscription = FlutterBluePlus.scanResults.listen((results) async {
       for (ScanResult r in results) {
@@ -137,7 +165,6 @@ class _HomePageState extends State<HomePage> {
       timeout: const Duration(seconds: 10),
     );
 
-    // Timeout handling
     await Future.delayed(const Duration(seconds: 11));
     subscription.cancel();
     if (!_connected) {
@@ -153,13 +180,8 @@ class _HomePageState extends State<HomePage> {
 
     try {
       await device.connect(license: License.free);
-      await device.connectionState
-          .where((s) => s == BluetoothConnectionState.connected)
-          .first
-          .timeout(const Duration(seconds: 10));
       _device = device;
 
-      // Discover services
       List<BluetoothService> services = await device.discoverServices();
       for (BluetoothService service in services) {
         if (service.uuid.toString() == SERVICE_UUID) {
@@ -172,17 +194,13 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // Subscribe to status notifications
       if (_statusChar != null) {
         await _statusChar!.setNotifyValue(true);
         _statusChar!.onValueReceived.listen((value) {
-          setState(() {
-            _lastAction = utf8.decode(value);
-          });
+          setState(() { _lastAction = utf8.decode(value); });
         });
       }
 
-      // Listen for disconnection
       device.connectionState.listen((state) {
         if (state == BluetoothConnectionState.disconnected) {
           setState(() {
@@ -200,7 +218,7 @@ class _HomePageState extends State<HomePage> {
 
     } catch (e) {
       setState(() {
-        _status  = "Connection failed: $e";
+        _status   = "Connection failed: $e";
         _scanning = false;
       });
     }
@@ -209,12 +227,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _disconnect() async {
     await _device?.disconnect();
     setState(() {
-      _connected = false;
-      _device    = null;
-      _cmdChar   = null;
+      _connected  = false;
+      _device     = null;
+      _cmdChar    = null;
       _statusChar = null;
-      _pairChar  = null;
-      _status    = "Disconnected";
+      _pairChar   = null;
+      _status     = "Disconnected";
     });
   }
 
@@ -231,12 +249,9 @@ class _HomePageState extends State<HomePage> {
     setState(() { _status = "Pairing..."; });
 
     try {
-      // Write device ID to pair characteristic
       await _pairChar!.write(utf8.encode(deviceId));
-
-      // Read token back
       List<int> response = await _pairChar!.read();
-      String token = utf8.decode(response);
+      String token = utf8.decode(response).trim();
 
       if (token.startsWith("error:")) {
         setState(() { _status = "Pairing failed: $token"; });
@@ -261,8 +276,12 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendCommand(int command) async {
     if (!_connected || _cmdChar == null) {
-      setState(() { _status = "Not connected"; });
-      return;
+      // Try to connect first
+      await _scanAndConnect();
+      if (!_connected) {
+        setState(() { _status = "Could not connect"; });
+        return;
+      }
     }
 
     if (!_paired || _deviceId == null || _token == null) {
@@ -270,16 +289,144 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // final payload = "$_deviceId|$_token|$command";
     final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command";
     try {
       await _cmdChar!.write(utf8.encode(payload));
       setState(() {
-        _status = command == 1 ? "Unlock sent" : "Lock sent";
+        _status    = command == 1 ? "Unlock sent" : "Lock sent";
+        _isUnlocked = command == 1;
       });
     } catch (e) {
       setState(() { _status = "Command failed: $e"; });
     }
+  }
+
+  // -------------------------
+  // Proximity monitoring
+
+  Future<void> _requestPermissions() async {
+    await Permission.location.request();
+    await Permission.locationAlways.request();
+    await Permission.bluetooth.request();
+  }
+
+  Future<void> _startProximityMonitoring() async {
+    if (_beaconUUID == null) {
+      setState(() { _proximityStatus = "No beacon UUID — pair first"; });
+      return;
+    }
+
+    await _requestPermissions();
+
+    try {
+      await flutterBeacon.initializeScanning;
+
+      final regions = <Region>[
+        Region(
+          identifier: 'chelonian',
+          beaconId: IBeaconId(
+            proximityUUID: _beaconUUID!,
+            major: 1,
+            minor: 1,
+          ),
+        ),
+      ];
+
+      _beaconSub = flutterBeacon.ranging(regions).listen((result) {
+        if (result.beacons.isNotEmpty) {
+          final beacon = result.beacons.first;
+          final rssi   = beacon.rssi;
+
+          setState(() {
+            _lastRSSI        = rssi;
+            _proximityStatus = "Signal: $rssi dBm";
+          });
+
+          // Unlock if close enough and not already unlocked
+          if (rssi > RSSI_UNLOCK_THRESHOLD && !_isUnlocked) {
+            setState(() { _proximityStatus = "In range — unlocking"; });
+            _sendCommand(1);
+          }
+
+          // Lock if too far and currently unlocked
+          if (rssi < RSSI_LOCK_THRESHOLD && _isUnlocked) {
+            setState(() { _proximityStatus = "Out of range — locking"; });
+            _sendCommand(2);
+          }
+        } else {
+          setState(() { _proximityStatus = "Beacon not detected"; });
+
+          // Lock if beacon lost and unlocked
+          if (_isUnlocked) {
+            _sendCommand(2);
+          }
+        }
+      });
+
+      setState(() {
+        _proximityEnabled = true;
+        _proximityStatus  = "Monitoring...";
+      });
+
+    } catch (e) {
+      setState(() { _proximityStatus = "Beacon error: $e"; });
+    }
+  }
+
+  void _stopProximityMonitoring() {
+    _beaconSub?.cancel();
+    _beaconSub = null;
+    setState(() {
+      _proximityEnabled = false;
+      _proximityStatus  = "Proximity: Off";
+    });
+  }
+
+  // Called after pairing to get beacon UUID from ESP32
+  Future<void> _fetchBeaconUUID() async {
+    // The beacon UUID is logged on the ESP32 serial — for now user enters it manually
+    // TODO: add a characteristic to expose the beacon UUID over BLE
+    _showBeaconUUIDDialog();
+  }
+
+  void _showBeaconUUIDDialog() {
+    final controller = TextEditingController(text: _beaconUUID ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter Beacon UUID'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Find this in your ESP32 serial log:\n[BLE] iBeacon UUID: ...',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: '43484c4e-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _saveBeaconUUID(controller.text.trim());
+              Navigator.pop(ctx);
+              _startProximityMonitoring();
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   // -------------------------
@@ -291,6 +438,18 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Chelonian'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _proximityEnabled ? Icons.sensors : Icons.sensors_off,
+              color: _proximityEnabled ? Colors.green : Colors.grey,
+            ),
+            onPressed: _proximityEnabled
+                ? _stopProximityMonitoring
+                : _fetchBeaconUUID,
+            tooltip: 'Proximity unlock',
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -305,21 +464,31 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   children: [
                     Icon(
-                      _connected ? Icons.bluetooth_connected
-                                 : Icons.bluetooth_disabled,
+                      _connected
+                          ? Icons.bluetooth_connected
+                          : Icons.bluetooth_disabled,
                       size: 48,
                       color: _connected ? Colors.green : Colors.grey,
                     ),
                     const SizedBox(height: 8),
                     Text(_status,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16)),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16)),
                     if (_lastAction.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text("Last: $_lastAction",
-                        style: const TextStyle(
-                          fontSize: 12, color: Colors.grey)),
-                    ]
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey)),
+                    ],
+                    if (_proximityEnabled) ...[
+                      const SizedBox(height: 4),
+                      Text(_proximityStatus,
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: _lastRSSI > RSSI_UNLOCK_THRESHOLD
+                                  ? Colors.green
+                                  : Colors.orange)),
+                    ],
                   ],
                 ),
               ),
@@ -332,13 +501,14 @@ class _HomePageState extends State<HomePage> {
               ElevatedButton.icon(
                 onPressed: _scanning ? null : _scanAndConnect,
                 icon: _scanning
-                  ? const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.bluetooth_searching),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.bluetooth_searching),
                 label: Text(_scanning ? "Scanning..." : "Connect"),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16)),
+                    padding: const EdgeInsets.all(16)),
               )
             else
               OutlinedButton.icon(
@@ -346,7 +516,7 @@ class _HomePageState extends State<HomePage> {
                 icon: const Icon(Icons.bluetooth_disabled),
                 label: const Text("Disconnect"),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.all(16)),
+                    padding: const EdgeInsets.all(16)),
               ),
 
             const SizedBox(height: 16),
@@ -357,9 +527,10 @@ class _HomePageState extends State<HomePage> {
                 onPressed: _pair,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.orange),
+                  backgroundColor: Colors.orange,
+                ),
                 child: const Text("Pair Device",
-                  style: TextStyle(color: Colors.white)),
+                    style: TextStyle(color: Colors.white)),
               ),
 
             if (_paired) ...[
@@ -372,38 +543,49 @@ class _HomePageState extends State<HomePage> {
               TextButton(
                 onPressed: _unpair,
                 child: const Text("Unpair",
-                  style: TextStyle(color: Colors.red)),
+                    style: TextStyle(color: Colors.red)),
               ),
             ],
 
             const Spacer(),
+
+            // Lock status indicator
+            Center(
+              child: Icon(
+                _isUnlocked ? Icons.lock_open : Icons.lock,
+                size: 64,
+                color: _isUnlocked ? Colors.green : Colors.red,
+              ),
+            ),
+
+            const SizedBox(height: 16),
 
             // Control buttons
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: (_connected && _paired)
-                      ? () => _sendCommand(1) : null,
+                    onPressed: (_paired) ? () => _sendCommand(1) : null,
                     icon: const Icon(Icons.lock_open),
                     label: const Text("Unlock"),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.all(20),
                       backgroundColor: Colors.green,
-                      foregroundColor: Colors.white),
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: (_connected && _paired)
-                      ? () => _sendCommand(2) : null,
+                    onPressed: (_paired) ? () => _sendCommand(2) : null,
                     icon: const Icon(Icons.lock),
                     label: const Text("Lock"),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.all(20),
                       backgroundColor: Colors.red,
-                      foregroundColor: Colors.white),
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
               ],
