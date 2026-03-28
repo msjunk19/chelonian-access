@@ -7,6 +7,7 @@
 
 static const char* BTNTAG = "PAIRBUTTON";
 
+
 static constexpr uint8_t  PAIRING_BUTTON_PIN   = 9;
 static constexpr uint32_t PAIRING_HOLD_MS       = 3000;  // 3s hold to open pairing
 // static constexpr uint32_t FACTORY_RESET_HOLD_MS = 10000; // 10s hold — TODO
@@ -14,7 +15,8 @@ static constexpr uint32_t PAIRING_HOLD_MS       = 3000;  // 3s hold to open pair
 
 class PairingButton {
 public:
-    void begin() {
+    void begin(std::function<void()> onPairingHold) {
+        _onPairingHold = onPairingHold;
         pinMode(PAIRING_BUTTON_PIN, INPUT_PULLUP);
         ESP_LOGI(BTNTAG, "Pairing button initialized on GPIO %d", PAIRING_BUTTON_PIN);
     }
@@ -41,12 +43,13 @@ public:
                 //     ESP_LOGW(BTNTAG, "Factory reset hold detected — not yet implemented");
                 // }
 
-                if (!_actionFired && heldMs >= PAIRING_HOLD_MS) {
-                    _actionFired = true;
-                    ESP_LOGI(BTNTAG, "Pairing hold detected (%lums)", heldMs);
-                    openPairingWindow();
-                    // LED_SET_SEQ(SYSTEM_PAIR);
-                }
+            if (!_actionFired && heldMs >= PAIRING_HOLD_MS) {
+                _actionFired = true;
+                ESP_LOGI(BTNTAG, "Pairing hold detected (%lums)", heldMs);
+                openPairingWindow();      // WiFi pairing
+                // bleManager.openPairingWindow(); // BLE pairing
+                _onPairingHold();
+            }
             }
         } else {
             if (_wasPressed) {
@@ -61,4 +64,5 @@ private:
     bool     _wasPressed  = false;
     bool     _actionFired = false;
     uint32_t _pressStart  = 0;
+    std::function<void()> _onPairingHold;
 };

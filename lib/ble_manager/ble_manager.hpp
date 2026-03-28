@@ -1,7 +1,7 @@
 #pragma once
 #include <NimBLEDevice.h>
-#include "auth/PhoneTokenManager.hpp"
-#include "auth/AuthManager.hpp"
+#include "phone_token_manager.hpp"
+#include "auth_manager.hpp"
 #include "esp_log.h"
 
 static const char* BLETAG = "BLE";
@@ -63,7 +63,7 @@ public:
         _pairChar->setCallbacks(new PairingCallbacks(this));
 
         service->start();
-
+        _server->start();
         // Start advertising
         _startAdvertising();
 
@@ -117,7 +117,7 @@ private:
     void _startAdvertising() {
         NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
         adv->addServiceUUID(BLE_SERVICE_UUID);
-        adv->setScanResponse(true);
+        adv->setName("Chelonian");
         adv->start();
         ESP_LOGI(BLETAG, "BLE advertising started");
     }
@@ -129,16 +129,13 @@ private:
     public:
         ServerCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-        void onConnect(NimBLEServer* server, NimBLEConnInfo& connInfo) override {
-            ESP_LOGI(BLETAG, "Client connected: %s",
-                connInfo.getAddress().toString().c_str());
-            // Keep advertising so multiple clients can connect
+        void onConnect(NimBLEServer* server) override {
+            ESP_LOGI(BLETAG, "Client connected");
             NimBLEDevice::getAdvertising()->start();
         }
 
-        void onDisconnect(NimBLEServer* server, NimBLEConnInfo& connInfo,
-                          int reason) override {
-            ESP_LOGI(BLETAG, "Client disconnected, reason: %d", reason);
+        void onDisconnect(NimBLEServer* server) override {
+            ESP_LOGI(BLETAG, "Client disconnected");
             NimBLEDevice::getAdvertising()->start();
         }
 
@@ -154,14 +151,17 @@ private:
     public:
         CommandCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        void onWrite(NimBLECharacteristic* pChar) override {
             std::string raw = pChar->getValue();
             ESP_LOGI(BLETAG, "CMD received: %s", raw.c_str());
 
             // Parse "<device_id>:<token>:<command>"
             String payload  = String(raw.c_str());
-            int sep1        = payload.indexOf(':');
-            int sep2        = payload.lastIndexOf(':');
+            // int sep1        = payload.indexOf(':');
+            // int sep2        = payload.lastIndexOf(':');
+            int sep1 = payload.indexOf('|');
+            int sep2 = payload.lastIndexOf('|');
+
 
             if (sep1 < 0 || sep2 < 0 || sep1 == sep2) {
                 ESP_LOGW(BLETAG, "Invalid command format");
@@ -232,7 +232,7 @@ private:
     public:
         PairingCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        void onWrite(NimBLECharacteristic* pChar) override {
             if (!_mgr->_pairingWindowOpen) {
                 ESP_LOGW(BLETAG, "Pairing attempt outside window");
                 pChar->setValue("error:window_closed");

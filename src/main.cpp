@@ -10,7 +10,7 @@
 #include "webserver_manager.h"
 #include <pairing_button.hpp>
 #include <auth_manager.hpp>
-
+#include <ble_manager.hpp>
 
 
 // LED Selection, only use one. 
@@ -25,7 +25,7 @@ PhoneTokenManager phoneTokenManager;
 // AuthManager authManager(phoneTokenManager);
 
 PairingButton pairingButton;
-
+BLEManager bleManager;
 
 static const char* TAG = "Main";
 
@@ -53,7 +53,10 @@ void setup() {
     // masterUidManager.clearMasters();
     // while(true);
 
-    pairingButton.begin();
+    pairingButton.begin([]() {
+    openPairingWindow();           // WiFi
+    bleManager.openPairingWindow(); // BLE
+     });
 
     setupWebServer([](PhoneCommand cmd) {
         switch (cmd) {
@@ -78,6 +81,15 @@ void setup() {
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
 
+    bleManager.begin([](PhoneCommand cmd) {
+    switch (cmd) {
+        case PhoneCommand::UNLOCK: activateRelays(); break;
+        case PhoneCommand::LOCK:   break;
+        case PhoneCommand::STATUS: break;
+        default: break;
+        }
+    });
+
     accessServiceSetup();   
 
 
@@ -88,4 +100,6 @@ void loop() {
     pairingButton.update();
     accessServiceLoop();
     handleClient();
+    bleManager.update();
+    bleManager.updatePairingWindow();
 }
