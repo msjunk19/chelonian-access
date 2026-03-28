@@ -7,14 +7,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'dart:async';
 
-const String SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-const String CMD_UUID     = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-const String STATUS_UUID  = "beb5483f-36e1-4688-b7f5-ea07361b26a8";
-const String PAIR_UUID    = "beb54840-36e1-4688-b7f5-ea07361b26a8";
+const String SERVICE_UUID     = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const String CMD_UUID         = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+const String STATUS_UUID      = "beb5483f-36e1-4688-b7f5-ea07361b26a8";
+const String PAIR_UUID        = "beb54840-36e1-4688-b7f5-ea07361b26a8";
+const String BEACON_UUID_CHAR = "beb54841-36e1-4688-b7f5-ea07361b26a8";
+const String MAC_UUID_CHAR    = "beb54842-36e1-4688-b7f5-ea07361b26a8";
 
-// RSSI thresholds
-const int RSSI_UNLOCK_THRESHOLD = -70; // closer than this = unlock (~3-5m)
-const int RSSI_LOCK_THRESHOLD   = -85; // farther than this = lock
+const int RSSI_UNLOCK_THRESHOLD = -70;
+const int RSSI_LOCK_THRESHOLD   = -85;
 
 void main() {
   runApp(const ChelonianApp());
@@ -49,17 +50,20 @@ class _HomePageState extends State<HomePage> {
   BluetoothCharacteristic? _cmdChar;
   BluetoothCharacteristic? _statusChar;
   BluetoothCharacteristic? _pairChar;
-  bool _connected  = false;
-  bool _scanning   = false;
-  bool _paired     = false;
+  BluetoothCharacteristic? _beaconUUIDCharacteristic;
+  BluetoothCharacteristic? _macCharacteristic;
+  bool _connected = false;
+  bool _scanning  = false;
+  bool _paired    = false;
 
   // Auth
   String? _deviceId;
   String? _token;
+  String? _savedMac;
 
   // Beacon / proximity
-  String?              _beaconUUID;
-  StreamSubscription?  _beaconSub;
+  String?             _beaconUUID;
+  StreamSubscription? _beaconSub;
   bool   _proximityEnabled = false;
   bool   _isUnlocked       = false;
   int    _lastRSSI         = -999;
@@ -90,10 +94,10 @@ class _HomePageState extends State<HomePage> {
       _deviceId   = prefs.getString('device_id');
       _token      = prefs.getString('device_token');
       _beaconUUID = prefs.getString('beacon_uuid');
+      _savedMac   = prefs.getString('device_mac');
       _paired     = _deviceId != null && _token != null;
     });
 
-    // Auto-start proximity if we have a beacon UUID
     if (_beaconUUID != null && _paired) {
       _startProximityMonitoring();
     }
@@ -121,11 +125,13 @@ class _HomePageState extends State<HomePage> {
     await prefs.remove('device_id');
     await prefs.remove('device_token');
     await prefs.remove('beacon_uuid');
+    await prefs.remove('device_mac');
     _stopProximityMonitoring();
     setState(() {
       _deviceId   = null;
       _token      = null;
       _beaconUUID = null;
+      _savedMac   = null;
       _paired     = false;
     });
   }
@@ -152,6 +158,11 @@ class _HomePageState extends State<HomePage> {
     subscription = FlutterBluePlus.scanResults.listen((results) async {
       for (ScanResult r in results) {
         if (r.advertisementData.advName == "Chelonian") {
+          // If we have a saved MAC, only connect to that specific device
+          if (_savedMac != null &&
+              r.device.remoteId.toString() != _savedMac) {
+            continue;
+          }
           await FlutterBluePlus.stopScan();
           subscription?.cancel();
           await _connectToDevice(r.device);
@@ -187,9 +198,11 @@ class _HomePageState extends State<HomePage> {
         if (service.uuid.toString() == SERVICE_UUID) {
           for (BluetoothCharacteristic c in service.characteristics) {
             String uuid = c.uuid.toString();
-            if (uuid == CMD_UUID)    _cmdChar    = c;
-            if (uuid == STATUS_UUID) _statusChar = c;
-            if (uuid == PAIR_UUID)   _pairChar   = c;
+            if (uuid == CMD_UUID)         _cmdChar                 = c;
+            if (uuid == STATUS_UUID)      _statusChar              = c;
+            if (uuid == PAIR_UUID)        _pairChar                = c;
+            if (uuid == BEACON_UUID_CHAR) _beaconUUIDCharacteristic = c;
+            if (uuid == MAC_UUID_CHAR)    _macCharacteristic        = c;
           }
         }
       }
@@ -227,12 +240,14 @@ class _HomePageState extends State<HomePage> {
   Future<void> _disconnect() async {
     await _device?.disconnect();
     setState(() {
-      _connected  = false;
-      _device     = null;
-      _cmdChar    = null;
-      _statusChar = null;
-      _pairChar   = null;
-      _status     = "Disconnected";
+      _connected                = false;
+      _device                   = null;
+      _cmdChar                  = null;
+      _statusChar               = null;
+      _pairChar                 = null;
+      _beaconUUIDCharacteristic = null;
+      _macCharacteristic        = null;
+      _status                   = "Disconnected";
     });
   }
 
@@ -259,10 +274,41 @@ class _HomePageState extends State<HomePage> {
       }
 
       await _savePairing(deviceId, token);
+      await _fetchDeviceInfo(); // auto-fetch beacon UUID and MAC
       setState(() { _status = "Paired successfully!"; });
 
     } catch (e) {
       setState(() { _status = "Pairing error: $e"; });
+    }
+  }
+
+  Future<void> _fetchDeviceInfo() async {
+    try {
+      // Read and save beacon UUID
+      if (_beaconUUIDCharacteristic != null) {
+        List<int> value = await _beaconUUIDCharacteristic!.read();
+        String uuid = utf8.decode(value).trim();
+        await _saveBeaconUUID(uuid);
+        debugPrint("Got beacon UUID: $uuid");
+      }
+
+      // Read and save device MAC
+      if (_macCharacteristic != null) {
+        List<int> value = await _macCharacteristic!.read();
+        String mac = utf8.decode(value).trim();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('device_mac', mac);
+        setState(() { _savedMac = mac; });
+        debugPrint("Got device MAC: $mac");
+      }
+
+      // Start proximity monitoring now that we have beacon UUID
+      if (_beaconUUID != null) {
+        _startProximityMonitoring();
+      }
+
+    } catch (e) {
+      setState(() { _proximityStatus = "Could not fetch device info: $e"; });
     }
   }
 
@@ -276,7 +322,6 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendCommand(int command) async {
     if (!_connected || _cmdChar == null) {
-      // Try to connect first
       await _scanAndConnect();
       if (!_connected) {
         setState(() { _status = "Could not connect"; });
@@ -293,7 +338,7 @@ class _HomePageState extends State<HomePage> {
     try {
       await _cmdChar!.write(utf8.encode(payload));
       setState(() {
-        _status    = command == 1 ? "Unlock sent" : "Lock sent";
+        _status     = command == 1 ? "Unlock sent" : "Lock sent";
         _isUnlocked = command == 1;
       });
     } catch (e) {
@@ -340,21 +385,17 @@ class _HomePageState extends State<HomePage> {
             _proximityStatus = "Signal: $rssi dBm";
           });
 
-          // Unlock if close enough and not already unlocked
           if (rssi > RSSI_UNLOCK_THRESHOLD && !_isUnlocked) {
             setState(() { _proximityStatus = "In range — unlocking"; });
             _sendCommand(1);
           }
 
-          // Lock if too far and currently unlocked
           if (rssi < RSSI_LOCK_THRESHOLD && _isUnlocked) {
             setState(() { _proximityStatus = "Out of range — locking"; });
             _sendCommand(2);
           }
         } else {
           setState(() { _proximityStatus = "Beacon not detected"; });
-
-          // Lock if beacon lost and unlocked
           if (_isUnlocked) {
             _sendCommand(2);
           }
@@ -378,13 +419,6 @@ class _HomePageState extends State<HomePage> {
       _proximityEnabled = false;
       _proximityStatus  = "Proximity: Off";
     });
-  }
-
-  // Called after pairing to get beacon UUID from ESP32
-  Future<void> _fetchBeaconUUID() async {
-    // The beacon UUID is logged on the ESP32 serial — for now user enters it manually
-    // TODO: add a characteristic to expose the beacon UUID over BLE
-    _showBeaconUUIDDialog();
   }
 
   void _showBeaconUUIDDialog() {
@@ -444,7 +478,7 @@ class _HomePageState extends State<HomePage> {
             ),
             onPressed: _proximityEnabled
                 ? _stopProximityMonitoring
-                : _fetchBeaconUUID,
+                : _showBeaconUUIDDialog,
             tooltip: 'Proximity unlock',
           ),
         ],
@@ -563,7 +597,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: (_paired) ? () => _sendCommand(1) : null,
+                    onPressed: _paired ? () => _sendCommand(1) : null,
                     icon: const Icon(Icons.lock_open),
                     label: const Text("Unlock"),
                     style: ElevatedButton.styleFrom(
@@ -576,7 +610,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: (_paired) ? () => _sendCommand(2) : null,
+                    onPressed: _paired ? () => _sendCommand(2) : null,
                     icon: const Icon(Icons.lock),
                     label: const Text("Lock"),
                     style: ElevatedButton.styleFrom(
