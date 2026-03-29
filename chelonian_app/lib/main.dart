@@ -353,7 +353,13 @@ setState(() {
   // -------------------------
   // Proximity monitoring
 
-Future<void> _startProximityMonitoring() async {
+  Future<void> _requestPermissions() async {
+    await Permission.location.request();
+    await Permission.locationAlways.request();
+    await Permission.bluetooth.request();
+  }
+
+  Future<void> _startProximityMonitoring() async {
     if (_beaconUUID == null) {
       setState(() { _proximityStatus = "No beacon UUID — pair first"; });
       return;
@@ -373,7 +379,6 @@ Future<void> _startProximityMonitoring() async {
         ),
       ];
 
-      // Ranging — works when app is open/focused
       _beaconSub = flutterBeacon.ranging(regions).listen((result) {
         if (result.beacons.isNotEmpty) {
           final beacon = result.beacons.first;
@@ -395,12 +400,11 @@ Future<void> _startProximityMonitoring() async {
           }
         } else {
           setState(() { _proximityStatus = "Beacon not detected"; });
-          if (_isUnlocked) _sendCommand(2);
+          if (_isUnlocked) {
+            _sendCommand(2);
+          }
         }
       });
-
-      // TODO: background monitoring — needs TX power calibration
-      // flutterBeacon.monitoring(regions).listen((result) { ... });
 
       setState(() {
         _proximityEnabled = true;
@@ -411,54 +415,6 @@ Future<void> _startProximityMonitoring() async {
       setState(() { _proximityStatus = "Beacon error: $e"; });
     }
   }
-  
-//   Future<void> _requestPermissions() async {
-//     await Permission.location.request();
-//     await Permission.locationAlways.request();
-//     await Permission.bluetooth.request();
-//   }
-
-//   Future<void> _startProximityMonitoring() async {
-//     if (_beaconUUID == null) {
-//       setState(() { _proximityStatus = "No beacon UUID — pair first"; });
-//       return;
-//     }
-
-//     await _requestPermissions();
-
-//     try {
-//       await flutterBeacon.initializeScanning;
-
-//       final regions = <Region>[
-//         Region(
-//           identifier: 'chelonian',
-//           proximityUUID: _beaconUUID!,
-//           major: 1,
-//           minor: 1,
-//         ),
-//       ];
-
-//       // Use monitoring for background support
-//       _beaconSub = flutterBeacon.monitoring(regions).listen((result) {
-//   setState(() { 
-//     _proximityStatus = "Event: ${result.monitoringEventType} state: ${result.monitoringState}"; 
-//   });
-//   if (result.monitoringEventType == MonitoringEventType.didEnterRegion) {
-//     if (!_isUnlocked) _sendCommand(1);
-//   } else if (result.monitoringEventType == MonitoringEventType.didExitRegion) {
-//     if (_isUnlocked) _sendCommand(2);
-//   }
-// });
-
-//       setState(() {
-//         _proximityEnabled = true;
-//         _proximityStatus  = "Monitoring...";
-//       });
-
-//     } catch (e) {
-//       setState(() { _proximityStatus = "Beacon error: $e"; });
-//     }
-//   }
 
   void _stopProximityMonitoring() {
     _beaconSub?.cancel();
