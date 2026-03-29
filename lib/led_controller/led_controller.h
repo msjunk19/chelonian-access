@@ -58,6 +58,21 @@ public:
     // Pattern queueing
     void enqueuePattern(LEDPattern pattern, uint32_t duration = 3000, uint32_t color = LEDColor::WHITE);
     void enqueuePattern(const uint16_t* sequence, uint8_t length, uint32_t duration, uint32_t color = LEDColor::WHITE);
+void cancel() {
+    m_running = false;
+    m_pattern = nullptr;
+    m_step = 0;
+    m_patternEndTime = 0;
+    m_queueStart = m_queueEnd; // clear queue
+    
+    if (m_useNeoPixel && m_strip) {
+        m_strip->clear();
+        m_strip->show();
+    } else {
+        ledcWrite(m_pwmChannel, 0);
+    }
+    m_ledState = false;
+}
 
 private:
     // Internal helpers
@@ -78,6 +93,7 @@ private:
     private:
     uint8_t generateBlinkPattern(uint8_t count, uint16_t onMs, uint16_t offMs, uint16_t gapMs);
 
+    
     // Pattern queue struct
     // struct PatternItem {
     //     const uint16_t* sequence;

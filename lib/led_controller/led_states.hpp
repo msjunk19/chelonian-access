@@ -59,3 +59,4 @@ constexpr LEDState PLACEHOLDER        = { PATTERN_SOLID, 2000, LEDColor::YELLOW 
 // --- Optional helper macro for cleaner syntax ---
 #define LED_SET_SEQ(state) led.setPattern((state).pattern, (state).duration, (state).color)
 #define LED_ENQUEUE(state) led.enqueuePattern((state).pattern, (state).duration, (state).color)
+#define LED_CANCEL() led.cancel()
