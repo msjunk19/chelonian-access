@@ -381,12 +381,13 @@ setState(() {
 
       // Use monitoring for background support
       _beaconSub = flutterBeacon.monitoring(regions).listen((result) {
+        setState(() { 
+          _proximityStatus = "Event: ${result.monitoringEventType} region: ${result.region.identifier}"; 
+        });
         if (result.monitoringEventType == MonitoringEventType.didEnterRegion) {
-          setState(() { _proximityStatus = "In range — unlocking"; });
-          _sendCommand(1);
+          if (!_isUnlocked) _sendCommand(1);
         } else if (result.monitoringEventType == MonitoringEventType.didExitRegion) {
-          setState(() { _proximityStatus = "Out of range — locking"; });
-          _sendCommand(2);
+          if (_isUnlocked) _sendCommand(2);
         }
       });
 
