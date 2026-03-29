@@ -89,15 +89,26 @@ void activateRelays() {
 
 static uint32_t lastRFIDCheck = 0;
 
+static bool rfidOK = true;
+
 static void updateHardware() {
     led.update();
     handleRelaySequence();
     
-    // RFID watchdog — check every 5 seconds
-    if (millis() - lastRFIDCheck > 10000) {
+    if (millis() - lastRFIDCheck > 5000) {
         lastRFIDCheck = millis();
-        if (!rfid.isResponding()) {
+        bool responding = rfid.isResponding();
+        
+        if (!responding) {
+            rfidOK = false;
             rfid.reinitialize();
+        } else if (!rfidOK && responding) {
+            // Just recovered — reapply SAMConfig
+            ESP_LOGI("ACCESS", "PN532 recovered — reapplying SAMConfig");
+            rfid.reinitialize(); // force full reinit including SAMConfig
+            rfidOK = true;
+        } else {
+            rfidOK = true;
         }
     }
 }
@@ -293,11 +304,10 @@ void accessServiceLoop() {
     uint8_t uid[7] = {0};
     uint8_t uidLength = 0;
 
-    if (handleBootProgrammingCheck()) return;
-    if (handleMasterProgrammingMode(uid, uidLength)) return;
-    if (handleMasterTimeout()) return;
-
-    if (handleUserProgrammingMode(uid, uidLength)) return; // <-- user programming mode
+    if (handleBootProgrammingCheck()) { ESP_LOGV(TAG, "handleBootProgrammingCheck returned true"); return; }
+    if (handleMasterProgrammingMode(uid, uidLength)) { ESP_LOGV(TAG, "handleMasterProgrammingMode returned true"); return; }
+    if (handleMasterTimeout()) { ESP_LOGV(TAG, "handleMasterTimeout returned true"); return; }
+    if (handleUserProgrammingMode(uid, uidLength)) { ESP_LOGV(TAG, "handleUserProgrammingMode returned true"); return; }
 
     processCardScan(uid, uidLength);
     handleAudioPlayback();
