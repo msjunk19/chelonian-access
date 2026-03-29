@@ -583,6 +583,10 @@ IconButton(
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
+              Text(
+  "Token len: ${_token?.length ?? 0}",
+  style: const TextStyle(fontSize: 11, color: Colors.grey),
+),
               TextButton(
                 onPressed: _unpair,
                 child: const Text("Unpair",
