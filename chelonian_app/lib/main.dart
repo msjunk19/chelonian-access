@@ -158,11 +158,6 @@ class _HomePageState extends State<HomePage> {
     subscription = FlutterBluePlus.scanResults.listen((results) async {
       for (ScanResult r in results) {
         if (r.advertisementData.advName == "Chelonian") {
-          // If we have a saved MAC, only connect to that specific device
-          if (_savedMac != null &&
-              r.device.remoteId.toString() != _savedMac) {
-            continue;
-          }
           await FlutterBluePlus.stopScan();
           subscription?.cancel();
           await _connectToDevice(r.device);
@@ -583,10 +578,7 @@ IconButton(
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
-              Text(
-  "Token len: ${_token?.length ?? 0}",
-  style: const TextStyle(fontSize: 11, color: Colors.grey),
-),
+              
               TextButton(
                 onPressed: _unpair,
                 child: const Text("Unpair",
