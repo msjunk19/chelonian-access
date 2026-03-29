@@ -315,17 +315,6 @@ void accessServiceLoop() {
     handleAudioPlayback();
 }
 
-void accessServiceLoop() {
-    updateHardware();
-
-    uint8_t uid[7] = {0};
-    uint8_t uidLength = 0;
-
-
-    processCardScan(uid, uidLength);
-    handleAudioPlayback();
-}
-
 
 // --- Helper functions using AccessLoopState ---
 bool handleMasterPresenceTimeout(AccessLoopState &state) {
