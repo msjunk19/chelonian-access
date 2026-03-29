@@ -509,6 +509,10 @@ IconButton(
                       color: _connected ? Colors.green : Colors.grey,
                     ),
                     const SizedBox(height: 8),
+                    Text(
+  "paired=$_paired id=${_deviceId?.substring(0,4) ?? 'null'} token=${_token?.length ?? 0}",
+  style: const TextStyle(fontSize: 11, color: Colors.grey),
+),
                     Text(_status,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 16)),
