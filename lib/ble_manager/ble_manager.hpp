@@ -345,7 +345,8 @@ private:
 
             _mgr->_pairingWindowOpen = false;
             ESP_LOGI(BLETAG, "BLE paired: %s", deviceId.c_str());
-            pChar->setValue(tokenHex);
+            // pChar->setValue(tokenHex);
+            pChar->setValue((uint8_t*)tokenHex, 32);
         }
 
     private:
