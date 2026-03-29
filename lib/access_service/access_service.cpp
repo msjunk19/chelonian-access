@@ -303,17 +303,28 @@ void accessServiceLoop() {
 
     uint8_t uid[7] = {0};
     uint8_t uidLength = 0;
-
-    if (handleBootProgrammingCheck()) { ESP_LOGV(TAG, "handleBootProgrammingCheck returned true"); return; }
-    if (handleMasterProgrammingMode(uid, uidLength)) { ESP_LOGV(TAG, "handleMasterProgrammingMode returned true"); return; }
-    if (handleMasterTimeout()) { ESP_LOGV(TAG, "handleMasterTimeout returned true"); return; }
-    if (handleUserProgrammingMode(uid, uidLength)) { ESP_LOGV(TAG, "handleUserProgrammingMode returned true"); return; }
-
+    if (handleBootProgrammingCheck()) return;
+    // if (handleBootProgrammingCheck()) { ESP_LOGV(TAG, "handleBootProgrammingCheck returned true"); return; }
+    if (handleMasterProgrammingMode(uid, uidLength)) return;
+    // if (handleMasterProgrammingMode(uid, uidLength)) { ESP_LOGV(TAG, "handleMasterProgrammingMode returned true"); return; }
+    if (handleMasterTimeout()) return;
+    // if (handleMasterTimeout()) { ESP_LOGV(TAG, "handleMasterTimeout returned true"); return; }
+    if (handleUserProgrammingMode(uid, uidLength)) return; 
+    // if (handleUserProgrammingMode(uid, uidLength)) { ESP_LOGV(TAG, "handleUserProgrammingMode returned true"); return; }
     processCardScan(uid, uidLength);
     handleAudioPlayback();
 }
 
+void accessServiceLoop() {
+    updateHardware();
 
+    uint8_t uid[7] = {0};
+    uint8_t uidLength = 0;
+
+
+    processCardScan(uid, uidLength);
+    handleAudioPlayback();
+}
 
 
 // --- Helper functions using AccessLoopState ---

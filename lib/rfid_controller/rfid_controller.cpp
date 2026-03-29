@@ -20,37 +20,37 @@ RFIDController::~RFIDController() {
     delete m_nfc;
 }
 
-bool RFIDController::begin() {
-    ESP_LOGI(TAG, "Calling m_nfc->begin()...");
-    m_nfc->begin();
-    ESP_LOGI(TAG, "m_nfc->begin() complete, calling getFirmwareVersion()...");
-    
-    uint32_t versiondata = m_nfc->getFirmwareVersion();
-    ESP_LOGI(TAG, "getFirmwareVersion() returned: 0x%08X", versiondata);
-    
-    if (versiondata == 0) {
-        ESP_LOGW(TAG, "First attempt failed, trying reset...");
-        m_nfc->reset();
-        delay(100);
-        ESP_LOGI(TAG, "Calling getFirmwareVersion() after reset...");
-        versiondata = m_nfc->getFirmwareVersion();
-        ESP_LOGI(TAG, "getFirmwareVersion() after reset returned: 0x%08X", versiondata);
+    bool RFIDController::begin() {
+        ESP_LOGI(TAG, "Calling m_nfc->begin()...");
+        m_nfc->begin();
+        ESP_LOGI(TAG, "m_nfc->begin() complete, calling getFirmwareVersion()...");
+        
+        uint32_t versiondata = m_nfc->getFirmwareVersion();
+        ESP_LOGI(TAG, "getFirmwareVersion() returned: 0x%08X", versiondata);
+        
+        if (versiondata == 0) {
+            ESP_LOGW(TAG, "First attempt failed, trying reset...");
+            m_nfc->reset();
+            delay(100);
+            ESP_LOGI(TAG, "Calling getFirmwareVersion() after reset...");
+            versiondata = m_nfc->getFirmwareVersion();
+            ESP_LOGI(TAG, "getFirmwareVersion() after reset returned: 0x%08X", versiondata);
+        }
+
+        if (versiondata == 0) {
+            ESP_LOGE(TAG, "PN532 not detected or firmware read failed!");
+            return false;
+        }
+
+        ESP_LOGI(TAG, "PN532 initialized successfully");
+        ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",
+            (versiondata >> 24) & 0xFF,
+            (versiondata >> 16) & 0xFF,
+            (versiondata >> 8) & 0xFF); 
+
+        m_nfc->SAMConfig();
+        return true;
     }
-
-    if (versiondata == 0) {
-        ESP_LOGE(TAG, "PN532 not detected or firmware read failed!");
-        return false;
-    }
-
-    ESP_LOGI(TAG, "PN532 initialized successfully");
-    ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",
-        (versiondata >> 24) & 0xFF,
-        (versiondata >> 16) & 0xFF,
-        (versiondata >> 8) & 0xFF);
-
-    m_nfc->SAMConfig();
-    return true;
-}
 
 //Adjusted readCard to prevent blocking the loop indefinitely unless a card is presented. 
 bool RFIDController::readCard(uint8_t* uid, uint8_t* uidLength) {
@@ -119,7 +119,7 @@ void RFIDController::printFirmwareVersion() {
 
 bool RFIDController::isResponding() {
     uint32_t v = m_nfc->getFirmwareVersion();
-    ESP_LOGV(TAG, "isResponding() getFirmwareVersion() = 0x%08X", v);
+    // ESP_LOGV(TAG, "isResponding() getFirmwareVersion() = 0x%08X", v);
     return v != 0;
 }
 
