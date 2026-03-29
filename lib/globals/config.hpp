@@ -49,4 +49,5 @@ static constexpr uint8_t PHONE_ID_MAX_LEN  = 36; // standard UUID length
 
 #define IBEACON_MAJOR    0x0001
 #define IBEACON_MINOR    0x0001
-#define IBEACON_TX_POWER 0xC5
+// #define IBEACON_TX_POWER 0xC5
+#define IBEACON_TX_POWER 0xA0  // -96 dBm — very large region
