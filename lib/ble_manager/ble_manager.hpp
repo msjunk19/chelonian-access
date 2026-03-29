@@ -233,9 +233,13 @@ private:
     public:
         CommandCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-    std::string raw = pChar->getValue();
-    ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
+            void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+                std::string raw = pChar->getValue();
+                // Trim trailing whitespace/newlines
+                while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r' || raw.back() == ' ')) {
+                    raw.pop_back();
+                }
+                ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
 
             String payload = String(raw.c_str());
             int sep1 = payload.indexOf('|');
