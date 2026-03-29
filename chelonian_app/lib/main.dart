@@ -379,30 +379,14 @@ setState(() {
         ),
       ];
 
-      _beaconSub = flutterBeacon.ranging(regions).listen((result) {
-        if (result.beacons.isNotEmpty) {
-          final beacon = result.beacons.first;
-          final rssi   = beacon.rssi;
-
-          setState(() {
-            _lastRSSI        = rssi;
-            _proximityStatus = "Signal: $rssi dBm";
-          });
-
-          if (rssi > RSSI_UNLOCK_THRESHOLD && !_isUnlocked) {
-            setState(() { _proximityStatus = "In range — unlocking"; });
-            _sendCommand(1);
-          }
-
-          if (rssi < RSSI_LOCK_THRESHOLD && _isUnlocked) {
-            setState(() { _proximityStatus = "Out of range — locking"; });
-            _sendCommand(2);
-          }
-        } else {
-          setState(() { _proximityStatus = "Beacon not detected"; });
-          if (_isUnlocked) {
-            _sendCommand(2);
-          }
+      // Use monitoring for background support
+      _beaconSub = flutterBeacon.monitoring(regions).listen((result) {
+        if (result.monitoringEventType == MonitoringEventType.didEnterRegion) {
+          setState(() { _proximityStatus = "In range — unlocking"; });
+          _sendCommand(1);
+        } else if (result.monitoringEventType == MonitoringEventType.didExitRegion) {
+          setState(() { _proximityStatus = "Out of range — locking"; });
+          _sendCommand(2);
         }
       });
 
