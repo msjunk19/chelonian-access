@@ -16,6 +16,8 @@ constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, 0, LEDColor::WHITE 
 // constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::YELLOW };
 constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::ORANGE };
 constexpr LEDState SYSTEM_PAIR       = { PATTERN_FAST_BLINK, 60000, LEDColor::BLUE };
+constexpr LEDState FACTORY_RESET     = { PATTERN_FAST_BLINK, 5000, LEDColor::RED };
+
 
 // constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::AMBER };
 
