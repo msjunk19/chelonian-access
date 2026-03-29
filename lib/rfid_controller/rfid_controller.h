@@ -14,7 +14,8 @@ public:
     uint32_t getFirmwareVersion();
     void printFirmwareVersion();
     void initializeDefaultUIDs();
-
+    bool isResponding();
+    bool reinitialize();
 private:
     Adafruit_PN532* m_nfc;  // Using SPI interface
 };

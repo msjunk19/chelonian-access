@@ -82,9 +82,24 @@ void activateRelays() {
     ESP_LOGI(TAG, "Starting relay sequence (state 1)");
 }
 
+// static void updateHardware() {
+//     led.update();
+//     handleRelaySequence();
+// }
+
+static uint32_t lastRFIDCheck = 0;
+
 static void updateHardware() {
     led.update();
     handleRelaySequence();
+    
+    // RFID watchdog — check every 5 seconds
+    if (millis() - lastRFIDCheck > 10000) {
+        lastRFIDCheck = millis();
+        if (!rfid.isResponding()) {
+            rfid.reinitialize();
+        }
+    }
 }
 
 static bool handleBootProgrammingCheck() {

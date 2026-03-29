@@ -21,22 +21,15 @@ RFIDController::~RFIDController() {
 }
 
 bool RFIDController::begin() {
-    if (!m_nfc->begin()) {
-        ESP_LOGE(TAG, "PN532 initialization failed!");
-        return false;
-    }
-
-    ESP_LOGI(TAG, "PN532 initialized successfully");
+    m_nfc->begin(); // ignore return value — it just inits SPI
 
     uint32_t versiondata = m_nfc->getFirmwareVersion();
-    if (!versiondata) {
-        ESP_LOGW(TAG, "Failed to read firmware, attempting reset...");
-
+    
+    if (versiondata == 0) {
+        // Try once more after reset
         m_nfc->reset();
         delay(100);
-
         versiondata = m_nfc->getFirmwareVersion();
-        ESP_LOGD(TAG, "Firmware Version after reset: %X", versiondata);
     }
 
     if (versiondata == 0) {
@@ -44,7 +37,11 @@ bool RFIDController::begin() {
         return false;
     }
 
-    ESP_LOGI(TAG, "PN532 ready. Firmware Version: %X", versiondata);
+    ESP_LOGI(TAG, "PN532 initialized successfully");
+    ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",
+        (versiondata >> 24) & 0xFF,
+        (versiondata >> 16) & 0xFF,
+        (versiondata >> 8) & 0xFF);
 
     m_nfc->SAMConfig();
     return true;
@@ -113,4 +110,26 @@ void RFIDController::printFirmwareVersion() {
             (versiondata >> 24) & 0xFF,
             (versiondata >> 16) & 0xFF,
             (versiondata >> 8) & 0xFF);
+}
+
+bool RFIDController::isResponding() {
+    return m_nfc->getFirmwareVersion() != 0;
+}
+
+bool RFIDController::reinitialize() {
+    ESP_LOGW(TAG, "PN532 not responding — attempting reinitialization");
+    
+    // Completely destroy and recreate the NFC object to reset SPI state
+    delete m_nfc;
+    delay(200);
+    m_nfc = new Adafruit_PN532(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
+    delay(200);
+    
+    bool result = begin();
+    if (result) {
+        ESP_LOGI(TAG, "PN532 reinitialized successfully");
+    } else {
+        ESP_LOGE(TAG, "PN532 reinitialization failed — will retry");
+    }
+    return result;
 }

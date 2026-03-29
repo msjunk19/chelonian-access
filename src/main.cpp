@@ -11,7 +11,7 @@
 #include <pairing_button.hpp>
 #include <auth_manager.hpp>
 #include <ble_manager.hpp>
-
+#include <factory_reset.hpp>
 
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
@@ -60,10 +60,21 @@ void setup() {
     accessServiceSetup();   
 
 
-    pairingButton.begin([]() {
-    openPairingWindow();           // WiFi
-    bleManager.openPairingWindow(); // BLE
-     });
+    // pairingButton.begin([]() {
+    // openPairingWindow();           // WiFi
+    // bleManager.openPairingWindow(); // BLE
+    //  });
+    pairingButton.begin(
+    []() {
+        openPairingWindow();
+        bleManager.openPairingWindow();
+    },
+    []() {
+        // ESP_LOGW("FACTORY", "Factory reset triggered — not yet implemented");
+        LED_CANCEL();
+        factoryReset();
+    }
+);
 
     setupWebServer([](PhoneCommand cmd) {
         switch (cmd) {
