@@ -5,9 +5,12 @@
 #include <globals.hpp>
 #include <pin_mapping.hpp>
 #include <master_uid_manager.h>
-
+#include <relay_states.hpp>
 
 static const char* TAG = "ACCESS";  // Add TAG definition
+
+// Tracks which action is currently running so handleRelaySequence knows the config
+RelayAction activeRelayAction = RelayAction::UNLOCK;
 
 // Instantiate controllers
 
@@ -47,40 +50,163 @@ void accessServiceSetup() {
     markUserActivity(state);
 }
 
+
+void triggerRelayAction(RelayAction action) {
+    if (state.relayActive) return; // prevent re-triggering during active sequence
+
+    activeRelayAction = action;
+    RelayActionConfig& cfg = relayConfigManager.get(action);
+
+    state.relayActivatedTime = millis();
+    state.relayActive        = true;
+
+    switch (cfg.mode) {
+        case RelayMode::SINGLE:
+            relays.setRelay(cfg.relay, true);
+            state.currentRelayState = RELAY_SINGLE_ACTIVE;
+            ESP_LOGI(TAG, "RELAY_ACTION %s: single pulse relay %d", 
+                ACTION_NAMES[(uint8_t)action], cfg.relay);
+            break;
+
+        case RelayMode::DOUBLE:
+            relays.setRelay(cfg.relay, true);
+            state.currentRelayState = RELAY_DOUBLE_PULSE1;
+            ESP_LOGI(TAG, "RELAY_ACTION %s: double pulse relay %d",
+                ACTION_NAMES[(uint8_t)action], cfg.relay);
+            break;
+
+        case RelayMode::SEQUENTIAL:
+            relays.setRelay(cfg.relay, true);
+            state.currentRelayState = RELAY_SEQUENTIAL_1;
+            ESP_LOGI(TAG, "RELAY_ACTION %s: sequential relay %d->%d",
+                ACTION_NAMES[(uint8_t)action], cfg.relay, cfg.relay2);
+            break;
+
+        case RelayMode::ALL:
+            for (uint8_t i = 0; i < 4; i++) relays.setRelay(i, true);
+            state.currentRelayState = RELAY_ALL_ACTIVE;
+            ESP_LOGI(TAG, "RELAY_ACTION %s: all relays",
+                ACTION_NAMES[(uint8_t)action]);
+            break;
+
+        default:
+            ESP_LOGE(TAG, "Unknown relay mode");
+            state.relayActive = false;
+            break;
+    }
+}
+
 void handleRelaySequence() {
+    RelayActionConfig& cfg = relayConfigManager.get(activeRelayAction);
+
     switch (state.currentRelayState) {
         case RELAY_IDLE:
             break;
-        case RELAY1_ACTIVE:
-            if (millis() - state.relayActivatedTime >= RELAY1_DURATION) {
-                relays.setRelay(RELAY_1, false);
-                relays.setRelay(RELAY_2, true);
-                state.relayActivatedTime = millis();
-                state.currentRelayState = RELAY2_ACTIVE;
-                ESP_LOGI(TAG, "Relay state transition 1->2");
-            }
-            break;
-        case RELAY2_ACTIVE:
-            if (millis() - state.relayActivatedTime >= RELAY2_DURATION) {
-                relays.setRelay(RELAY_2, false);
+
+        case RELAY_SINGLE_ACTIVE:
+            if (millis() - state.relayActivatedTime >= cfg.duration) {
+                relays.setRelay(cfg.relay, false);
                 state.currentRelayState = RELAY_IDLE;
-                state.relayActive = false;
-                ESP_LOGI(TAG, "Relay sequence complete");
+                state.relayActive       = false;
+                ESP_LOGI(TAG, "Single pulse complete");
             }
             break;
+
+        case RELAY_DOUBLE_PULSE1:
+            if (millis() - state.relayActivatedTime >= cfg.duration) {
+                relays.setRelay(cfg.relay, false);
+                state.relayActivatedTime = millis();
+                state.currentRelayState  = RELAY_DOUBLE_GAP;
+                ESP_LOGI(TAG, "Double pulse 1 complete — gap started");
+            }
+            break;
+
+        case RELAY_DOUBLE_GAP:
+            if (millis() - state.relayActivatedTime >= cfg.gap) {
+                relays.setRelay(cfg.relay, true);
+                state.relayActivatedTime = millis();
+                state.currentRelayState  = RELAY_DOUBLE_PULSE2;
+                ESP_LOGI(TAG, "Double pulse 2 started");
+            }
+            break;
+
+        case RELAY_DOUBLE_PULSE2:
+            if (millis() - state.relayActivatedTime >= cfg.duration) {
+                relays.setRelay(cfg.relay, false);
+                state.currentRelayState = RELAY_IDLE;
+                state.relayActive       = false;
+                ESP_LOGI(TAG, "Double pulse complete");
+            }
+            break;
+
+        case RELAY_SEQUENTIAL_1:
+            if (millis() - state.relayActivatedTime >= cfg.duration) {
+                relays.setRelay(cfg.relay, false);
+                relays.setRelay(cfg.relay2, true);
+                state.relayActivatedTime = millis();
+                state.currentRelayState  = RELAY_SEQUENTIAL_2;
+                ESP_LOGI(TAG, "Sequential relay 1->2");
+            }
+            break;
+
+        case RELAY_SEQUENTIAL_2:
+            if (millis() - state.relayActivatedTime >= cfg.duration2) {
+                relays.setRelay(cfg.relay2, false);
+                state.currentRelayState = RELAY_IDLE;
+                state.relayActive       = false;
+                ESP_LOGI(TAG, "Sequential pulse complete");
+            }
+            break;
+
+        case RELAY_ALL_ACTIVE:
+            if (millis() - state.relayActivatedTime >= cfg.duration) {
+                for (uint8_t i = 0; i < 4; i++) relays.setRelay(i, false);
+                state.currentRelayState = RELAY_IDLE;
+                state.relayActive       = false;
+                ESP_LOGI(TAG, "All relay pulse complete");
+            }
+            break;
+
         default:
             ESP_LOGE(TAG, "Unhandled relay state: %d", state.currentRelayState);
             break;
     }
 }
 
-void activateRelays() {
-    relays.setRelay(RELAY_1, true);
-    state.relayActivatedTime = millis();
-    state.currentRelayState = RELAY1_ACTIVE;
-    state.relayActive = true;
-    ESP_LOGI(TAG, "Starting relay sequence (state 1)");
-}
+// void handleRelaySequence() {
+//     switch (state.currentRelayState) {
+//         case RELAY_IDLE:
+//             break;
+//         case RELAY1_ACTIVE:
+//             if (millis() - state.relayActivatedTime >= RELAY1_DURATION) {
+//                 relays.setRelay(RELAY_1, false);
+//                 relays.setRelay(RELAY_2, true);
+//                 state.relayActivatedTime = millis();
+//                 state.currentRelayState = RELAY2_ACTIVE;
+//                 ESP_LOGI(TAG, "Relay state transition 1->2");
+//             }
+//             break;
+//         case RELAY2_ACTIVE:
+//             if (millis() - state.relayActivatedTime >= RELAY2_DURATION) {
+//                 relays.setRelay(RELAY_2, false);
+//                 state.currentRelayState = RELAY_IDLE;
+//                 state.relayActive = false;
+//                 ESP_LOGI(TAG, "Relay sequence complete");
+//             }
+//             break;
+//         default:
+//             ESP_LOGE(TAG, "Unhandled relay state: %d", state.currentRelayState);
+//             break;
+//     }
+// }
+
+// void activateRelays() {
+//     relays.setRelay(RELAY_1, true);
+//     state.relayActivatedTime = millis();
+//     state.currentRelayState = RELAY1_ACTIVE;
+//     state.relayActive = true;
+//     ESP_LOGI(TAG, "Starting relay sequence (state 1)");
+// }
 
 // static void updateHardware() {
 //     led.update();
@@ -303,6 +429,7 @@ void accessServiceLoop() {
 
     uint8_t uid[7] = {0};
     uint8_t uidLength = 0;
+    
     if (handleBootProgrammingCheck()) return;
     // if (handleBootProgrammingCheck()) { ESP_LOGV(TAG, "handleBootProgrammingCheck returned true"); return; }
     if (handleMasterProgrammingMode(uid, uidLength)) return;
@@ -311,6 +438,7 @@ void accessServiceLoop() {
     // if (handleMasterTimeout()) { ESP_LOGV(TAG, "handleMasterTimeout returned true"); return; }
     if (handleUserProgrammingMode(uid, uidLength)) return; 
     // if (handleUserProgrammingMode(uid, uidLength)) { ESP_LOGV(TAG, "handleUserProgrammingMode returned true"); return; }
+
     processCardScan(uid, uidLength);
     handleAudioPlayback();
 }
@@ -389,7 +517,8 @@ static void handleAccessGranted(AccessLoopState &state) {
         LED_SET_SEQ(ACCESS_GRANTED);
         state.queuedSound      = AudioContoller::SOUND_ACCEPTED;
         state.audioQueued      = true;
-        activateRelays();
+        // activateRelays();
+        RELAY_ACTION(UNLOCK);
         state.invalidAttempts  = 0;
         state.impatientEnabled = false;
         state.impatient        = false;
@@ -484,7 +613,7 @@ if (state.impatientEnabled &&
 void markUserActivity(AccessLoopState& state)
 {
     state.lastActivityTime = millis();
-    // state.impatientEnabled = true;
+    state.impatientEnabled = true;
     state.impatient = false;
     ESP_LOGI(TAG, "FUNCTION: No User Interaction...Timer Starting...");
 }

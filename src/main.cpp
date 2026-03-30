@@ -12,6 +12,8 @@
 #include <auth_manager.hpp>
 #include <ble_manager.hpp>
 #include <factory_reset.hpp>
+// #include <relay_config_manager.hpp>
+#include <relay_states.hpp>
 
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
@@ -26,6 +28,8 @@ AuthManager authManager(phoneTokenManager);
 
 PairingButton pairingButton;
 BLEManager bleManager;
+
+RelayConfigManager relayConfigManager;
 
 static const char* TAG = "Main";
 
@@ -59,6 +63,11 @@ void setup() {
 
     accessServiceSetup();   
 
+    // In setup() after accessServiceSetup():
+    // relayConfigManager.clear();
+    // while(true);
+    relayConfigManager.load();
+    relayConfigManager.printConfig();
 
     // pairingButton.begin([]() {
     // openPairingWindow();           // WiFi
@@ -80,7 +89,8 @@ void setup() {
         switch (cmd) {
             case PhoneCommand::UNLOCK:
                 LED_SET_SEQ(UNLOCK);
-                activateRelays();
+                // activateRelays();
+                RELAY_ACTION(UNLOCK);
                 break;
             case PhoneCommand::LOCK:
                 // TODO: add deactivateRelays() or similar when you implement re-locking
@@ -96,7 +106,9 @@ void setup() {
 
     bleManager.begin([](PhoneCommand cmd) {
     switch (cmd) {
-        case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); activateRelays(); break;
+        // case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); activateRelays(); break;
+        case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); RELAY_ACTION(UNLOCK); break;
+        
         case PhoneCommand::LOCK:   break;
         case PhoneCommand::STATUS: break;
         default: break;

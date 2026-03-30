@@ -32,6 +32,9 @@ inline void factoryReset() {
     clearAPCredentials();
     ESP_LOGI(RSTAG, "WiFi credentials cleared");
 
+    relayConfigManager.clear();
+    ESP_LOGI(RSTAG, "Relay configuration cleared");
+
     ESP_LOGW(RSTAG, "Factory reset complete — rebooting");
     // delay(2000); // let LED sequence play briefly
     ESP.restart();
