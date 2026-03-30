@@ -92,11 +92,7 @@ void setup() {
         }
     });
     startAP();
-    
-    Serial.println("Setup complete. AP running.");
-
-
-
+    // ESP_LOGI("WiFi AP", "Setup complete. AP running.");
 
     bleManager.begin([](PhoneCommand cmd) {
     switch (cmd) {

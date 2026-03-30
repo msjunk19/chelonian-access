@@ -12,7 +12,9 @@ struct LEDState {
 };
 
 // System / Status Indicators
-constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, 0, LEDColor::WHITE };
+// constexpr LEDState SYSTEM_READY      = { PATTERN_SLOW_BLINK, 0, LEDColor::WHITE };
+constexpr LEDState SYSTEM_READY      = { PATTERN_BREATHING, 5000, LEDColor::PINK };
+
 // constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::YELLOW };
 constexpr LEDState SYSTEM_IDLE       = { PATTERN_FAST_BLINK, 0, LEDColor::ORANGE };
 constexpr LEDState SYSTEM_PAIR       = { PATTERN_FAST_BLINK, 60000, LEDColor::BLUE };
@@ -50,12 +52,19 @@ constexpr LEDState UNLOCK            = { PATTERN_SLOW_BLINK, 2000, LEDColor::GRE
 
 // Card Programming
 constexpr LEDState PROGRAMMING_MODE  = { PATTERN_FIVE_BLINK, 0, LEDColor::PURPLE };
+constexpr LEDState PROGRAMMING_IDLE  = { PATTERN_TRIPLE_BLINK, 0, LEDColor::ORANGE };
+constexpr LEDState PROGRAMMING_EXIT  = { PATTERN_FAST_BLINK, 0, LEDColor::PURPLE };
+
+
 constexpr LEDState MASTER_CARD_SET   = { PATTERN_SOLID, 2000, LEDColor::PURPLE };
 
 constexpr LEDState USER_ADDED        = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
 constexpr LEDState USER_REMOVED      = { PATTERN_FIVE_BLINK, 0, LEDColor::RED };
 
 constexpr LEDState PLACEHOLDER        = { PATTERN_SOLID, 2000, LEDColor::YELLOW };
+
+constexpr LEDState PN_532_ERROR       = { PATTERN_SLOW_BLINK, 0, LEDColor::YELLOW };
+constexpr LEDState PN_532_CONNECTED   = { PATTERN_SLOW_BLINK, 0, LEDColor::GREEN };
 
 
 // --- Optional helper macro for cleaner syntax ---
