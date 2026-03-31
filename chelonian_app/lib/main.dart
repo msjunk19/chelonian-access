@@ -409,71 +409,51 @@ class _HomePageState extends State<HomePage> {
   // Commands
 
   Future<void> _sendCommand(int command) async {
-    // ── 1. Ensure BLE connection ─────────────────────────────────────
-    if (!_connected || _cmdChar == null) {
-      await _scanAndConnect();
-      if (!_connected) {
-        setState(() { _status = "Could not connect"; });
-        return;
-      }
-    }
-
-    // ── 2. Check local pairing state ─────────────────────────────────
-    if (!_paired || _deviceId == null || _token == null) {
-      setState(() { _status = "Not paired"; });
+  // ── 1. Ensure BLE connection ────────────────────────────────────────
+  if (!_connected || _cmdChar == null) {
+    await _scanAndConnect();
+    if (!_connected) {
+      setState(() { _status = "Could not connect"; });
       return;
     }
-
-    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command".trim();
-
-    try {
-      // ── 3. Send command ──────────────────────────────────────────────
-      await _cmdChar!.write(utf8.encode(payload), withoutResponse: false);
-
-      // ── 4. Read back the ESP's response to detect pairing errors ────
-      //
-      // The CMD characteristic returns a short acknowledgement string.
-      // Valid responses: "ok:unlocked", "ok:locked", etc.
-      // Invalid-pairing responses: "error:unpaired", "error:invalid_token"
-      //
-      // NOTE: If your ESP does NOT write a response to the CMD characteristic,
-      // you can remove this read() call — detection still works via the STATUS
-      // notification listener set up in _connectToDevice().
-      //
-      final List<int> ackBytes = await _cmdChar!.read();
-      final String ack = utf8.decode(ackBytes).trim();
-
-      if (_isPairingError(ack)) {
-        // ESP rejected our credentials — handle it gracefully.
-        await _handlePairingLost();
-        return;
-      }
-
-      // ── 5. Success ───────────────────────────────────────────────────
-      setState(() {
-        _status     = command == 1 ? "Unlock sent" : "Lock sent";
-        _isUnlocked = command == 1;
-      });
-
-    } on Exception catch (e) {
-      // Surface the error clearly rather than silently updating _status.
-      final msg = e.toString();
-      setState(() { _status = "Command failed: $msg"; });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Failed to send command: $msg"),
-          backgroundColor: Colors.red,
-          action: SnackBarAction(
-            label: "Retry",
-            textColor: Colors.white,
-            onPressed: () => _sendCommand(command),
-          ),
-        ),
-      );
-    }
   }
+
+  // ── 2. Check local pairing state ───────────────────────────────────
+  if (!_paired || _deviceId == null || _token == null) {
+    setState(() { _status = "Not paired"; });
+    return;
+  }
+
+  final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command".trim();
+
+  try {
+    // ── 3. Send — response comes via STATUS notification, not read() ──
+    await _cmdChar!.write(utf8.encode(payload), withoutResponse: false);
+
+    // Optimistic UI update — corrected by STATUS notification if it fails
+    setState(() {
+      _status     = command == 1 ? "Unlock sent" : "Lock sent";
+      _isUnlocked = command == 1;
+    });
+
+  } on Exception catch (e) {
+    final msg = e.toString();
+    setState(() { _status = "Command failed: $msg"; });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Failed to send command: $msg"),
+        backgroundColor: Colors.red,
+        action: SnackBarAction(
+          label: "Retry",
+          textColor: Colors.white,
+          onPressed: () => _sendCommand(command),
+        ),
+      ),
+    );
+  }
+}
 
   // -------------------------
   // Proximity monitoring
