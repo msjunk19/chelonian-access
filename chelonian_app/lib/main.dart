@@ -56,6 +56,7 @@ class _HomePageState extends State<HomePage> {
   bool _connected = false;
   bool _scanning  = false;
   bool _paired    = false;
+  bool _pairingVerified = false;
 
   String? _deviceId;
   String? _token;
@@ -123,12 +124,14 @@ Future<void> _loadPairing() async {
       _token      = prefs.getString('device_token');
       _beaconUUID = prefs.getString('beacon_uuid');
       _savedMac   = prefs.getString('device_mac');
-      _paired     = _deviceId != null && _token != null;
+      // _paired     = _deviceId != null && _token != null;
+      _paired = _deviceId != null && _token != null;
+      _pairingVerified = false;
     });
 
-    if (_beaconUUID != null && _paired) {
-      _startProximityMonitoring();
-    }
+    // if (_beaconUUID != null && _paired) {
+    //   _startProximityMonitoring();
+    // }
 
     // Auto-connect on startup to verify pairing
     if (_paired) {
@@ -165,6 +168,7 @@ Future<void> _loadPairing() async {
       _token      = null;
       _beaconUUID = null;
       _savedMac   = null;
+      // _isUnlocked = false;
       _paired     = false;
     });
   }
@@ -249,8 +253,11 @@ Future<void> _loadPairing() async {
           // Show error dialog for error responses
           if (msg.startsWith("error:")) {
             String errorMsg = msg.replaceFirst("error:", "").replaceAll("_", " ");
-            bool isPairingError = msg.contains("unauthorized") || 
-                                  msg.contains("unknown_device");
+            // bool isPairingError = msg.contains("unauthorized") || 
+            //                       msg.contains("unknown_device");
+            bool isPairingError = msg.contains("unauthorized") ||
+                      msg.contains("unknown_device") ||
+                      msg.contains("invalid_token");
             _showErrorDialog(
               "Command Error",
               "The device rejected the command: $errorMsg",
@@ -295,33 +302,112 @@ Future<void> _loadPairing() async {
     }
   }
 
+
+Future<void> _verifyPairing() async {
+  if (_verifyChar == null || _deviceId == null) return;
+
+  try {
+    await _verifyChar!.write(utf8.encode(_deviceId!));
+    List<int> response = await _verifyChar!.read();
+    String result = utf8.decode(response).trim();
+
+    if (result == "valid") {
+
+      setState(() {
+        _pairingVerified = true;
+        _status = "Pairing verified";
+      });
+
+      if (_beaconUUID != null) {
+        _startProximityMonitoring();
+      }
+
+      return;
+    }
+
+    // Device rejected pairing
+    await _clearPairing();
+
+    setState(() {
+      _pairingVerified = false;
+      _status = "Pairing invalid — re-pair required";
+    });
+
+    _showErrorDialog(
+      "Pairing Lost",
+      "The device does not recognize this phone anymore.\n\nPlease pair again.",
+    );
+
+  } catch (e) {
+    debugPrint("Pairing verification failed: $e");
+  }
+}
+
   // -------------------------
   // Pairing verification
 
-  Future<void> _verifyPairing() async {
-    if (_verifyChar == null || _deviceId == null) return;
+// Future<void> _verifyPairing() async {
+//   if (_verifyChar == null || _deviceId == null) return;
 
-    try {
-      await _verifyChar!.write(utf8.encode(_deviceId!));
-      List<int> response = await _verifyChar!.read();
-      String result = utf8.decode(response).trim();
+//   try {
+//     await _verifyChar!.write(utf8.encode(_deviceId!));
+//     List<int> response = await _verifyChar!.read();
+//     String result = utf8.decode(response).trim();
 
-      if (result == "invalid") {
-        await _clearPairing();
-        setState(() { _status = "Pairing lost — please re-pair"; });
-        _showErrorDialog(
-          "Pairing Lost",
-          "This device no longer recognizes your pairing. "
-          "Please hold the pairing button and pair again.",
-        );
-      } else {
-        // ESP_LOGI: debugPrint("Pairing verified for $_deviceId");
-        debugPrint("Pairing verified for $_deviceId");
-      }
-    } catch (e) {
-      debugPrint("Pairing verification failed: $e");
-    }
-  }
+//     if (result != "valid") {
+//       debugPrint("Pairing invalid, clearing local pairing");
+
+//       await _clearPairing();
+
+//       setState(() {
+//         _paired = false;
+//         _status = "Pairing invalid — please pair again";
+//       });
+
+//       _showErrorDialog(
+//         "Pairing Invalid",
+//         "This phone is no longer paired with the device.\n\nPlease press the pairing button and pair again.",
+//       );
+
+//       return;
+//     }
+
+//     debugPrint("Pairing verified");
+
+//     // ONLY start proximity AFTER verification
+//     if (_beaconUUID != null) {
+//       _startProximityMonitoring();
+//     }
+
+//   } catch (e) {
+//     debugPrint("Pair verification failed: $e");
+//   }
+// }
+
+  // Future<void> _verifyPairing() async {
+  //   if (_verifyChar == null || _deviceId == null) return;
+
+  //   try {
+  //     await _verifyChar!.write(utf8.encode(_deviceId!));
+  //     List<int> response = await _verifyChar!.read();
+  //     String result = utf8.decode(response).trim();
+
+  //     if (result == "invalid") {
+  //       await _clearPairing();
+  //       setState(() { _status = "Pairing lost — please re-pair"; });
+  //       _showErrorDialog(
+  //         "Pairing Lost",
+  //         "This device no longer recognizes your pairing. "
+  //         "Please hold the pairing button and pair again.",
+  //       );
+  //     } else {
+  //       // ESP_LOGI: debugPrint("Pairing verified for $_deviceId");
+  //       debugPrint("Pairing verified for $_deviceId");
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Pairing verification failed: $e");
+  //   }
+  // }
 
   Future<void> _disconnect() async {
     await _device?.disconnect();
@@ -408,6 +494,13 @@ Future<void> _loadPairing() async {
   // Commands
 
   Future<void> _sendCommand(int command) async {
+        if (!_paired || _deviceId == null || _token == null) {
+          _showErrorDialog("Not Paired",
+              "This device is not paired. Please pair first.");
+          return;
+        }
+
+
     if (!_connected || _cmdChar == null) {
       await _scanAndConnect();
       if (!_connected) {
@@ -417,11 +510,11 @@ Future<void> _loadPairing() async {
       }
     }
 
-    if (!_paired || _deviceId == null || _token == null) {
-      _showErrorDialog("Not Paired",
-          "This device is not paired. Please pair first.");
-      return;
-    }
+    // if (!_paired || _deviceId == null || _token == null) {
+    //   _showErrorDialog("Not Paired",
+    //       "This device is not paired. Please pair first.");
+    //   return;
+    // }
 
     final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command";
     try {
@@ -447,6 +540,13 @@ Future<void> _loadPairing() async {
   }
 
   Future<void> _startProximityMonitoring() async {
+    if (!_paired) {
+      setState(() {
+        _proximityStatus = "Not paired";
+      });
+      return;
+    }
+
     if (_beaconUUID == null) {
       setState(() { _proximityStatus = "No beacon UUID — pair first"; });
       return;
