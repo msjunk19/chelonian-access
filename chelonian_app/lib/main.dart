@@ -312,17 +312,17 @@ Future<void> _loadPairing() async {
     }
   }
 
-
 Future<void> _verifyPairing() async {
   if (_verifyChar == null || _deviceId == null) return;
 
   try {
     await _verifyChar!.write(utf8.encode(_deviceId!));
     List<int> response = await _verifyChar!.read();
+
     String result = utf8.decode(response).trim();
+    debugPrint("VERIFY RESPONSE: $result");
 
     if (result == "valid") {
-
       setState(() {
         _pairingVerified = true;
         _status = "Pairing verified";
@@ -335,23 +335,59 @@ Future<void> _verifyPairing() async {
       return;
     }
 
-    // Device rejected pairing
+    debugPrint("Device rejected pairing");
+
     await _clearPairing();
 
     setState(() {
       _pairingVerified = false;
-      _status = "Pairing invalid — re-pair required";
+      _status = "Pairing invalid";
     });
 
-    _showErrorDialog(
-      "Pairing Lost",
-      "The device does not recognize this phone anymore.\n\nPlease pair again.",
-    );
-
   } catch (e) {
-    debugPrint("Pairing verification failed: $e");
+    debugPrint("Verify failed: $e");
   }
 }
+
+// Future<void> _verifyPairing() async {
+//   if (_verifyChar == null || _deviceId == null) return;
+
+//   try {
+//     await _verifyChar!.write(utf8.encode(_deviceId!));
+//     List<int> response = await _verifyChar!.read();
+//     String result = utf8.decode(response).trim();
+
+//     if (result == "valid") {
+
+//       setState(() {
+//         _pairingVerified = true;
+//         _status = "Pairing verified";
+//       });
+
+//       if (_beaconUUID != null) {
+//         _startProximityMonitoring();
+//       }
+
+//       return;
+//     }
+
+//     // Device rejected pairing
+//     await _clearPairing();
+
+//     setState(() {
+//       _pairingVerified = false;
+//       _status = "Pairing invalid — re-pair required";
+//     });
+
+//     _showErrorDialog(
+//       "Pairing Lost",
+//       "The device does not recognize this phone anymore.\n\nPlease pair again.",
+//     );
+
+//   } catch (e) {
+//     debugPrint("Pairing verification failed: $e");
+//   }
+// }
 
   // -------------------------
   // Pairing verification
