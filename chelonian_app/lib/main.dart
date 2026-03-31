@@ -24,6 +24,26 @@ const List<String> _unpairingErrors = [
   'error:unauthorized',
 ];
 
+class AppStateNotifier extends ChangeNotifier {
+  bool   connected        = false;
+  bool   scanning         = false;
+  bool   paired           = false;
+  String status           = "Disconnected";
+
+  void update({
+    bool?   connected,
+    bool?   scanning,
+    bool?   paired,
+    String? status,
+  }) {
+    if (connected != null) this.connected = connected;
+    if (scanning  != null) this.scanning  = scanning;
+    if (paired    != null) this.paired    = paired;
+    if (status    != null) this.status    = status;
+    notifyListeners();
+  }
+}
+
 // Maps RSSI to 0–4 bars
 int rssiToBars(int rssi) {
   if (rssi >= -65) return 4;
@@ -156,6 +176,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+  
   // BLE
   BluetoothDevice?         _device;
   BluetoothCharacteristic? _cmdChar;
@@ -188,6 +209,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Button press animation
   late AnimationController _pressController;
   late Animation<double>   _pressAnim;
+  final _appState = AppStateNotifier();
 
   @override
   void initState() {
@@ -220,6 +242,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _savedMac   = prefs.getString('device_mac');
       _paired     = _deviceId != null && _token != null;
     });
+    _appState.update(paired: _paired); 
     if (_beaconUUID != null && _paired) _startProximityMonitoring();
     // Auto-open settings on first run
     if (!_paired) {
@@ -232,6 +255,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     await prefs.setString('device_id', deviceId);
     await prefs.setString('device_token', token);
     setState(() { _deviceId = deviceId; _token = token; _paired = true; });
+    _appState.update(paired: true);
   }
 
   Future<void> _saveBeaconUUID(String uuid) async {
@@ -252,12 +276,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _beaconUUID = null; _savedMac = null;
       _paired = false;
     });
+    _appState.update(paired: false, connected: false);
   }
 
   // ── BLE ──────────────────────────────────────────────────────────────
 
   Future<void> _scanAndConnect() async {
+    // setState(() { _scanning = true; _status = "Scanning..."; });
+
     setState(() { _scanning = true; _status = "Scanning..."; });
+    _appState.update(scanning: true, status: "Scanning...");
 
     final state = await FlutterBluePlus.adapterState.first;
     if (state != BluetoothAdapterState.on) {
@@ -285,12 +313,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     sub.cancel();
 
     if (!_connected) {
+      // setState(() { _status = "Device not found"; _scanning = false; });
       setState(() { _status = "Device not found"; _scanning = false; });
+      _appState.update(status: "Device not found", scanning: false);
     }
   }
 
   Future<void> _connectToDevice(BluetoothDevice device) async {
+    // setState(() { _status = "Connecting..."; });
     setState(() { _status = "Connecting..."; });
+    _appState.update(status: "Connecting...");
     try {
       await device.connect(license: License.free);
       _device = device;
@@ -319,20 +351,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
       device.connectionState.listen((s) {
         if (s == BluetoothConnectionState.disconnected) {
+          // setState(() { _connected = false; _status = "Disconnected"; });
           setState(() { _connected = false; _status = "Disconnected"; });
+          _appState.update(connected: false, status: "Disconnected");
         }
       });
 
-      setState(() {
-        _connected = true;
-        _scanning  = false;
-        _status    = "Connected";
-      });
+      // setState(() {
+      //   _connected = true;
+      //   _scanning  = false;
+      //   _status    = "Connected";
+      // });
+
+      setState(() { _connected = true; _scanning = false; _status = "Connected"; });
+      _appState.update(connected: true, scanning: false, status: "Connected");
 
       if (_paired && _beaconUUID == null) await _fetchDeviceInfo();
 
     } catch (e) {
+      // setState(() { _status = "Connection failed: $e"; _scanning = false; });
       setState(() { _status = "Connection failed: $e"; _scanning = false; });
+      _appState.update(status: "Connection failed: $e", scanning: false);
     }
   }
 
@@ -349,7 +388,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // ── Pairing ───────────────────────────────────────────────────────────
 
   Future<void> _pair() async {
-    if (_pairChar == null) { setState(() { _status = "Not connected"; }); return; }
+    if (_pairChar == null) { 
+      // setState(() { _status = "Not connected"; }); 
+      setState(() { _status = "Pairing..."; });
+      _appState.update(status: "Pairing...");
+      return; }
     final deviceId = const Uuid().v4();
     setState(() { _status = "Pairing..."; });
     try {
@@ -357,14 +400,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       final response = await _pairChar!.read();
       final token    = utf8.decode(response).trim();
       if (token.startsWith("error:")) {
+        // setState(() { _status = "Pairing failed: $token"; });
         setState(() { _status = "Pairing failed: $token"; });
+        _appState.update(status: "Pairing failed: $token");
         return;
       }
       await _savePairing(deviceId, token);
       await _fetchDeviceInfo();
+      // setState(() { _status = "Paired successfully!"; });
       setState(() { _status = "Paired successfully!"; });
+      _appState.update(paired: true, status: "Paired successfully!");
     } catch (e) {
+      // setState(() { _status = "Pairing error: $e"; });
       setState(() { _status = "Pairing error: $e"; });
+      _appState.update(status: "Pairing error: $e");
     }
   }
 
@@ -389,7 +438,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Future<void> _unpair() async {
     await _clearPairing();
+    // setState(() { _status = "Unpaired"; });
     setState(() { _status = "Unpaired"; });
+    _appState.update(paired: false, status: "Unpaired");
   }
 
   // ── Pairing-lost ──────────────────────────────────────────────────────
@@ -401,7 +452,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     if (_repairDialogShowing) return;
     _repairDialogShowing = true;
     await _clearPairing();
+    // setState(() { _status = "Pairing lost"; });
     setState(() { _status = "Pairing lost"; });
+    _appState.update(paired: false, status: "Pairing lost");
     if (!mounted) return;
 
     await showDialog(
@@ -469,7 +522,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       });
     } on Exception catch (e) {
       final msg = e.toString();
+      // setState(() { _status = "Command failed: $msg"; });
       setState(() { _status = "Command failed: $msg"; });
+      _appState.update(status: "Command failed: $msg");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -529,31 +584,54 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // ── Navigation ────────────────────────────────────────────────────────
 
-  void _openSettings() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SettingsPage(
-          connected:        _connected,
-          scanning:         _scanning,
-          paired:           _paired,
-          deviceId:         _deviceId,
-          savedMac:         _savedMac,
-          beaconUUID:       _beaconUUID,
-          proximityEnabled: _proximityEnabled,
-          lastRSSI:         _lastRSSI,
-          proximityStatus:  _proximityStatus,
-          status:           _status,
-          onScanAndConnect: _scanAndConnect,
-          onDisconnect:     _disconnect,
-          onPair:           _pair,
-          onUnpair:         _unpair,
-          onStartProximity: _startProximityMonitoring,
-          onStopProximity:  _stopProximityMonitoring,
-        ),
+void _openSettings() {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SettingsPage(
+        appState: _appState,
+        deviceId:         _deviceId,
+        savedMac:         _savedMac,
+        beaconUUID:       _beaconUUID,
+        proximityEnabled: _proximityEnabled,
+        lastRSSI:         _lastRSSI,
+        proximityStatus:  _proximityStatus,
+        onScanAndConnect: _scanAndConnect,
+        onDisconnect:     _disconnect,
+        onPair:           _pair,
+        onUnpair:         _unpair,
+        onStartProximity: _startProximityMonitoring,
+        onStopProximity:  _stopProximityMonitoring,
       ),
-    );
-  }
+    ),
+  );
+}
+
+  // void _openSettings() {
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (_) => SettingsPage(
+  //         connected:        _connected,
+  //         scanning:         _scanning,
+  //         paired:           _paired,
+  //         deviceId:         _deviceId,
+  //         savedMac:         _savedMac,
+  //         beaconUUID:       _beaconUUID,
+  //         proximityEnabled: _proximityEnabled,
+  //         lastRSSI:         _lastRSSI,
+  //         proximityStatus:  _proximityStatus,
+  //         status:           _status,
+  //         onScanAndConnect: _scanAndConnect,
+  //         onDisconnect:     _disconnect,
+  //         onPair:           _pair,
+  //         onUnpair:         _unpair,
+  //         onStartProximity: _startProximityMonitoring,
+  //         onStopProximity:  _stopProximityMonitoring,
+  //       ),
+  //     ),
+  //   );
+  // }
 
   // ── Build ─────────────────────────────────────────────────────────────
 
@@ -788,17 +866,202 @@ class _LockButton extends StatelessWidget {
 // ─────────────────────────────────────────────
 // Settings page
 // ─────────────────────────────────────────────
+// class SettingsPage extends StatelessWidget {
+//   final bool    connected;
+//   final bool    scanning;
+//   final bool    paired;
+//   final String? deviceId;
+//   final String? savedMac;
+//   final String? beaconUUID;
+//   final bool    proximityEnabled;
+//   final int     lastRSSI;
+//   final String  proximityStatus;
+//   final String  status;
+
+//   final VoidCallback onScanAndConnect;
+//   final VoidCallback onDisconnect;
+//   final VoidCallback onPair;
+//   final VoidCallback onUnpair;
+//   final VoidCallback onStartProximity;
+//   final VoidCallback onStopProximity;
+
+//   const SettingsPage({
+//     super.key,
+//     required this.connected,
+//     required this.scanning,
+//     required this.paired,
+//     required this.deviceId,
+//     required this.savedMac,
+//     required this.beaconUUID,
+//     required this.proximityEnabled,
+//     required this.lastRSSI,
+//     required this.proximityStatus,
+//     required this.status,
+//     required this.onScanAndConnect,
+//     required this.onDisconnect,
+//     required this.onPair,
+//     required this.onUnpair,
+//     required this.onStartProximity,
+//     required this.onStopProximity,
+//   });
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         title: const Text('Settings'),
+//         backgroundColor: Theme.of(context).colorScheme.surface,
+//         elevation: 0,
+//       ),
+//       body: ListView(
+//         children: [
+
+//           // ── Connection ──────────────────────────────────────────────
+//           _SettingsSection(
+//             title: "Connection",
+//             children: [
+//               _InfoTile(
+//                 icon: connected
+//                     ? Icons.bluetooth_connected
+//                     : Icons.bluetooth_disabled,
+//                 iconColor: connected ? Colors.green : Colors.grey,
+//                 title: connected ? "Connected to Chelonian" : "Not connected",
+//                 subtitle: savedMac,
+//               ),
+//               Padding(
+//                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+//                 child: connected
+//                     ? OutlinedButton.icon(
+//                         onPressed: onDisconnect,
+//                         icon: const Icon(Icons.bluetooth_disabled),
+//                         label: const Text("Disconnect"),
+//                       )
+//                     : ElevatedButton.icon(
+//                         onPressed: scanning ? null : onScanAndConnect,
+//                         icon: scanning
+//                             ? const SizedBox(
+//                                 width: 18, height: 18,
+//                                 child: CircularProgressIndicator(strokeWidth: 2),
+//                               )
+//                             : const Icon(Icons.bluetooth_searching),
+//                         label: Text(scanning ? "Scanning..." : "Connect"),
+//                         style: ElevatedButton.styleFrom(
+//                           backgroundColor: Colors.green,
+//                           foregroundColor: Colors.white,
+//                         ),
+//                       ),
+//               ),
+//             ],
+//           ),
+
+//           // ── Pairing ─────────────────────────────────────────────────
+//           _SettingsSection(
+//             title: "Pairing",
+//             children: [
+//               _InfoTile(
+//                 icon: paired ? Icons.link : Icons.link_off,
+//                 iconColor: paired ? Colors.green : Colors.orange,
+//                 title: paired ? "Device paired" : "Not paired",
+//                 subtitle: paired && deviceId != null
+//                     ? "ID: ${deviceId!.substring(0, 8)}..."
+//                     : connected
+//                         ? "Tap below to pair"
+//                         : "Connect first, then pair",
+//               ),
+//               Padding(
+//                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+//                 child: paired
+//                     ? OutlinedButton.icon(
+//                         onPressed: onUnpair,
+//                         icon: const Icon(Icons.link_off, color: Colors.red),
+//                         label: const Text("Unpair",
+//                             style: TextStyle(color: Colors.red)),
+//                         style: OutlinedButton.styleFrom(
+//                           side: const BorderSide(color: Colors.red),
+//                         ),
+//                       )
+//                     : ElevatedButton.icon(
+//                         onPressed: connected ? onPair : null,
+//                         icon: const Icon(Icons.link),
+//                         label: const Text("Pair Device"),
+//                         style: ElevatedButton.styleFrom(
+//                           backgroundColor: Colors.orange,
+//                           foregroundColor: Colors.white,
+//                         ),
+//                       ),
+//               ),
+//             ],
+//           ),
+
+//           // ── Proximity ────────────────────────────────────────────────
+//           _SettingsSection(
+//             title: "Proximity Unlock",
+//             children: [
+//               SwitchListTile(
+//                 secondary: const Icon(Icons.sensors),
+//                 title: const Text("Auto-unlock when nearby"),
+//                 subtitle: Text(proximityStatus),
+//                 value: proximityEnabled,
+//                 onChanged: paired
+//                     ? (v) => v ? onStartProximity() : onStopProximity()
+//                     : null,
+//               ),
+//               if (proximityEnabled)
+//                 Padding(
+//                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+//                   child: Row(
+//                     children: [
+//                       SignalStrengthIcon(rssi: lastRSSI, active: true, size: 40),
+//                       const SizedBox(width: 16),
+//                       Column(
+//                         crossAxisAlignment: CrossAxisAlignment.start,
+//                         children: [
+//                           Text(
+//                             "${rssiToBars(lastRSSI)} / 4 bars",
+//                             style: const TextStyle(
+//                                 fontWeight: FontWeight.w600, fontSize: 15),
+//                           ),
+//                           Text(
+//                             "RSSI: $lastRSSI dBm",
+//                             style: TextStyle(
+//                                 fontSize: 12, color: Colors.grey.shade600),
+//                           ),
+//                         ],
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//             ],
+//           ),
+
+//           // ── Debug ────────────────────────────────────────────────────
+//           _SettingsSection(
+//             title: "Debug Info",
+//             children: [
+//               _DebugTile(label: "Status",      value: status),
+//               _DebugTile(label: "Device ID",   value: deviceId ?? "—"),
+//               _DebugTile(label: "MAC",         value: savedMac ?? "—"),
+//               _DebugTile(label: "Beacon UUID", value: beaconUUID ?? "—"),
+//               _DebugTile(label: "RSSI",        value: "$lastRSSI dBm"),
+//               const SizedBox(height: 4),
+//             ],
+//           ),
+
+//           const SizedBox(height: 40),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
 class SettingsPage extends StatelessWidget {
-  final bool    connected;
-  final bool    scanning;
-  final bool    paired;
-  final String? deviceId;
-  final String? savedMac;
-  final String? beaconUUID;
-  final bool    proximityEnabled;
-  final int     lastRSSI;
-  final String  proximityStatus;
-  final String  status;
+  final AppStateNotifier appState;
+  final String?          savedMac;
+  final String?          deviceId;
+  final String?          beaconUUID;
+  final bool             proximityEnabled;
+  final int              lastRSSI;
+  final String           proximityStatus;
 
   final VoidCallback onScanAndConnect;
   final VoidCallback onDisconnect;
@@ -809,16 +1072,13 @@ class SettingsPage extends StatelessWidget {
 
   const SettingsPage({
     super.key,
-    required this.connected,
-    required this.scanning,
-    required this.paired,
-    required this.deviceId,
+    required this.appState,
     required this.savedMac,
+    required this.deviceId,
     required this.beaconUUID,
     required this.proximityEnabled,
     required this.lastRSSI,
     required this.proximityStatus,
-    required this.status,
     required this.onScanAndConnect,
     required this.onDisconnect,
     required this.onPair,
@@ -835,142 +1095,160 @@ class SettingsPage extends StatelessWidget {
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
       ),
-      body: ListView(
-        children: [
+      body: ListenableBuilder(
+        listenable: appState,
+        builder: (context, _) {
+          final connected = appState.connected;
+          final scanning  = appState.scanning;
+          final paired    = appState.paired;
+          final status    = appState.status;
 
-          // ── Connection ──────────────────────────────────────────────
-          _SettingsSection(
-            title: "Connection",
+          return ListView(
             children: [
-              _InfoTile(
-                icon: connected
-                    ? Icons.bluetooth_connected
-                    : Icons.bluetooth_disabled,
-                iconColor: connected ? Colors.green : Colors.grey,
-                title: connected ? "Connected to Chelonian" : "Not connected",
-                subtitle: savedMac,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: connected
-                    ? OutlinedButton.icon(
-                        onPressed: onDisconnect,
-                        icon: const Icon(Icons.bluetooth_disabled),
-                        label: const Text("Disconnect"),
-                      )
-                    : ElevatedButton.icon(
-                        onPressed: scanning ? null : onScanAndConnect,
-                        icon: scanning
-                            ? const SizedBox(
-                                width: 18, height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.bluetooth_searching),
-                        label: Text(scanning ? "Scanning..." : "Connect"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-              ),
-            ],
-          ),
 
-          // ── Pairing ─────────────────────────────────────────────────
-          _SettingsSection(
-            title: "Pairing",
-            children: [
-              _InfoTile(
-                icon: paired ? Icons.link : Icons.link_off,
-                iconColor: paired ? Colors.green : Colors.orange,
-                title: paired ? "Device paired" : "Not paired",
-                subtitle: paired && deviceId != null
-                    ? "ID: ${deviceId!.substring(0, 8)}..."
-                    : connected
-                        ? "Tap below to pair"
-                        : "Connect first, then pair",
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: paired
-                    ? OutlinedButton.icon(
-                        onPressed: onUnpair,
-                        icon: const Icon(Icons.link_off, color: Colors.red),
-                        label: const Text("Unpair",
-                            style: TextStyle(color: Colors.red)),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                      )
-                    : ElevatedButton.icon(
-                        onPressed: connected ? onPair : null,
-                        icon: const Icon(Icons.link),
-                        label: const Text("Pair Device"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-              ),
-            ],
-          ),
-
-          // ── Proximity ────────────────────────────────────────────────
-          _SettingsSection(
-            title: "Proximity Unlock",
-            children: [
-              SwitchListTile(
-                secondary: const Icon(Icons.sensors),
-                title: const Text("Auto-unlock when nearby"),
-                subtitle: Text(proximityStatus),
-                value: proximityEnabled,
-                onChanged: paired
-                    ? (v) => v ? onStartProximity() : onStopProximity()
-                    : null,
-              ),
-              if (proximityEnabled)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                  child: Row(
-                    children: [
-                      SignalStrengthIcon(rssi: lastRSSI, active: true, size: 40),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "${rssiToBars(lastRSSI)} / 4 bars",
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 15),
+              // ── Connection ────────────────────────────────────────────
+              _SettingsSection(
+                title: "Connection",
+                children: [
+                  _InfoTile(
+                    icon: connected
+                        ? Icons.bluetooth_connected
+                        : Icons.bluetooth_disabled,
+                    iconColor: connected ? Colors.green : Colors.grey,
+                    title: connected ? "Connected to Chelonian" : "Not connected",
+                    subtitle: savedMac,
+                  ),
+                  // Status text
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: Text(
+                      status,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    child: connected
+                        ? OutlinedButton.icon(
+                            onPressed: onDisconnect,
+                            icon: const Icon(Icons.bluetooth_disabled),
+                            label: const Text("Disconnect"),
+                          )
+                        : ElevatedButton.icon(
+                            onPressed: scanning ? null : onScanAndConnect,
+                            icon: scanning
+                                ? const SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.bluetooth_searching),
+                            label: Text(scanning ? "Scanning..." : "Connect"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
                           ),
-                          Text(
-                            "RSSI: $lastRSSI dBm",
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+
+              // ── Pairing ───────────────────────────────────────────────
+              _SettingsSection(
+                title: "Pairing",
+                children: [
+                  _InfoTile(
+                    icon: paired ? Icons.link : Icons.link_off,
+                    iconColor: paired ? Colors.green : Colors.orange,
+                    title: paired ? "Device paired" : "Not paired",
+                    subtitle: paired && deviceId != null
+                        ? "ID: ${deviceId!.substring(0, 8)}..."
+                        : connected
+                            ? "Tap below to pair"
+                            : "Connect first, then pair",
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    child: paired
+                        ? OutlinedButton.icon(
+                            onPressed: onUnpair,
+                            icon: const Icon(Icons.link_off, color: Colors.red),
+                            label: const Text("Unpair",
+                                style: TextStyle(color: Colors.red)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                          )
+                        : ElevatedButton.icon(
+                            onPressed: connected ? onPair : null,
+                            icon: const Icon(Icons.link),
+                            label: const Text("Pair Device"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+
+              // ── Proximity ─────────────────────────────────────────────
+              _SettingsSection(
+                title: "Proximity Unlock",
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.sensors),
+                    title: const Text("Auto-unlock when nearby"),
+                    subtitle: Text(proximityStatus),
+                    value: proximityEnabled,
+                    onChanged: paired
+                        ? (v) => v ? onStartProximity() : onStopProximity()
+                        : null,
+                  ),
+                  if (proximityEnabled)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                      child: Row(
+                        children: [
+                          SignalStrengthIcon(rssi: lastRSSI, active: true, size: 40),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "${rssiToBars(lastRSSI)} / 4 bars",
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 15),
+                              ),
+                              Text(
+                                "RSSI: $lastRSSI dBm",
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
+                    ),
+                ],
+              ),
 
-          // ── Debug ────────────────────────────────────────────────────
-          _SettingsSection(
-            title: "Debug Info",
-            children: [
-              _DebugTile(label: "Status",      value: status),
-              _DebugTile(label: "Device ID",   value: deviceId ?? "—"),
-              _DebugTile(label: "MAC",         value: savedMac ?? "—"),
-              _DebugTile(label: "Beacon UUID", value: beaconUUID ?? "—"),
-              _DebugTile(label: "RSSI",        value: "$lastRSSI dBm"),
-              const SizedBox(height: 4),
-            ],
-          ),
+              // ── Debug ─────────────────────────────────────────────────
+              _SettingsSection(
+                title: "Debug Info",
+                children: [
+                  _DebugTile(label: "Status",      value: status),
+                  _DebugTile(label: "Device ID",   value: deviceId ?? "—"),
+                  _DebugTile(label: "MAC",         value: savedMac ?? "—"),
+                  _DebugTile(label: "Beacon UUID", value: beaconUUID ?? "—"),
+                  _DebugTile(label: "RSSI",        value: "$lastRSSI dBm"),
+                  const SizedBox(height: 4),
+                ],
+              ),
 
-          const SizedBox(height: 40),
-        ],
+              const SizedBox(height: 40),
+            ],
+          );
+        },
       ),
     );
   }
