@@ -271,10 +271,20 @@ Future<void> _loadPairing() async {
         if (state == BluetoothConnectionState.disconnected) {
           setState(() {
             _connected = false;
-            _status    = "Disconnected";
+            _pairingVerified = false;
+            _status = "Disconnected";
           });
         }
       });
+
+      // device.connectionState.listen((state) {
+      //   if (state == BluetoothConnectionState.disconnected) {
+      //     setState(() {
+      //       _connected = false;
+      //       _status    = "Disconnected";
+      //     });
+      //   }
+      // });
 
       setState(() {
         _connected = true;
@@ -494,11 +504,15 @@ Future<void> _verifyPairing() async {
   // Commands
 
   Future<void> _sendCommand(int command) async {
-        if (!_paired || _deviceId == null || _token == null) {
-          _showErrorDialog("Not Paired",
-              "This device is not paired. Please pair first.");
-          return;
-        }
+    if (!_paired || !_pairingVerified) {
+      debugPrint("Command blocked — pairing not verified");
+      return;
+    }
+        // if (!_paired || _deviceId == null || _token == null) {
+        //   _showErrorDialog("Not Paired",
+        //       "This device is not paired. Please pair first.");
+        //   return;
+        // }
 
 
     if (!_connected || _cmdChar == null) {
@@ -540,6 +554,13 @@ Future<void> _verifyPairing() async {
   }
 
   Future<void> _startProximityMonitoring() async {
+    if (!_pairingVerified) {
+      setState(() {
+        _proximityStatus = "Pairing not verified";
+      });
+      return;
+    }
+
     if (!_paired) {
       setState(() {
         _proximityStatus = "Not paired";
