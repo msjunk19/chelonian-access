@@ -364,7 +364,10 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         state.userProgrammingModeActive = false;
         // Re-enable impatience timer for normal operation
         ESP_LOGI(TAG, "Exit Stage. Enabling Impatience Timer...");
+
+        state.lastActivityTime = millis();
         state.impatientEnabled = true;
+
         LED_SET_SEQ(PLACEHOLDER);
         return false;
     }
@@ -496,8 +499,12 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
 
         if (!led.isRunning() && !state.audioQueued) {
             LED_SET_SEQ(PROGRAMMING_MODE);
-            state.queuedSound = AudioContoller::SOUND_ACCEPTED;
-            state.audioQueued = true;
+            //TODO fix sound
+            audio.playTrack(AudioContoller::SOUND_WAITING);
+
+
+            // state.queuedSound = AudioContoller::SOUND_ACCEPTED;
+            // state.audioQueued = true;
 
             state.userProgrammingModeActive = true;
             state.userProgLastActivityTime = millis();
@@ -515,6 +522,7 @@ static void handleAccessGranted(AccessLoopState &state) {
     ESP_LOGI(TAG, "Valid Card, Access Granted");
     if (!led.isRunning() && !state.audioQueued) {
         LED_SET_SEQ(ACCESS_GRANTED);
+        //TODO fix sound
         state.queuedSound      = AudioContoller::SOUND_ACCEPTED;
         state.audioQueued      = true;
         // activateRelays();

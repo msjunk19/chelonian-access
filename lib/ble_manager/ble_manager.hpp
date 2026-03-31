@@ -14,6 +14,7 @@ static const char* BLETAG = "BLE";
 #define BLE_BEACON_UUID_CHAR "beb54841-36e1-4688-b7f5-ea07361b26a8" // read only
 #define BLE_MAC_UUID_CHAR    "beb54842-36e1-4688-b7f5-ea07361b26a8" // read only
 
+#define BLE_VERIFY_UUID "beb54843-36e1-4688-b7f5-ea07361b26a8" // write/read
 #define BLE_CMD_UNLOCK  0x01
 #define BLE_CMD_LOCK    0x02
 #define BLE_CMD_STATUS  0x03
@@ -57,17 +58,24 @@ public:
         );
         _pairChar->setCallbacks(new PairingCallbacks(this));
 
-        // Beacon UUID characteristic — app reads this after pairing
+        // Beacon UUID characteristic
         _beaconUUIDChar = service->createCharacteristic(
             BLE_BEACON_UUID_CHAR,
             NIMBLE_PROPERTY::READ
         );
 
-        // MAC address characteristic — app reads this to identify specific device
+        // MAC address characteristic
         _macChar = service->createCharacteristic(
             BLE_MAC_UUID_CHAR,
             NIMBLE_PROPERTY::READ
         );
+
+        // Verify characteristic
+        _verifyChar = service->createCharacteristic(
+            BLE_VERIFY_UUID,
+            NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ
+        );
+        _verifyChar->setCallbacks(new VerifyCallbacks(this));
 
         _server->start();
 
@@ -89,7 +97,6 @@ public:
         ESP_LOGI(BLETAG, "BLE MAC: %s", macStr);
 
         _startAdvertising(beaconUUID);
-
         ESP_LOGI(BLETAG, "BLE started — device name: Chelonian");
     }
 
@@ -128,14 +135,12 @@ private:
     NimBLECharacteristic*  _pairChar       = nullptr;
     NimBLECharacteristic*  _beaconUUIDChar = nullptr;
     NimBLECharacteristic*  _macChar        = nullptr;
+    NimBLECharacteristic*  _verifyChar     = nullptr;
 
     bool     _pairingWindowOpen  = false;
     uint32_t _pairingWindowStart = 0;
 
     std::function<void(PhoneCommand)> _onCommand;
-
-    // -------------------------
-    // Generate unique iBeacon UUID from ESP32 MAC address
 
     void _generateBeaconUUID(char* uuidOut) {
         uint8_t mac[6];
@@ -149,9 +154,6 @@ private:
         );
     }
 
-    // -------------------------
-    // Parse UUID string into 16 bytes
-
     void _parseUUID(const char* uuidStr, uint8_t* out) {
         char hex[33] = {0};
         int j = 0;
@@ -163,9 +165,6 @@ private:
             out[i] = (uint8_t)strtol(byte, nullptr, 16);
         }
     }
-
-    // -------------------------
-    // Start advertising with iBeacon payload
 
     void _startAdvertising(const char* beaconUUID) {
         NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
@@ -233,13 +232,12 @@ private:
     public:
         CommandCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-            void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-                std::string raw = pChar->getValue();
-                // Trim trailing whitespace/newlines
-                while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r' || raw.back() == ' ')) {
-                    raw.pop_back();
-                }
-                ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            std::string raw = pChar->getValue();
+            while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r' || raw.back() == ' ')) {
+                raw.pop_back();
+            }
+            ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
 
             String payload = String(raw.c_str());
             int sep1 = payload.indexOf('|');
@@ -345,11 +343,35 @@ private:
 
             _mgr->_pairingWindowOpen = false;
             ESP_LOGI(BLETAG, "BLE paired: %s", deviceId.c_str());
-            // pChar->setValue(tokenHex);
             pChar->setValue((uint8_t*)tokenHex, 32);
         }
 
     private:
         BLEManager* _mgr;
     };
-};
+
+    // -------------------------
+    // Verify characteristic callbacks
+
+    class VerifyCallbacks : public NimBLECharacteristicCallbacks {
+    public:
+        VerifyCallbacks(BLEManager* mgr) : _mgr(mgr) {}
+
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            std::string raw = pChar->getValue();
+            String deviceId = String(raw.c_str());
+            deviceId.trim();
+
+            uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+            bool exists = phoneTokenManager.getSecret(deviceId.c_str(), storedToken);
+
+            pChar->setValue(exists ? "valid" : "invalid");
+            ESP_LOGI(BLETAG, "Verify %s: %s", deviceId.c_str(),
+                exists ? "valid" : "invalid");
+        }
+
+    private:
+        BLEManager* _mgr;
+    };
+
+}; // end BLEManager
