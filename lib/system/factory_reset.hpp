@@ -36,11 +36,11 @@ inline void factoryReset() {
     clearAPCredentials();
     ESP_LOGI(RSTAG, "WiFi credentials cleared");
 
-    // macroConfigManager.clear();
-    // ESP_LOGI(RSTAG, "Macro configuration cleared");
+    macroConfigManager.clear();
+    ESP_LOGI(RSTAG, "Macro configuration cleared");
 
-    relayConfigManager.clear();
-    ESP_LOGI(RSTAG, "Relay configuration cleared");
+    // relayConfigManager.clear();
+    // ESP_LOGI(RSTAG, "Relay configuration cleared");
 
 
     ESP_LOGW(RSTAG, "Factory reset complete — rebooting");

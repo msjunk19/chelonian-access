@@ -2,6 +2,8 @@
 #include <relay_controller.h>
 #include <macro_config.hpp>
 #include "esp_log.h"
+#include <access_service.h>
+#include <access_state.hpp>
 
 static const char* EXECUTORTAG = "MACRO_EXEC";
 
@@ -9,9 +11,6 @@ extern RelayController relays;
 extern MacroConfigManager macroConfigManager;
 
 // Forward declarations — state lives in accessservice
-enum RelayState;
-struct AccessLoopState;
-extern AccessLoopState state;
 
 // Fire all relays in a step's bitmask
 static inline void _fireStep(const RelayStep& step) {

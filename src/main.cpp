@@ -12,8 +12,10 @@
 #include <auth_manager.hpp>
 #include <ble_manager.hpp>
 #include <factory_reset.hpp>
+#include <macro_config.hpp>
+
 // #include <relay_config_manager.hpp>
-#include <relay_states.hpp>
+// #include <relay_states.hpp>
 
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
@@ -29,7 +31,9 @@ AuthManager authManager(phoneTokenManager);
 PairingButton pairingButton;
 BLEManager bleManager;
 
-RelayConfigManager relayConfigManager;
+// RelayConfigManager relayConfigManager;
+
+MacroConfigManager macroConfigManager;
 
 static const char* TAG = "Main";
 
@@ -66,8 +70,8 @@ void setup() {
     // In setup() after accessServiceSetup():
     // relayConfigManager.clear();
     // while(true);
-    relayConfigManager.load();
-    relayConfigManager.printConfig();
+    // relayConfigManager.load();
+    // relayConfigManager.printConfig();
 
     // pairingButton.begin([]() {
     // openPairingWindow();           // WiFi
@@ -84,30 +88,28 @@ void setup() {
         factoryReset();
     }
 );
+setupWebServer([](PhoneCommand cmd) {
+    switch (cmd) {
+        case PhoneCommand::UNLOCK:
+            LED_SET_SEQ(UNLOCK);
+            fireMacro(macroConfigManager.config.tag_macro);
+            break;
+        case PhoneCommand::LOCK:
+            break;
+        case PhoneCommand::STATUS:
+            break;
+        default:
+            break;
+    }
+});
 
-    setupWebServer([](PhoneCommand cmd) {
-        switch (cmd) {
-            case PhoneCommand::UNLOCK:
-                LED_SET_SEQ(UNLOCK);
-                // activateRelays();
-                RELAY_ACTION(UNLOCK);
-                break;
-            case PhoneCommand::LOCK:
-                // TODO: add deactivateRelays() or similar when you implement re-locking
-                break;
-            case PhoneCommand::STATUS:
-                break;
-            default:
-                break;
-        }
-    });
     startAP();
     // ESP_LOGI("WiFi AP", "Setup complete. AP running.");
 
     bleManager.begin([](PhoneCommand cmd) {
     switch (cmd) {
         // case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); activateRelays(); break;
-        case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); RELAY_ACTION(UNLOCK); break;
+        case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); fireMacro(macroConfigManager.config.tag_macro); break;
         
         case PhoneCommand::LOCK:   break;
         case PhoneCommand::STATUS: break;
