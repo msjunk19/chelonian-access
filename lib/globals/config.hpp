@@ -21,10 +21,10 @@ static constexpr uint8_t MAX_USER_UIDS = 10;
 // Relay Related Variables
 const unsigned long RELAY_COUNT = 4; //How many relays are connected
 
-constexpr uint32_t RELAY1_DURATION = 1000; //How long does the relay stay active
-constexpr uint32_t RELAY2_DURATION = 1000; //How long does the relay stay active
-constexpr uint32_t RELAY3_DURATION = 1000; //How long does the relay stay active
-constexpr uint32_t RELAY4_DURATION = 1000; //How long does the relay stay active
+// constexpr uint32_t RELAY1_DURATION = 1000; //How long does the relay stay active
+// constexpr uint32_t RELAY2_DURATION = 1000; //How long does the relay stay active
+// constexpr uint32_t RELAY3_DURATION = 1000; //How long does the relay stay active
+// constexpr uint32_t RELAY4_DURATION = 1000; //How long does the relay stay active
 
 
 // Timeouts

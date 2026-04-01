@@ -14,9 +14,6 @@
 #include <factory_reset.hpp>
 #include <macro_config.hpp>
 
-// #include <relay_config_manager.hpp>
-// #include <relay_states.hpp>
-
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL);  // definition lives here
@@ -31,7 +28,6 @@ AuthManager authManager(phoneTokenManager);
 PairingButton pairingButton;
 BLEManager bleManager;
 
-// RelayConfigManager relayConfigManager;
 
 MacroConfigManager macroConfigManager;
 
@@ -67,16 +63,6 @@ void setup() {
 
     accessServiceSetup();   
 
-    // In setup() after accessServiceSetup():
-    // relayConfigManager.clear();
-    // while(true);
-    // relayConfigManager.load();
-    // relayConfigManager.printConfig();
-
-    // pairingButton.begin([]() {
-    // openPairingWindow();           // WiFi
-    // bleManager.openPairingWindow(); // BLE
-    //  });
     pairingButton.begin(
     []() {
         openPairingWindow();

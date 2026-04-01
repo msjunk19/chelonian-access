@@ -2,20 +2,9 @@
 #include <Arduino.h>
 #include "esp_log.h"
 #include <led_states.hpp>
-// #include <master_uid_manager.h>
-// #include <user_uid_manager.h>
-// #include <phone_token_manager.hpp>
-// #include <wifi_manager.hpp>
-// #include <macro_config.hpp>
 #include <globals.hpp>
 
 static const char* RSTAG = "FACTORY";
-
-// extern MasterUIDManager masterUidManager;
-// extern UserUIDManager userUidManager;
-// extern PhoneTokenManager phoneTokenManager;
-// extern MacroConfigManager macroConfigManager;
-
 
 inline void factoryReset() {
     ESP_LOGW(RSTAG, "Factory reset initiated — wiping all stored data");
@@ -38,10 +27,6 @@ inline void factoryReset() {
 
     macroConfigManager.clear();
     ESP_LOGI(RSTAG, "Macro configuration cleared");
-
-    // relayConfigManager.clear();
-    // ESP_LOGI(RSTAG, "Relay configuration cleared");
-
 
     ESP_LOGW(RSTAG, "Factory reset complete — rebooting");
 
