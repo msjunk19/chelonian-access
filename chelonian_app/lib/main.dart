@@ -186,7 +186,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   BluetoothCharacteristic? _macCharacteristic;
 
   bool _connected = false;
-  bool _scanning  = false;
+  bool _scanning  = false; //not used rn
   bool _paired    = false;
 
   // Auth
@@ -682,8 +682,8 @@ void _openSettings() {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
                   color: _connected
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.grey.withOpacity(0.1),
+                      ? Colors.green.withValues(alpha: 0.1)
+                      : Colors.grey.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -744,8 +744,8 @@ void _openSettings() {
                         key: ValueKey(_isUnlocked),
                         size: 68,
                         color: _isUnlocked
-                            ? Colors.green.withOpacity(0.7)
-                            : Colors.red.withOpacity(0.7),
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : Colors.red.withValues(alpha: 0.1),
                       ),
                     ),
 
@@ -827,17 +827,19 @@ class _LockButton extends StatelessWidget {
               width: 108, height: 108,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: effectiveColor.withOpacity(
-                    enabled ? (active ? 0.18 : 0.10) : 0.05),
-                border: Border.all(
-                  color: effectiveColor.withOpacity(
-                      enabled ? (active ? 0.5 : 0.25) : 0.12),
-                  width: 2,
+                color: effectiveColor.withValues(
+                  alpha: enabled ? (active ? 0.18 : 0.10) : 0.05,
                 ),
+              border: Border.all(
+                color: effectiveColor.withValues(
+                  alpha: enabled ? (active ? 0.5 : 0.25) : 0.12,
+                ),
+                width: 2,
+              ),
                 boxShadow: enabled && active
                     ? [
                         BoxShadow(
-                          color: effectiveColor.withOpacity(0.25),
+                          color: effectiveColor.withValues(alpha: 0.25),
                           blurRadius: 18,
                           spreadRadius: 2,
                         )
@@ -1287,7 +1289,7 @@ class _SettingsSection extends StatelessWidget {
             color: Theme.of(context)
                 .colorScheme
                 .surfaceContainerHighest
-                .withOpacity(0.45),
+                .withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(children: children),
