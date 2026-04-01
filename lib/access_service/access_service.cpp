@@ -5,7 +5,7 @@
 #include <globals.hpp>
 #include <pin_mapping.hpp>
 #include <master_uid_manager.h>
-#include <relay_states.hpp>
+// #include <relay_states.hpp>
 
 static const char* TAG = "ACCESS";  // Add TAG definition
 
@@ -13,12 +13,12 @@ static const char* TAG = "ACCESS";  // Add TAG definition
 RFIDController rfid;
 RelayController relays;
 AudioContoller audio;
-
+static AccessLoopState state;
 
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
                                                          23, 30, 38, 47, 57, 68};
 
-static AccessLoopState state;
+
 
 void accessServiceSetup() {
     macroConfigManager.load();

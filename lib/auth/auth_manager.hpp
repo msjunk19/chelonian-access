@@ -69,38 +69,6 @@ public:
              payload.deviceId, payload.command);
     return true;
     }
-    // bool verify(const AuthPayload& payload) {
-    //     // 1. Look up secret for this device
-    //     uint8_t secret[PHONE_SECRET_LEN];
-    //     if (!_tokens.getSecret(payload.deviceId, secret)) {
-    //         ESP_LOGW(AUTHTAG, "Unknown device: %s", payload.deviceId);
-    //         return false;
-    //     }
-
-    //     // 2. Check timestamp freshness
-    //     uint32_t now = _getCurrentTime();
-    //     int32_t drift = (int32_t)payload.timestamp - (int32_t)now;
-    //     if (drift > (int32_t)AUTH_TIMESTAMP_WINDOW || 
-    //         drift < -(int32_t)AUTH_TIMESTAMP_WINDOW) {
-    //         ESP_LOGW(AUTHTAG, "Timestamp rejected — drift: %ld seconds", drift);
-    //         return false;
-    //     }
-
-    //     // 3. Recompute expected HMAC
-    //     uint8_t expected[32];
-    //     _computeHMAC(secret, payload.deviceId, payload.timestamp, 
-    //                  payload.command, expected);
-
-    //     // 4. Constant-time compare (prevents timing attacks)
-    //     if (!_constantTimeCompare(expected, payload.hmac, 32)) {
-    //         ESP_LOGW(AUTHTAG, "HMAC mismatch for device: %s", payload.deviceId);
-    //         return false;
-    //     }
-
-    //     ESP_LOGI(AUTHTAG, "Auth OK — device: %s cmd: 0x%02X", 
-    //              payload.deviceId, payload.command);
-    //     return true;
-    // }
 
     // Call this after pairing so the device knows what time it is
     // Phone sends its unix timestamp during pairing handshake

@@ -20,7 +20,7 @@ private:
         bool state;
     };
 
-    static constexpr uint8_t NUM_RELAYS = RELAY_COUNT;
+    static constexpr uint8_t NUM_RELAYS = RELAY_COUNT; //in config.hpp
     std::array<RelayPin, NUM_RELAYS> m_relays{};
 
     static bool isValidRelay(uint8_t relay);

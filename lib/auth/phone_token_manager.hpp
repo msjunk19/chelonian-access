@@ -6,10 +6,6 @@
 static const char* PHONETAG = "PHONETOKEN";
 static const char* PHONE_NVS_NS = "phone_tokens";
 
-// Add to config.hpp:
-// static constexpr uint8_t MAX_PAIRED_PHONES = 10;
-// static constexpr uint8_t PHONE_SECRET_LEN  = 32;
-// static constexpr uint8_t PHONE_ID_MAX_LEN  = 36; // UUID string length
 
 class PhoneTokenManager {
 public:
