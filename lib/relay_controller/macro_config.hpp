@@ -10,6 +10,8 @@ static const char* MACRO_NVS_NS = "macro_cfg";
 #define MAX_STEPS  4
 #define MAX_MACROS 6
 
+#define MACRO_MAGIC 0xCAFEBABE
+
 struct RelayStep {
     uint8_t  relay_mask;  // bitmask: 0b0001=R1, 0b0010=R2, 0b0100=R3, 0b1000=R4
     uint16_t duration;    // pulse duration ms
@@ -17,9 +19,10 @@ struct RelayStep {
 };
 
 struct Macro {
-    char      name[16];
-    char      icon[16];
-    uint8_t   step_count;
+    uint32_t magic;       // must be MACRO_MAGIC for valid data
+    char     name[16];
+    char     icon[16];
+    uint8_t  step_count;
     RelayStep steps[MAX_STEPS];
 };
 
@@ -35,12 +38,12 @@ static const MacroConfig DEFAULT_MACRO_CONFIG = {
     .macro_count = 5,
     .tag_macro   = 0,
     .macros = {
-        { "Unlock",     "", 1, {{ 0b0001, 1000, 0    }} },
-        { "Unlock All", "", 2, {{ 0b0001, 1000, 1000 },
-                                { 0b0001, 1000, 0    }} },
-        { "Lock",       "", 1, {{ 0b0010, 1000, 0    }} },
-        { "Trunk",      "", 1, {{ 0b0100, 1000, 0    }} },
-        { "Panic",      "", 1, {{ 0b1111, 1000, 0    }} },
+        { MACRO_MAGIC, "Unlock",     "", 1, {{ 0b0001, 1000, 0    }} },
+        { MACRO_MAGIC, "Unlock All", "", 2, {{ 0b0001, 1000, 1000 },
+                                              { 0b0001, 1000, 0    }} },
+        { MACRO_MAGIC, "Lock",       "", 1, {{ 0b0010, 1000, 0    }} },
+        { MACRO_MAGIC, "Trunk",      "", 1, {{ 0b0100, 1000, 0    }} },
+        { MACRO_MAGIC, "Panic",      "", 1, {{ 0b1111, 1000, 0    }} },
     }
 };
 
@@ -66,15 +69,15 @@ public:
             Macro temp;
             size_t read = prefs.getBytes(key, &temp, sizeof(Macro));
 
-            if (read == sizeof(Macro)) {
+            if (read == sizeof(Macro) && temp.magic == MACRO_MAGIC) {
                 // sanity check step count
                 if (temp.step_count > MAX_STEPS) temp.step_count = MAX_STEPS;
                 config.macros[i] = temp;
             } else {
-                // blob missing or wrong size — fall back to default if available
+                // blob missing, wrong size, or corrupt — fall back to default if available
                 if (i < DEFAULT_MACRO_CONFIG.macro_count) {
                     config.macros[i] = DEFAULT_MACRO_CONFIG.macros[i];
-                    ESP_LOGW(MACROTAG, "Macro %u missing from NVS, using default", i);
+                    ESP_LOGW(MACROTAG, "Macro %u invalid or missing from NVS, using default", i);
                 }
             }
         }
@@ -91,6 +94,8 @@ public:
 
         Preferences prefs;
         prefs.begin(MACRO_NVS_NS, false);
+
+        config.macros[index].magic = MACRO_MAGIC;
 
         char key[16];
         snprintf(key, sizeof(key), "macro_%u", index);
@@ -147,6 +152,7 @@ public:
             return false;
         }
         Macro& m = config.macros[config.macro_count];
+        m.magic = MACRO_MAGIC;
         strncpy(m.name, name, sizeof(m.name) - 1);
         m.name[sizeof(m.name) - 1] = '\0';
         strncpy(m.icon, icon, sizeof(m.icon) - 1);

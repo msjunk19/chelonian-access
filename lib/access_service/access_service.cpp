@@ -24,17 +24,17 @@ void accessServiceSetup() {
     rfid.printFirmwareVersion();
     relays.begin();
     if (audio.begin()) {
-    audio.setVolume(AUDIO_DEFAULT_VOLUME);
+        audio.setVolume(AUDIO_DEFAULT_VOLUME);
 
-    // wait for the controller to be ready, non-blocking-ish
-    unsigned long start = millis();
-    while (millis() - start < AUDIO_INIT_DELAY_MS) {
-        // tiny sleep to yield CPU to other tasks
-        delay(1);  
+        // wait for the controller to be ready, non-blocking-ish
+        unsigned long start = millis();
+        while (millis() - start < AUDIO_INIT_DELAY_MS) {
+            // tiny sleep to yield CPU to other tasks
+            delay(1);  
+        }
+        ESP_LOGI(TAG, "System Boot Complete...");
+        audio.playTrack(AudioContoller::SOUND_STARTUP);
     }
-    ESP_LOGI(TAG, "System Boot Complete...");
-    audio.playTrack(AudioContoller::SOUND_STARTUP);
-}
     ESP_LOGI(TAG, "Waiting for an ISO14443A card");
     markUserActivity(state);
 }
@@ -169,8 +169,12 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         }
 
         if (!userUidManager.checkUID(uid, uidLength)) {
-            userUidManager.addUID(uid, uidLength);
-            LED_SET_SEQ(USER_ADDED);
+            if (userUidManager.addUID(uid, uidLength)) {
+                LED_SET_SEQ(USER_ADDED);
+            } else {
+                ESP_LOGW(TAG, "User storage full, cannot add card");
+                LED_SET_SEQ(USER_FULL);
+            }
         } else {
             userUidManager.removeUID(uid, uidLength);
             LED_SET_SEQ(USER_REMOVED);

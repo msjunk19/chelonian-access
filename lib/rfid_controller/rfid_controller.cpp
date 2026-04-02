@@ -30,13 +30,16 @@ bool RFIDController::begin() {
 
     if (versiondata == 0) {
         ESP_LOGE(TAG, "PN532 not detected or firmware read failed!");
-        LED_ENQUEUE(PN_532_ERROR);
+        // LED_ENQUEUE(PN_532_ERROR);
+        LED_SET_SEQ(PN_532_ERROR);
 
         return false;
     }
 
     ESP_LOGI(TAG, "PN532 initialized successfully");
-    LED_ENQUEUE(PN_532_CONNECTED);
+    // LED_ENQUEUE(PN_532_CONNECTED);
+    LED_SET_SEQ(PN_532_CONNECTED);
+
 
     printFirmwareVersion();
     // ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",

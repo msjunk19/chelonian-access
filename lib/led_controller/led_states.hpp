@@ -60,6 +60,7 @@ constexpr LEDState MASTER_CARD_SET   = { PATTERN_SOLID, 2000, LEDColor::PURPLE }
 
 constexpr LEDState USER_ADDED        = { PATTERN_TRIPLE_BLINK, 0, LEDColor::GREEN };
 constexpr LEDState USER_REMOVED      = { PATTERN_FIVE_BLINK, 0, LEDColor::RED };
+constexpr LEDState USER_FULL         = { PATTERN_SOLID, 2000, LEDColor::RED };
 
 constexpr LEDState PLACEHOLDER        = { PATTERN_SOLID, 2000, LEDColor::YELLOW };
 
