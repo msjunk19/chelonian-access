@@ -28,6 +28,9 @@ AuthManager authManager(phoneTokenManager);
 PairingButton pairingButton;
 BLEManager bleManager;
 
+RFIDController rfid;
+RelayController relays;
+AudioContoller audio;
 
 MacroConfigManager macroConfigManager;
 

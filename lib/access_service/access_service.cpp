@@ -9,10 +9,6 @@
 
 static const char* TAG = "ACCESS";  // Add TAG definition
 
-
-RFIDController rfid;
-RelayController relays;
-AudioContoller audio;
 static AccessLoopState state;
 
 const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12, 17,
