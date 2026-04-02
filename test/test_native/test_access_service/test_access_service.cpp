@@ -1,72 +1,155 @@
-#include "test_access_service.h"  // Include the new header for test function declarations
+#include "test_access_service.h"
 #include <access_service.h>
-#include <esp_log.h>
+#include <access_state.hpp>
 #include <test_helpers.h>
+#include <macro_config.hpp>
 #include <unity.h>
 
+extern millis_t mockMillis;
+
+static AccessLoopState testState;
+
+void setUpTestState() {
+    memset(&testState, 0, sizeof(testState));
+    testState.impatientEnabled = true;
+    testState.lastActivityTime = mockMillis;
+}
+
 void testInitialState() {
-    ESP_LOGE("TEST", "Starting testInitialState");
-    // Check that relays are off and attempts are zero
-    TEST_ASSERT_EQUAL(0, invalidAttempts);
-    TEST_ASSERT_FALSE(relayActive);
-    TEST_ASSERT_EQUAL(RELAY_IDLE, currentRelayState);
-    TEST_ASSERT_FALSE(scanned);
-    TEST_ASSERT_FALSE(impatient);
+    setUpTestState();
+    
+    TEST_ASSERT_FALSE(testState.scanned);
+    TEST_ASSERT_FALSE(testState.audioQueued);
+    TEST_ASSERT_EQUAL(0, testState.invalidAttempts);
+    TEST_ASSERT_EQUAL(RELAY_IDLE, testState.currentRelayState);
+    TEST_ASSERT_FALSE(testState.relayActive);
+    TEST_ASSERT_FALSE(testState.impatient);
+    TEST_ASSERT_FALSE(testState.userProgrammingModeActive);
 }
 
-void testActivateRelays() {
-    ESP_LOGE("TEST", "Starting testActivateRelays");
-    // Should set relayActive and state
-    activateRelays();
-    TEST_ASSERT_TRUE(relayActive);
-    TEST_ASSERT_EQUAL(RELAY1_ACTIVE, currentRelayState);
+void testMacroTrigger() {
+    setUpTestState();
+    
+    TEST_ASSERT_FALSE(testState.relayActive);
+    
+    Macro& m = macroConfigManager.config.macros[macroConfigManager.config.tag_macro];
+    TEST_ASSERT_TRUE(m.step_count > 0);
+    
+    ::fireMacro(testState, macroConfigManager.config.tag_macro);
+    
+    TEST_ASSERT_TRUE(testState.relayActive);
+    TEST_ASSERT_EQUAL(RELAY_STEP_ACTIVE, testState.currentRelayState);
+    TEST_ASSERT_EQUAL(0, testState.currentStep);
 }
 
-void testRelaySequence() {
-    ESP_LOGE("TEST", "Starting testRelaySequence");
-    // Simulate activating relays and advancing time
-    activateRelays();
-    unsigned long start = relayActivatedTime;
-    // Should be RELAY1_ACTIVE
-    TEST_ASSERT_EQUAL(RELAY1_ACTIVE, currentRelayState);
-    // Advance time to trigger relay 2
-    setMockMillis(start + RELAY1_DURATION + 1);
-    handleRelaySequence();
-    TEST_ASSERT_EQUAL(RELAY2_ACTIVE, currentRelayState);
-    // Advance time to finish sequence
-    setMockMillis(relayActivatedTime + RELAY2_DURATION + 1);
-    handleRelaySequence();
-    TEST_ASSERT_EQUAL(RELAY_IDLE, currentRelayState);
-    TEST_ASSERT_FALSE(relayActive);
+void testMacroAlreadyActive() {
+    setUpTestState();
+    testState.relayActive = true;
+    
+    ::fireMacro(testState, 0);
+    
+    TEST_ASSERT_TRUE(testState.relayActive);
 }
 
 void testImpatientWaiting() {
-    ESP_LOGE("TEST", "Starting testImpatientWaiting");
-    // Reset state
-    impatient = false;
-    scanned = false;
-    setMockMillis(0);
-    accessServiceLoop();
-    TEST_ASSERT_FALSE(impatient);
-    setMockMillis(10001);
-    accessServiceLoop();
-    TEST_ASSERT_TRUE(impatient);
+    setUpTestState();
+    testState.impatientEnabled = true;
+    testState.lastActivityTime = mockMillis;
+    testState.impatient = false;
+    
+    TEST_ASSERT_FALSE(testState.impatient);
+    
+    mockMillis = 10001;
+    handleImpatienceTimer(testState);
+    
+    TEST_ASSERT_TRUE(testState.impatient);
+}
+
+void testImpatientDisabled() {
+    setUpTestState();
+    testState.impatientEnabled = false;
+    testState.lastActivityTime = mockMillis;
+    testState.impatient = false;
+    
+    mockMillis = 10001;
+    handleImpatienceTimer(testState);
+    
+    TEST_ASSERT_FALSE(testState.impatient);
+}
+
+void testMarkUserActivityResetsImpatient() {
+    setUpTestState();
+    testState.impatient = true;
+    testState.lastActivityTime = 0;
+    
+    markUserActivity(testState);
+    
+    TEST_ASSERT_FALSE(testState.impatient);
+    TEST_ASSERT_TRUE(testState.lastActivityTime > 0);
 }
 
 void testInvalidCardDelays() {
-    ESP_LOGE("TEST", "Starting testInvalidCardDelays");
-    // Simulate invalid card scans and check delay increments
-    invalidAttempts = 0;
-    scanned = false;
-    impatient = false;
-    // Mock rfid.readCard to always return true, but validateUID to return false
-    // This requires a mock or patch, so we just check the increment logic here
-    for (uint8_t i = 0; i < MAXIMUM_INVALID_ATTEMPTS; ++i) {
-        if (invalidAttempts < MAXIMUM_INVALID_ATTEMPTS - 1) {
-            invalidAttempts++;
-        }
-    }
-    TEST_ASSERT_EQUAL(MAXIMUM_INVALID_ATTEMPTS - 1, invalidAttempts);
+    setUpTestState();
+    extern const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS];
+    
+    testState.invalidAttempts = 0;
+    handleAccessDenied(testState);
+    
+    TEST_ASSERT_EQUAL(1, testState.invalidAttempts);
+    TEST_ASSERT_TRUE(testState.invalidTimeoutEnd > mockMillis);
+    
+    mockMillis = testState.invalidTimeoutEnd + 1;
+    handleAccessDenied(testState);
+    TEST_ASSERT_EQUAL(2, testState.invalidAttempts);
 }
 
-// Add more tests as needed for your service logic
+void testInvalidAttemptsCapped() {
+    setUpTestState();
+    testState.invalidAttempts = MAXIMUM_INVALID_ATTEMPTS - 1;
+    
+    handleAccessDenied(testState);
+    
+    TEST_ASSERT_EQUAL(MAXIMUM_INVALID_ATTEMPTS - 1, testState.invalidAttempts);
+}
+
+void testRelayStateTransitions() {
+    setUpTestState();
+    
+    ::fireMacro(testState, 0);
+    TEST_ASSERT_EQUAL(RELAY_STEP_ACTIVE, testState.currentRelayState);
+    
+    RelayStep& step = testState.activeMacro.steps[0];
+    mockMillis += step.duration + 1;
+    handleRelaySequence(testState);
+    
+    if (testState.activeMacro.step_count > 1) {
+        TEST_ASSERT_EQUAL(RELAY_STEP_GAP, testState.currentRelayState);
+        
+        mockMillis += step.gap + 1;
+        handleRelaySequence(testState);
+        TEST_ASSERT_EQUAL(RELAY_STEP_ACTIVE, testState.currentRelayState);
+    } else {
+        TEST_ASSERT_EQUAL(RELAY_IDLE, testState.currentRelayState);
+        TEST_ASSERT_FALSE(testState.relayActive);
+    }
+}
+
+void testMasterCardHoldDetection() {
+    setUpTestState();
+    uint8_t uid[4] = {0x12, 0x34, 0x56, 0x78};
+    
+    testState.masterPresent = false;
+    testState.lastActivityTime = mockMillis;
+    
+    handleMasterCard(uid, 4, testState);
+    
+    TEST_ASSERT_TRUE(testState.masterPresent);
+    TEST_ASSERT_TRUE(testState.masterStartTime > 0);
+}
+
+void testUIDValidation() {
+    TEST_ASSERT_TRUE(validateUIDLength(4));
+    TEST_ASSERT_TRUE(validateUIDLength(7));
+    TEST_ASSERT_FALSE(validateUIDLength(3));
+    TEST_ASSERT_FALSE(validateUIDLength(8));
+}

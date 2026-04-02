@@ -2,12 +2,12 @@
 #define TEST_ACCESS_SERVICE_H
 
 #include <unity.h>
+#include <access_state.hpp>
 
-// Declare your test functions here
 void testInitialState();
-void testActivateRelays();
-void testRelaySequence();
+void testMacroTrigger();
 void testImpatientWaiting();
 void testInvalidCardDelays();
+void testRelayStateTransitions();
 
 #endif  // TEST_ACCESS_SERVICE_H

@@ -27,11 +27,16 @@ const unsigned long EXIT_TIMEOUT      = 15000; //How long before programming mod
 
 const unsigned long MASTER_HOLD_TIME  = 2000; //How long do you have to hold the card to the reader to enter user programming mode
 const unsigned long MASTER_AWAY_DELAY  = 300; //How long does the reader have to not see the master before it decides you arent holding it to the reader anymore
+const unsigned long MASTER_REDETECT_DELAY = 500; //How long before a re-presented master card is treated as a new hold
 
 static const uint32_t DETECTION_COOLDOWN_MS = 1000; // adjust (500–1500ms works well)
 
 // Set a short timeout (150 ms) to avoid blocking the loop, 20ms works but needs to be longer to read implants. 150 is working currently. Adjust as needed for implant.
 constexpr uint16_t RFID_READ_TIMEOUT_MS = 150;
+const unsigned long RFID_HEALTH_CHECK_INTERVAL = 5000; //How often to check if RFID reader is responding
+
+const unsigned long AUDIO_INIT_DELAY_MS = 500; //How long to wait for audio controller to be ready
+const unsigned long INVALID_BASE_LOCKOUT_MS = 3000; //Base lockout time added to progressive delay
 
 const unsigned long AUDIO_DEFAULT_VOLUME = 20;
 

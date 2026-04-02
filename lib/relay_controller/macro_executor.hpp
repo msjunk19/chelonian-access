@@ -30,8 +30,8 @@ static inline void _clearStep(const RelayStep& step) {
     }
 }
 
-// Trigger a macro by index
-static inline void triggerMacro(AccessLoopState& state, uint8_t macroIndex) {
+// Fire a macro by index
+static inline void fireMacro(AccessLoopState& state, uint8_t macroIndex) {
     if (state.relayActive) {
         ESP_LOGW(EXECUTORTAG, "Relay already active, ignoring trigger");
         return;

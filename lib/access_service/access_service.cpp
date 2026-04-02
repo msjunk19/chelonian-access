@@ -26,9 +26,9 @@ void accessServiceSetup() {
     if (audio.begin()) {
     audio.setVolume(AUDIO_DEFAULT_VOLUME);
 
-    // wait up to 500ms for the controller to be ready, non-blocking-ish
+    // wait for the controller to be ready, non-blocking-ish
     unsigned long start = millis();
-    while (millis() - start < 500) {
+    while (millis() - start < AUDIO_INIT_DELAY_MS) {
         // tiny sleep to yield CPU to other tasks
         delay(1);  
     }
@@ -40,7 +40,7 @@ void accessServiceSetup() {
 }
 
 void fireMacro(uint8_t macroIndex) {
-    triggerMacro(state, macroIndex);
+    ::fireMacro(state, macroIndex);
 }
 
 static uint32_t lastRFIDCheck = 0;
@@ -51,7 +51,7 @@ static void updateHardware() {
     // handleRelaySequence();
     handleRelaySequence(state);
     
-    if (millis() - lastRFIDCheck > 5000) {
+    if (millis() - lastRFIDCheck > RFID_HEALTH_CHECK_INTERVAL) {
         lastRFIDCheck = millis();
         bool responding = rfid.isResponding();
         
@@ -271,7 +271,7 @@ void accessServiceLoop() {
 
 // --- Helper functions using AccessLoopState ---
 bool handleMasterPresenceTimeout(AccessLoopState &state) {
-    if (state.masterPresent && (millis() - state.masterLastSeen > 300)) {
+    if (state.masterPresent && (millis() - state.masterLastSeen > MASTER_AWAY_DELAY)) {
         ESP_LOGI(TAG, "Master card removed - resetting hold");
         state.masterPresent = false;
         state.masterStartTime = 0;
@@ -304,7 +304,7 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
     bool isSameCard = uidMatches(uid, uidLength, state.lastMasterUID, state.lastMasterUIDLen);
 
     // New card or re-presented card
-    if (!state.masterPresent || !isSameCard || (now - state.masterLastSeen > 500)) {
+    if (!state.masterPresent || !isSameCard || (now - state.masterLastSeen > MASTER_REDETECT_DELAY)) {
         memcpy(state.lastMasterUID, uid, uidLength);
         state.lastMasterUIDLen = uidLength;
         state.masterStartTime = now;
@@ -346,7 +346,7 @@ static void handleAccessGranted(AccessLoopState& state) {
         LED_SET_SEQ(ACCESS_GRANTED);
         state.queuedSound      = AudioContoller::SOUND_ACCEPTED;
         state.audioQueued      = true;
-        triggerMacro(state, macroConfigManager.config.tag_macro);
+        ::fireMacro(state, macroConfigManager.config.tag_macro);
         state.invalidAttempts  = 0;
         state.impatientEnabled = false;
         state.impatient        = false;
@@ -355,7 +355,7 @@ static void handleAccessGranted(AccessLoopState& state) {
 }
 
 static void handleAccessDenied(AccessLoopState &state) {
-    uint32_t delayMs = (invalidDelays[state.invalidAttempts] * 1000) + 3000;
+    uint32_t delayMs = (invalidDelays[state.invalidAttempts] * 1000) + INVALID_BASE_LOCKOUT_MS;
     state.invalidTimeoutEnd = millis() + delayMs;
 
     ESP_LOGW(TAG, "Invalid card attempt #%u, please wait %u seconds before trying again",
