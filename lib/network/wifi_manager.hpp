@@ -83,7 +83,9 @@ inline bool safeLittleFSBegin() {
 inline void startAP() {
     if (!safeLittleFSBegin()) {
         ESP_LOGE(WIFICFG_TAG, "Starting fallback AP due to LittleFS failure");
-        WiFi.softAP("AC_FALLBACK_AP");
+        // WiFi.softAP("AC_FALLBACK_AP");
+        WiFi.softAP(DEFAULT_SSID);
+
         dnsServer.start(DNS_PORT, "*", WiFi.softAPIP()); 
         // dnsServer.start(DNS_PORT, DOMAIN, WiFi.softAPIP());
         // dnsServer.start(DNS_PORT, "chelonian.local", WiFi.softAPIP());
@@ -114,7 +116,8 @@ inline void startAP() {
         WiFi.softAP(ssid, passLen > 0 ? pass : nullptr);
         ESP_LOGI(WIFICFG_TAG, "Started user AP: %s", ssid);
     } else {
-        WiFi.softAP("AC_FALLBACK_AP");
+        // WiFi.softAP("AC_FALLBACK_AP");
+        WiFi.softAP(DEFAULT_SSID);
         ESP_LOGI(WIFICFG_TAG, "Started fallback AP");
     }
 
@@ -142,6 +145,13 @@ inline void setupWebServer(std::function<void(PhoneCommand)> onCommand) {
                     : "<h1>Default AP. Setup page missing!</h1>");
             return;
         }
+        server.streamFile(file, "text/html");
+        file.close();
+    });
+
+    server.on("/macros.html", HTTP_GET, []() {
+        File file = LittleFS.open("/macros.html", "r");
+        if (!file) { server.send(404, "text/html", "<h1>Not found</h1>"); return; }
         server.streamFile(file, "text/html");
         file.close();
     });

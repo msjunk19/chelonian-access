@@ -35,27 +35,12 @@ static const MacroConfig DEFAULT_MACRO_CONFIG = {
     .macro_count = 5,
     .tag_macro   = 0,
     .macros = {
-        // 0 — UNLOCK: single pulse relay 1
-        { "Unlock", "lock_open", 1, {
-            { 0b0001, 500, 0 },
-        }},
-        // 1 — UNLOCK ALL: double pulse relay 1
-        { "Unlock All", "lock_open", 2, {
-            { 0b0001, 500, 500 },
-            { 0b0001, 500, 0   },
-        }},
-        // 2 — LOCK: single pulse relay 2
-        { "Lock", "lock", 1, {
-            { 0b0010, 500, 0 },
-        }},
-        // 3 — TRUNK: single pulse relay 3
-        { "Trunk", "trunk", 1, {
-            { 0b0100, 500, 0 },
-        }},
-        // 4 — PANIC: all relays simultaneously
-        { "Panic", "warning", 1, {
-            { 0b1111, 500, 0 },
-        }},
+        { "Unlock",     "", 1, {{ 0b0001, 1000, 0    }} },
+        { "Unlock All", "", 2, {{ 0b0001, 1000, 1000 },
+                                { 0b0001, 1000, 0    }} },
+        { "Lock",       "", 1, {{ 0b0010, 1000, 0    }} },
+        { "Trunk",      "", 1, {{ 0b0100, 1000, 0    }} },
+        { "Panic",      "", 1, {{ 0b1111, 1000, 0    }} },
     }
 };
 

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Macro Config</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            max-width: 400px;
+            margin: 50px auto;
+        }
+        h2 {
+            color: #555;
+            font-size: 16px;
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        button {
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 6px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+        }
+        .btn-primary  { background-color: #3498db; color: white; width: 80%; font-size: 20px; padding: 15px; }
+        .btn-add      { background-color: #4CAF50; color: white; }
+        .btn-remove   { background-color: #e74c3c; color: white; padding: 4px 10px; font-size: 13px; }
+        .btn-save     { background-color: #4CAF50; color: white; width: 80%; font-size: 20px; padding: 15px; }
+        .btn-back     { background-color: #888;    color: white; width: 80%; font-size: 16px; }
+        button:disabled { background-color: #aaa; cursor: not-allowed; }
+
+        .macro-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            text-align: left;
+        }
+        .macro-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .macro-header input {
+            font-size: 16px;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            width: 60%;
+        }
+        .step-card {
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 8px;
+            margin: 6px 0;
+            background: #f9f9f9;
+        }
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #666;
+        }
+        .relay-checks {
+            display: flex;
+            gap: 12px;
+            margin: 6px 0;
+        }
+        .relay-checks label {
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .timing-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .timing-row label {
+            font-size: 13px;
+            color: #555;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        .timing-row input {
+            font-size: 14px;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .tag-macro-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .tag-macro-row select {
+            font-size: 14px;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Macro Config</h1>
+
+    <div class="toggle-row">
+        <label>
+            <input type="checkbox" id="msToggle" onchange="toggleTimeUnit(this.checked)">
+            Show timing in milliseconds
+        </label>
+    </div>
+
+    <div class="tag-macro-row">
+        <label for="tagMacro">Tag scan fires:</label>
+        <select id="tagMacro"></select>
+    </div>
+
+    <div id="macroList"></div>
+
+    <button class="btn-add" onclick="addMacro()">+ Add Macro</button>
+
+    <br><br>
+    <button class="btn-save" onclick="saveMacros()">Save</button>
+    <br>
+    <button class="btn-back" onclick="window.location.href='/'">&#8592; Back</button>
+
+    <p id="status"></p>
+
+    <script>
+        let macros = [];
+        let useMs = false;
+
+        // -------------------------
+        // Time unit helpers
+
+        function toggleTimeUnit(checked) {
+            useMs = checked;
+            localStorage.setItem('useMs', checked ? '1' : '0');
+            render();
+        }
+
+        function toDisplay(ms) {
+            return useMs ? ms : parseFloat((ms / 1000).toFixed(1));
+        }
+
+        function fromDisplay(val) {
+            return useMs ? parseInt(val) : Math.round(parseFloat(val) * 1000);
+        }
+
+        function timeStep() { return useMs ? 1 : 0.1; }
+        function timeMax()  { return useMs ? 65535 : 65; }
+        function timeUnit() { return useMs ? 'ms' : 's'; }
+
+        // -------------------------
+        // Load from device on page open
+
+        async function loadMacros() {
+            useMs = localStorage.getItem('useMs') === '1';
+            document.getElementById('msToggle').checked = useMs;
+
+            try {
+                const resp = await fetch('/api/macros');
+                const data = await resp.json();
+                macros = data.macros || [];
+                document.getElementById('tagMacro').dataset.value = data.tag_macro || 0;
+                render();
+            } catch(e) {
+                document.getElementById('status').innerText = 'Failed to load macros';
+            }
+        }
+
+        // -------------------------
+        // Render
+
+        function render() {
+            const list = document.getElementById('macroList');
+            list.innerHTML = '';
+
+            // Rebuild tag macro select
+            const sel = document.getElementById('tagMacro');
+            const prev = parseInt(sel.dataset.value) || 0;
+            sel.innerHTML = '';
+            macros.forEach((m, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.text  = m.name || `Macro ${i + 1}`;
+                sel.appendChild(opt);
+            });
+            sel.value = prev < macros.length ? prev : 0;
+
+            // Render each macro
+            macros.forEach((macro, mi) => {
+                const card = document.createElement('div');
+                card.className = 'macro-card';
+                card.innerHTML = `
+                    <div class="macro-header">
+                        <input type="text" value="${macro.name}"
+                            placeholder="Macro name"
+                            oninput="macros[${mi}].name = this.value; updateTagSelect(${mi}, this.value)">
+                        <button class="btn-remove" onclick="removeMacro(${mi})">&#10005; Remove</button>
+                    </div>
+                `;
+
+                // Steps
+                const stepsDiv = document.createElement('div');
+                macro.steps.forEach((step, si) => {
+                    stepsDiv.appendChild(renderStep(mi, si, step));
+                });
+                card.appendChild(stepsDiv);
+
+                // Add step button (max 4)
+                if (macro.steps.length < 4) {
+                    const addBtn = document.createElement('button');
+                    addBtn.className = 'btn-add';
+                    addBtn.style.fontSize = '13px';
+                    addBtn.style.padding = '4px 10px';
+                    addBtn.innerText = '+ Add Step';
+                    addBtn.onclick = () => addStep(mi);
+                    card.appendChild(addBtn);
+                }
+
+                list.appendChild(card);
+            });
+        }
+
+        function renderStep(mi, si, step) {
+            const div = document.createElement('div');
+            div.className = 'step-card';
+
+            let relayHTML = '<div class="relay-checks">';
+            for (let r = 0; r < 4; r++) {
+                const checked = (step.relay_mask & (1 << r)) ? 'checked' : '';
+                relayHTML += `
+                    <label>
+                        <input type="checkbox" ${checked}
+                            onchange="setRelay(${mi}, ${si}, ${r}, this.checked)">
+                        Relay ${r + 1}
+                    </label>`;
+            }
+            relayHTML += '</div>';
+
+            const isLastStep = si === macros[mi].steps.length - 1;
+
+            const gapHTML = isLastStep ? '' : `
+                <label>Delay before next step (${timeUnit()})
+                    <input type="number" min="0" max="${timeMax()}" step="${timeStep()}"
+                        value="${toDisplay(step.gap)}"
+                        onchange="macros[${mi}].steps[${si}].gap = fromDisplay(this.value)">
+                </label>`;
+
+            div.innerHTML = `
+                <div class="step-header">
+                    <span>Step ${si + 1}</span>
+                    <button class="btn-remove" onclick="removeStep(${mi}, ${si})">&#10005;</button>
+                </div>
+                ${relayHTML}
+                <div class="timing-row">
+                    <label>Duration (${timeUnit()})
+                        <input type="number" min="0" max="${timeMax()}" step="${timeStep()}"
+                            value="${toDisplay(step.duration)}"
+                            onchange="macros[${mi}].steps[${si}].duration = fromDisplay(this.value)">
+                    </label>
+                    ${gapHTML}
+                </div>
+            `;
+            return div;
+        }
+
+        // -------------------------
+        // Mutations
+
+        function setRelay(mi, si, relay, on) {
+            if (on) {
+                macros[mi].steps[si].relay_mask |= (1 << relay);
+            } else {
+                macros[mi].steps[si].relay_mask &= ~(1 << relay);
+            }
+        }
+
+        function addMacro() {
+            if (macros.length >= 6) {
+                document.getElementById('status').innerText = 'Maximum 6 macros reached';
+                return;
+            }
+            macros.push({ name: '', icon: '', step_count: 1, steps: [{ relay_mask: 0, duration: 1000, gap: 0 }] });
+            render();
+        }
+
+        function removeMacro(mi) {
+            macros.splice(mi, 1);
+            const sel = document.getElementById('tagMacro');
+            let tag = parseInt(sel.value);
+            if (tag >= macros.length) tag = Math.max(0, macros.length - 1);
+            sel.dataset.value = tag;
+            render();
+        }
+
+        function addStep(mi) {
+            if (macros[mi].steps.length >= 4) return;
+            macros[mi].steps.push({ relay_mask: 0, duration: 1000, gap: 0 });
+            macros[mi].step_count = macros[mi].steps.length;
+            render();
+        }
+
+        function removeStep(mi, si) {
+            macros[mi].steps.splice(si, 1);
+            macros[mi].step_count = macros[mi].steps.length;
+            render();
+        }
+
+        function updateTagSelect(mi, name) {
+            const sel = document.getElementById('tagMacro');
+            if (sel.options[mi]) sel.options[mi].text = name || `Macro ${mi + 1}`;
+        }
+
+        // -------------------------
+        // Save
+
+        async function saveMacros() {
+            const btn = document.querySelector('.btn-save');
+            btn.disabled = true;
+
+            macros.forEach(m => m.step_count = m.steps.length);
+
+            const payload = {
+                macro_count: macros.length,
+                tag_macro:   parseInt(document.getElementById('tagMacro').value),
+                macros:      macros
+            };
+
+            try {
+                const resp = await fetch('/api/macros', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                document.getElementById('status').innerText = data.ok ? 'Saved!' : `Error: ${data.error}`;
+            } catch(e) {
+                document.getElementById('status').innerText = 'Save failed';
+            }
+
+            btn.disabled = false;
+        }
+
+        // -------------------------
+        loadMacros();
+    </script>
+</body>
+</html> 

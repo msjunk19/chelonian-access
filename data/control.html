@@ -33,14 +33,73 @@
         button:disabled { background-color: #aaa; cursor: not-allowed; }
         #status     { margin-top: 20px; font-size: 16px; color: #333; }
         #pairStatus { margin-top: 10px; font-size: 14px; color: #666; }
+
+        /* Modal */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        #modal-overlay.active {
+            display: flex;
+        }
+        #modal {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 320px;
+            width: 90%;
+            text-align: center;
+        }
+        #modal h3 {
+            margin-top: 8px;
+            font-size: 18px;
+            color: #333;
+        }
+        #modal p {
+            font-size: 14px;
+            color: #555;
+            margin: 12px 0 20px;
+        }
+        .modal-icon {
+            font-size: 48px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .modal-buttons button {
+            font-size: 15px;
+            padding: 10px 16px;
+            width: auto;
+            margin: 0;
+        }
+        #modalLaterBtn { background-color: #888; color: white; }
+        #modalPairBtn  { background-color: #4CAF50; color: white; }
     </style>
 </head>
 <body>
-    <h1>Access Controller</h1>
 
-    <h2>Card Simulation</h2>
-    <button onclick="simulateAccess()">Simulate Valid Card</button>
-    <p id="status">Status: Idle</p>
+    <!-- Pairing lost modal -->
+    <div id="modal-overlay">
+        <div id="modal">
+            <div class="modal-icon">&#128279;</div>
+            <h3>Device No Longer Paired</h3>
+            <p>This device is no longer recognised by the controller. This usually happens after a reset or re-flash.</p>
+            <div class="modal-buttons">
+                <button id="modalLaterBtn" onclick="closeModal()">Later</button>
+                <button id="modalPairBtn"  onclick="closeModalAndPair()">Pair Now</button>
+            </div>
+        </div>
+    </div>
+
+    <h1>Access Controller</h1>
 
     <h2>Phone Pairing</h2>
     <p id="pairStatus">Checking pairing status...</p>
@@ -50,18 +109,16 @@
     <h2>Control</h2>
     <button id="unlockBtn" onclick="sendCommand(1)">Unlock</button>
     <button id="lockBtn"   onclick="sendCommand(2)">Lock</button>
+    <p id="status"></p>
+
+    <h2>Configuration</h2>
+    <button onclick="window.location.href='/macros.html'"
+        style="background-color:#9b59b6; color:white; width:80%;">
+        &#9881; Relay Macros
+    </button>
 
     <script>
-        function simulateAccess() {
-            fetch('/api/simulate', { method: 'POST' })
-                .then(r => r.text())
-                .then(data => {
-                    document.getElementById("status").innerText = data;
-                })
-                .catch(() => {
-                    document.getElementById("status").innerText = "Error";
-                });
-        }
+        let modalShowing = false;
 
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -95,7 +152,217 @@
         function checkPairingStatus() {
             const pairing = getStoredPairing();
             if (pairing) {
-                setPairStatus(`Paired — ID: ${pairing.id.substring(0, 8)}...`, true);
+                setPairStatus(`Paired - ID: ${pairing.id.substring(0, 8)}...`, true);
+            } else {
+                setPairStatus('Not paired. Hold button on device (3s), then click Pair.', false);
+            }
+        }
+
+        // -------------------------
+        // Pairing lost modal
+
+        function showPairingLostModal() {
+            if (modalShowing) return;
+            modalShowing = true;
+            clearPairing();
+            setPairStatus('Pairing lost - please re-pair.', false);
+            document.getElementById('status').innerText = 'Pairing lost';
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        function closeModal() {
+            modalShowing = false;
+            document.getElementById('modal-overlay').classList.remove('active');
+        }
+
+        function closeModalAndPair() {
+            closeModal();
+            pairDevice();
+        }
+
+        // -------------------------
+        // Auth
+
+        async function pairDevice() {
+            const btn = document.getElementById('pairBtn');
+            btn.disabled = true;
+            setPairStatus('Pairing...', false);
+
+            const deviceId = generateUUID();
+
+            try {
+                const resp = await fetch('/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId })
+                });
+
+                const data = await resp.json();
+
+                if (data.ok && data.token) {
+                    storePairing(deviceId, data.token);
+                    setPairStatus(`Paired - ID: ${deviceId.substring(0, 8)}...`, true);
+                } else {
+                    setPairStatus(`Pairing failed: ${data.error || 'Unknown error'}`, false);
+                }
+            } catch (e) {
+                setPairStatus('Pairing failed - is the pairing window open?', false);
+            }
+
+            btn.disabled = false;
+        }
+
+        async function unpairDevice() {
+            const pairing = getStoredPairing();
+            if (!pairing) { checkPairingStatus(); return; }
+
+            try {
+                const resp = await fetch('/unpair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: pairing.id,
+                        token: pairing.token
+                    })
+                });
+
+                const data = await resp.json();
+                if (data.ok) {
+                    clearPairing();
+                    setPairStatus('Unpaired successfully.', false);
+                } else {
+                    setPairStatus(`Unpair failed: ${data.error || 'Unknown error'}`, false);
+                }
+            } catch(e) {
+                setPairStatus('Unpair request failed.', false);
+            }
+        }
+
+        // -------------------------
+        // Commands
+
+        async function sendCommand(command) {
+            const pairing = getStoredPairing();
+            if (!pairing) {
+                showPairingLostModal();
+                return;
+            }
+
+            try {
+                const resp = await fetch('/cmd', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: pairing.id,
+                        token:     pairing.token,
+                        command:   command
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (resp.status === 401 || (data.error && 
+                    (data.error === 'Unauthorized' || data.error === 'Unknown device'))) {
+                    showPairingLostModal();
+                    return;
+                }
+
+                document.getElementById('status').innerText =
+                    data.ok ? `Status: ${data.status}` : `Error: ${data.error}`;
+
+            } catch(e) {
+                document.getElementById('status').innerText = 'Command failed';
+            }
+        }
+
+        checkPairingStatus();
+    </script>
+</body>
+</html>
+
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Access Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            max-width: 400px;
+            margin: 50px auto;
+        }
+        h2 {
+            color: #555;
+            font-size: 16px;
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            width: 80%;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+        }
+        #pairBtn   { background-color: #4CAF50; color: white; }
+        #unpairBtn { background-color: #e74c3c; color: white; }
+        #unlockBtn { background-color: #3498db; color: white; }
+        #lockBtn   { background-color: #888;    color: white; }
+        button:disabled { background-color: #aaa; cursor: not-allowed; }
+        #status     { margin-top: 20px; font-size: 16px; color: #333; }
+        #pairStatus { margin-top: 10px; font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Access Controller</h1>
+
+    <h2>Phone Pairing</h2>
+    <p id="pairStatus">Checking pairing status...</p>
+    <button id="pairBtn"   onclick="pairDevice()">Pair This Device</button>
+    <button id="unpairBtn" onclick="unpairDevice()" style="display:none">Unpair This Device</button>
+
+    <h2>Control</h2>
+    <button id="unlockBtn" onclick="sendCommand(1)">Unlock</button>
+    <button id="lockBtn"   onclick="sendCommand(2)">Lock</button>
+
+    <script>
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+
+        function getStoredPairing() {
+            const id    = localStorage.getItem('device_id');
+            const token = localStorage.getItem('device_token');
+            return (id && token) ? { id, token } : null;
+        }
+
+        function storePairing(deviceId, token) {
+            localStorage.setItem('device_id', deviceId);
+            localStorage.setItem('device_token', token);
+        }
+
+        function clearPairing() {
+            localStorage.removeItem('device_id');
+            localStorage.removeItem('device_token');
+        }
+
+        function setPairStatus(msg, paired) {
+            document.getElementById('pairStatus').innerText    = msg;
+            document.getElementById('pairBtn').style.display   = paired ? 'none'         : 'inline-block';
+            document.getElementById('unpairBtn').style.display = paired ? 'inline-block' : 'none';
+        }
+
+        function checkPairingStatus() {
+            const pairing = getStoredPairing();
+            if (pairing) {
+                setPairStatus(`Paired - ID: ${pairing.id.substring(0, 8)}...`, true);
             } else {
                 setPairStatus('Not paired. Hold button on device (3s), then click Pair.', false);
             }
@@ -184,83 +451,11 @@
 
         checkPairingStatus();
     </script>
-</body>
-</html>
-
-
-
-<!-- <!DOCTYPE html>
-<html>
-<head>
-    <title>Access Controller</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            font-family: Arial;
-            text-align: center;
-            margin-top: 50px;
-        }
-
-        button {
-            font-size: 20px;
-            padding: 15px 30px;
-            margin: 10px;
-        }
-    </style>
-</head>
-<body>
-
-    <h1>Access Controller</h1>
-
-    <button onclick="simulateAccess()">Simulate Valid Card</button>
-
-    <p id="status">Status: Idle</p>
-
-    <script>
-        function simulateAccess() {
-            fetch('/api/simulate', {
-                method: 'POST'
-            })
-            .then(response => response.text())
-            .then(data => {
-                document.getElementById("status").innerText = data;
-            })
-            .catch(err => {
-                document.getElementById("status").innerText = "Error";
-            });
-        }
-    </script>
-
-</body>
-</html> -->
-
-
-<!-- <!DOCTYPE html>
-<html>
-<head>
-    <title>Access Controller</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: Arial; text-align: center; margin-top: 50px; }
-        button { font-size: 20px; padding: 15px 30px; margin: 10px; }
-    </style>
-</head>
-<body>
-
-<h1>Access Controller</h1>
-
-<button onclick="simulateAccess()">Simulate Valid Card</button>
-
-<p id="status">Status: Idle</p>
-
-<script>
-function simulateAccess() {
-    fetch('/api/simulate', { method: 'POST' })
-    .then(res => res.text())
-    .then(data => document.getElementById("status").innerText = data)
-    .catch(err => document.getElementById("status").innerText = "Error");
-}
-</script>
+    <h2>Configuration</h2>
+    <button onclick="window.location.href='/macros.html'" 
+        style="background-color:#9b59b6; color:white; width:80%;">
+        &#9881; Relay Macros
+    </button>
 
 </body>
 </html> -->

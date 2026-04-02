@@ -15,6 +15,8 @@ static constexpr uint32_t PAIRING_WINDOW_MS = 60000;
 
 extern WebServer server;
 extern PhoneTokenManager phoneTokenManager;
+extern MacroConfigManager macroConfigManager;
+
 
 // -------------------------
 // Pairing window control
@@ -250,6 +252,101 @@ inline void handleUnpair() {
     server.send(200, "application/json", body);
 }
 
+// GET /api/macros
+// Returns full macro config as JSON
+inline void handleGetMacros() {
+    JsonDocument doc;
+    doc["macro_count"] = macroConfigManager.config.macro_count;
+    doc["tag_macro"]   = macroConfigManager.config.tag_macro;
+
+    JsonArray macros = doc["macros"].to<JsonArray>();
+    for (uint8_t i = 0; i < macroConfigManager.config.macro_count; i++) {
+        Macro& m = macroConfigManager.config.macros[i];
+        JsonObject macro = macros.add<JsonObject>();
+        macro["name"]       = m.name;
+        macro["icon"]       = m.icon;
+        macro["step_count"] = m.step_count;
+
+        JsonArray steps = macro["steps"].to<JsonArray>();
+        for (uint8_t s = 0; s < m.step_count; s++) {
+            JsonObject step = steps.add<JsonObject>();
+            step["relay_mask"] = m.steps[s].relay_mask;
+            step["duration"]   = m.steps[s].duration;
+            step["gap"]        = m.steps[s].gap;
+        }
+    }
+
+    String body;
+    serializeJson(doc, body);
+    server.send(200, "application/json", body);
+}
+
+// POST /api/macros
+// Body: same structure as GET response
+inline void handleSetMacros() {
+    if (!server.hasArg("plain")) {
+        sendJsonError(400, "Missing body");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    if (err) {
+        sendJsonError(400, "Invalid JSON");
+        return;
+    }
+
+    uint8_t count = doc["macro_count"] | 0;
+    if (count == 0 || count > MAX_MACROS) {
+        sendJsonError(400, "Invalid macro_count");
+        return;
+    }
+
+    uint8_t tag_macro = doc["tag_macro"] | 0;
+    if (tag_macro >= count) {
+        sendJsonError(400, "tag_macro out of range");
+        return;
+    }
+
+    macroConfigManager.config.macro_count = count;
+    macroConfigManager.config.tag_macro   = tag_macro;
+
+    JsonArray macros = doc["macros"].as<JsonArray>();
+    for (uint8_t i = 0; i < count; i++) {
+        JsonObject m = macros[i].as<JsonObject>();
+        Macro& macro = macroConfigManager.config.macros[i];
+
+        const char* name = m["name"] | "";
+        const char* icon = m["icon"] | "";
+        strncpy(macro.name, name, sizeof(macro.name) - 1);
+        macro.name[sizeof(macro.name) - 1] = '\0';
+        strncpy(macro.icon, icon, sizeof(macro.icon) - 1);
+        macro.icon[sizeof(macro.icon) - 1] = '\0';
+
+        uint8_t step_count = m["step_count"] | 0;
+        if (step_count > MAX_STEPS) step_count = MAX_STEPS;
+        macro.step_count = step_count;
+
+        JsonArray steps = m["steps"].as<JsonArray>();
+        for (uint8_t s = 0; s < step_count; s++) {
+            JsonObject step = steps[s].as<JsonObject>();
+            macro.steps[s].relay_mask = step["relay_mask"] | 0;
+            macro.steps[s].duration   = step["duration"]   | 500;
+            macro.steps[s].gap        = step["gap"]        | 0;
+        }
+    }
+
+    macroConfigManager.saveAll();
+    macroConfigManager.printConfig();
+
+    JsonDocument resp;
+    resp["ok"] = true;
+    String body;
+    serializeJson(resp, body);
+    server.send(200, "application/json", body);
+}
+
+
 // -------------------------
 // Register endpoints
 
@@ -261,6 +358,9 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
     });
 
     server.on("/unpair", HTTP_POST, handleUnpair);
+
+    server.on("/api/macros", HTTP_GET,  handleGetMacros);
+    server.on("/api/macros", HTTP_POST, handleSetMacros);
 
     ESP_LOGI(WIFIAUTHTAG, "Auth endpoints registered");
 }
