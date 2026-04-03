@@ -774,7 +774,7 @@ void _openSettings() {
                       children: [
                         _SmallButton(
                           onPressed: _paired ? () => _sendCommand(5) : null,
-                          icon: Icons.car_repair_service_rounded,
+                          icon: Icons.car_rental_rounded,
                           label: "Trunk",
                           color: Colors.purple,
                         ),
