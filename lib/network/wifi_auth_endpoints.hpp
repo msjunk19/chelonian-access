@@ -155,8 +155,13 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
     uint8_t     command  = doc["command"] | 0;
     uint32_t    timestamp = doc["timestamp"] | 0;
 
-    if (!deviceId || !token || command == 0 || timestamp == 0) {
+    if (!deviceId || !token || command == 0) {
         sendJsonError(400, "Missing required fields");
+        return;
+    }
+
+    if (timestamp == 0) {
+        sendJsonError(400, "Timestamp required for replay protection");
         return;
     }
 

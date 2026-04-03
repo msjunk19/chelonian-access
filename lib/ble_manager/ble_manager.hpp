@@ -20,6 +20,7 @@ static const char* BLETAG = "BLE";
 #define BLE_CMD_STATUS  0x03
 
 extern PhoneTokenManager phoneTokenManager;
+extern AuthManager authManager;
 
 class BLEManager {
 public:
@@ -240,8 +241,12 @@ private:
             ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
 
             String payload = String(raw.c_str());
+            
+            // New format: deviceId|token|command|timestamp
+            // Legacy format: deviceId|token|command (no timestamp)
             int sep1 = payload.indexOf('|');
-            int sep2 = payload.lastIndexOf('|');
+            int sep2 = payload.indexOf('|', sep1 + 1);
+            int sep3 = payload.lastIndexOf('|');
 
             if (sep1 < 0 || sep2 < 0 || sep1 == sep2) {
                 ESP_LOGW(BLETAG, "Invalid command format");
@@ -251,7 +256,19 @@ private:
 
             String deviceId = payload.substring(0, sep1);
             String token    = payload.substring(sep1 + 1, sep2);
-            uint8_t command = (uint8_t)payload.substring(sep2 + 1).toInt();
+            uint8_t command = (uint8_t)payload.substring(sep2 + 1, sep3 > sep2 ? sep3 : payload.length()).toInt();
+            uint32_t timestamp = 0;
+            
+            // Parse timestamp if present (sep3 > sep2)
+            if (sep3 > sep2) {
+                timestamp = (uint32_t)payload.substring(sep3 + 1).toInt();
+            }
+
+            if (timestamp == 0) {
+                ESP_LOGW(BLETAG, "Timestamp required for replay protection");
+                _mgr->notifyStatus("error:timestamp_required");
+                return;
+            }
 
             if (deviceId.length() == 0 || token.length() != 32 || command == 0) {
                 ESP_LOGW(BLETAG, "Invalid command fields");
@@ -279,6 +296,17 @@ private:
                 ESP_LOGW(BLETAG, "Invalid token for: %s", deviceId.c_str());
                 _mgr->notifyStatus("error:unauthorized");
                 return;
+            }
+
+            // Validate timestamp if present (replay attack protection)
+            if (timestamp > 0 && authManager.isTimeSynced()) {
+                uint32_t now = authManager.getCurrentTime();
+                int32_t drift = (int32_t)timestamp - (int32_t)now;
+                if (drift > 30 || drift < -30) {
+                    ESP_LOGW(BLETAG, "Timestamp rejected — drift: %ld seconds", drift);
+                    _mgr->notifyStatus("error:timestamp_expired");
+                    return;
+                }
             }
 
             PhoneCommand cmd = static_cast<PhoneCommand>(command);

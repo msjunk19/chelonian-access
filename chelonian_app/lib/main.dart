@@ -513,11 +513,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     await _pressController.reverse();
     HapticFeedback.mediumImpact();
 
-    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command".trim();
+    final timestamp = (DateTime.now().millisecondsSinceEpoch / 1000).floor();
+    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command|$timestamp".trim();
     try {
       await _cmdChar!.write(utf8.encode(payload), withoutResponse: false);
       setState(() {
-        _status     = command == 1 ? "Unlock sent" : "Lock sent";
+        _status     = _commandName(command);
         _isUnlocked = command == 1;
       });
     } on Exception catch (e) {
@@ -537,6 +538,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         ),
       );
+    }
+  }
+
+  String _commandName(int command) {
+    switch (command) {
+      case 1: return "Unlock sent";
+      case 2: return "Lock sent";
+      case 5: return "Trunk sent";
+      case 6: return "Panic sent";
+      default: return "Command sent";
     }
   }
 
@@ -754,6 +765,28 @@ void _openSettings() {
                       pressAnim: _pressAnim,
                       active: !_isUnlocked,
                     ),
+
+                    const SizedBox(height: 24),
+
+                    // ── Trunk and Panic buttons ──────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _SmallButton(
+                          onPressed: _paired ? () => _sendCommand(5) : null,
+                          icon: Icons.car_repair_service_rounded,
+                          label: "Trunk",
+                          color: Colors.purple,
+                        ),
+                        const SizedBox(width: 24),
+                        _SmallButton(
+                          onPressed: _paired ? () => _sendCommand(6) : null,
+                          icon: Icons.warning_amber_rounded,
+                          label: "Panic",
+                          color: Colors.orange,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -835,6 +868,61 @@ class _LockButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Small button for Trunk / Panic
+// ─────────────────────────────────────────────
+class _SmallButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final IconData      icon;
+  final String        label;
+  final Color         color;
+
+  const _SmallButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled        = onPressed != null;
+    final effectiveColor = enabled ? color : Colors.grey.shade300;
+
+    return GestureDetector(
+      onTap: enabled ? onPressed : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: effectiveColor.withValues(alpha: enabled ? 0.15 : 0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: effectiveColor.withValues(alpha: enabled ? 0.3 : 0.12),
+                width: 2,
+              ),
+            ),
+            child: Icon(icon, size: 28, color: effectiveColor),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              color: effectiveColor,
+            ),
+          ),
+        ],
       ),
     );
   }
