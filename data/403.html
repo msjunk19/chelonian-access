@@ -4,28 +4,24 @@
     <title>403 Forbidden</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @media (prefers-color-scheme: dark) {
-            html { color-scheme: dark; }
-            body { background: #0f172a; color: #fb7185; }
-            pre { color: #f472b6; }
-            a { color: #fb7185; }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
-    <div class="text-center">
-        <h1 class="text-5xl font-bold mb-6" style="color: #fb7185;">403 Forbidden</h1>
-        <pre class="text-lg leading-tight mb-6" style="color: #f472b6;">
-   (\_._/)   
-   ( o_o )   How did you get down my bunny trail?!
-   ( > < )   
-        </pre>
-        <p class="text-lg mb-6" style="color: #94a3b8;">
-            Hop back to the safe path — only the proper pages are allowed!<br>
-            <a href="/" class="font-bold hover:underline">Go back to safety</a>
-        </p>
+<body>
+<script>
+    if (localStorage.getItem('darkMode') === 'true' || 
+        (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+    }
+</script>
+    <div class="container center">
+        <div class="icon-wrap" style="margin-bottom: 1rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+        </div>
+        <h1 style="margin-bottom: 1rem;">403 Forbidden</h1>
+        <p class="status-text center">Access denied. You don't have permission to view this page.</p>
+        <a href="/" class="btn btn-blue" style="margin-top: 1.5rem;">Return Home</a>
     </div>
 </body>
 </html>
