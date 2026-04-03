@@ -104,6 +104,19 @@ h2 { font-size: 1rem; color: var(--text); margin-bottom: 1rem; display: flex; al
 .tag-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 .tag-row label { font-size: 0.875rem; color: var(--text-secondary); }
 .tag-row select { flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.875rem; }
+.mini-save-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+.mini-save-btn:active { transform: scale(0.95); }
+.mini-save-btn:hover { background: var(--primary-hover); }
 
 .macro-card {
     background: var(--card-bg);

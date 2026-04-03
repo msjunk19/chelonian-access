@@ -29,8 +29,9 @@
                 <label for="msToggle">Show timing in milliseconds</label>
             </div>
             <div class="tag-row">
-                <label for="tagMacro">Tag scan fires:</label>
-                <select id="tagMacro"></select>
+                <label for="tagMacro">Tag fires:</label>
+                <select id="tagMacro" onchange="quickSaveTagMacro()"></select>
+                <button class="mini-save-btn" onclick="saveMacros()" title="Save">Save</button>
             </div>
         </div>
 
@@ -78,9 +79,24 @@
         </div>
     </div>
 
+    <!-- Pairing lost modal -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-icon">&#128279;</div>
+            <h3>Device No Longer Paired</h3>
+            <p>This device is no longer recognised by the controller.</p>
+            <p id="pairStatus" class="status-text center" style="display:none;"></p>
+            <div class="modal-btns" id="modalBtns">
+                <button class="btn btn-gray" onclick="closeModal()">Later</button>
+                <button class="btn btn-green" id="pairNowBtn" onclick="pairNow()">Pair Now</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let macros = [];
         let useMs = false;
+        let modalShowing = false;
 
         function toggleDarkMode() {
             document.documentElement.classList.toggle('dark');
@@ -89,6 +105,67 @@
         if (localStorage.getItem('darkMode') === 'true' || 
             (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
+        }
+
+        function getStoredPairing() {
+            const id    = localStorage.getItem('device_id');
+            const token = localStorage.getItem('device_token');
+            return (id && token) ? { id, token } : null;
+        }
+
+        function storePairing(deviceId, token) {
+            localStorage.setItem('device_id', deviceId);
+            localStorage.setItem('device_token', token);
+        }
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+
+        function showPairingLostModal() {
+            if (modalShowing) return;
+            modalShowing = true;
+            document.getElementById('pairStatus').style.display = 'none';
+            document.getElementById('modalBtns').style.display = 'flex';
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+
+        function closeModal() {
+            modalShowing = false;
+            document.getElementById('modal-overlay').classList.remove('active');
+        }
+
+        async function pairNow() {
+            document.getElementById('pairStatus').style.display = 'block';
+            document.getElementById('pairStatus').innerText = 'Pairing...';
+            document.getElementById('modalBtns').style.display = 'none';
+
+            const deviceId = generateUUID();
+
+            try {
+                const resp = await fetch('/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId })
+                });
+
+                const data = await resp.json();
+
+                if (data.ok && data.token) {
+                    storePairing(deviceId, data.token);
+                    document.getElementById('pairStatus').innerText = 'Paired!';
+                    setTimeout(closeModal, 1000);
+                } else {
+                    document.getElementById('pairStatus').innerText = `Failed: ${data.error || 'Unknown error'}`;
+                    document.getElementById('modalBtns').style.display = 'flex';
+                }
+            } catch (e) {
+                document.getElementById('pairStatus').innerText = 'Failed - is pairing window open?';
+                document.getElementById('modalBtns').style.display = 'flex';
+            }
         }
 
         function toggleTimeUnit(checked) {
@@ -261,7 +338,47 @@
             if (sel.options[mi]) sel.options[mi].text = name || `Macro ${mi + 1}`;
         }
 
+        async function quickSaveTagMacro() {
+            const pairing = getStoredPairing();
+            if (!pairing) {
+                showPairingLostModal();
+                return;
+            }
+            const btn = document.querySelector('.mini-save-btn');
+            btn.classList.add('btn-pressed');
+
+            const payload = {
+                macro_count: macros.length,
+                tag_macro: parseInt(document.getElementById('tagMacro').value),
+                macros: macros
+            };
+
+            try {
+                const resp = await fetch('/api/macros', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                if (data.ok) {
+                    document.getElementById('saveModal').classList.add('active');
+                } else {
+                    showError(data.error || 'Failed to save');
+                }
+            } catch(e) {
+                showError('Network error - save failed');
+            }
+
+            setTimeout(() => btn.classList.remove('btn-pressed'), 150);
+        }
+
         async function saveMacros() {
+            const pairing = getStoredPairing();
+            if (!pairing) {
+                showPairingLostModal();
+                return;
+            }
+
             const btn = document.getElementById('saveBtn');
             btn.classList.add('btn-pressed');
             btn.disabled = true;
