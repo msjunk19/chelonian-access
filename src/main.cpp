@@ -85,9 +85,22 @@ setupWebServer([](PhoneCommand cmd) {
             fireMacro(macroConfigManager.config.tag_macro);
             break;
         case PhoneCommand::LOCK:
+            LED_SET_SEQ(LOCK);
             break;
         case PhoneCommand::STATUS:
             break;
+        case PhoneCommand::TRUNK: {
+            LED_SET_SEQ(TRUNK);
+            int8_t idx = macroConfigManager.findByName("Trunk");
+            if (idx >= 0) fireMacro(idx);
+            break;
+        }
+        case PhoneCommand::PANIC: {
+            LED_SET_SEQ(PANIC);
+            int8_t idx = macroConfigManager.findByName("Panic");
+            if (idx >= 0) fireMacro(idx);
+            break;
+        }
         default:
             break;
     }
@@ -98,11 +111,26 @@ setupWebServer([](PhoneCommand cmd) {
 
     bleManager.begin([](PhoneCommand cmd) {
     switch (cmd) {
-        // case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); activateRelays(); break;
         case PhoneCommand::UNLOCK: LED_SET_SEQ(UNLOCK); fireMacro(macroConfigManager.config.tag_macro); break;
-        
-        case PhoneCommand::LOCK:   break;
+        case PhoneCommand::LOCK: {
+            LED_SET_SEQ(LOCK);
+            int8_t idx = macroConfigManager.findByName("Lock");
+            if (idx >= 0) fireMacro(idx);
+            break;
+        }
         case PhoneCommand::STATUS: break;
+        case PhoneCommand::TRUNK: {
+            LED_SET_SEQ(TRUNK);
+            int8_t idx = macroConfigManager.findByName("Trunk");
+            if (idx >= 0) fireMacro(idx);
+            break;
+        }
+        case PhoneCommand::PANIC: {
+            LED_SET_SEQ(PANIC);
+            int8_t idx = macroConfigManager.findByName("Panic");
+            if (idx >= 0) fireMacro(idx);
+            break;
+        }
         default: break;
         }
     });

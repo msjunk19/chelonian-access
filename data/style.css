@@ -89,6 +89,28 @@ h2 { font-size: 1rem; color: var(--text); margin-bottom: 1rem; display: flex; al
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover { background: var(--primary-hover); }
 .btn-half { width: 48%; display: inline-block; margin: 1%; }
+.big-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    max-width: 45%;
+    aspect-ratio: 1;
+    border-radius: 1.5rem;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+    font-size: 1rem;
+    font-weight: 600;
+    gap: 0.5rem;
+}
+.big-btn:active { transform: scale(0.95); }
+.big-btn svg { flex-shrink: 0; }
+.big-btn.btn-blue { background: var(--primary); color: white; }
+.big-btn.btn-blue:hover { background: var(--primary-hover); }
+.big-btn.btn-gray { background: var(--text-secondary); color: white; }
+.big-btn.btn-gray:hover { background: #4b5563; }
 
 .status-text { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1rem; }
 .status-text.center { text-align: center; margin: 0.75rem 0; }

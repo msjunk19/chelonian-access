@@ -122,6 +122,15 @@ public:
         ESP_LOGI(MACROTAG, "Macro config cleared — defaults restored");
     }
 
+    int8_t findByName(const char* name) {
+        for (uint8_t i = 0; i < config.macro_count; i++) {
+            if (strncmp(config.macros[i].name, name, sizeof(config.macros[i].name)) == 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     void printConfig() {
         ESP_LOGI(MACROTAG, "Macro count: %u, tag macro: %u", config.macro_count, config.tag_macro);
         for (uint8_t i = 0; i < config.macro_count; i++) {

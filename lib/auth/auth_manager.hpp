@@ -16,6 +16,8 @@ enum class PhoneCommand : uint8_t {
     LOCK    = 0x02,
     STATUS  = 0x03,
     UNPAIR  = 0x04,
+    TRUNK   = 0x05,
+    PANIC   = 0x06,
 };
 
 struct AuthPayload {
@@ -126,12 +128,5 @@ private:
         }
         return diff == 0;
     }
-
-    enum class PhoneCommand : uint8_t {
-    UNLOCK  = 0x01,
-    LOCK    = 0x02,
-    STATUS  = 0x03,
-    UNPAIR  = 0x04,
-    };
 
 };

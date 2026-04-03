@@ -33,21 +33,25 @@
                 </svg>
                 Control
             </h2>
-            <div class="center">
-                <button id="unlockBtn" class="btn btn-blue btn-half" onclick="sendCommand(1)">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline;vertical-align:middle;margin-right:8px;">
+            <div class="center" style="display:flex; gap: 1rem; justify-content: center;">
+                <button id="unlockBtn" class="big-btn btn-blue" onclick="sendCommand(1)">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
                     </svg>
-                    Unlock
+                    <span>Unlock</span>
                 </button>
-                <button id="lockBtn" class="btn btn-gray btn-half" onclick="sendCommand(2)">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline;vertical-align:middle;margin-right:8px;">
+                <button id="lockBtn" class="big-btn btn-gray" onclick="sendCommand(2)">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                     </svg>
-                    Lock
+                    <span>Lock</span>
                 </button>
             </div>
-            <p id="status" class="status-text center" style="height:1.5rem;"></p>
+            <div class="center" style="margin-top: 1rem;">
+                <button id="trunkBtn" class="btn btn-purple btn-half" onclick="sendCommand(5)">Trunk</button>
+                <button id="panicBtn" class="btn btn-red btn-half" onclick="sendCommand(6)">Panic</button>
+            </div>
+            <p id="status" class="status-text center" style="height:1.5rem; margin-top: 1rem;"></p>
         </div>
 
         <!-- Configuration Section -->

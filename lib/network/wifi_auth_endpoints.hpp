@@ -208,6 +208,8 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
         case PhoneCommand::UNLOCK: statusStr = "unlocked"; break;
         case PhoneCommand::LOCK:   statusStr = "locked";   break;
         case PhoneCommand::STATUS: statusStr = "ok";       break;
+        case PhoneCommand::TRUNK:  statusStr = "trunk";    break;
+        case PhoneCommand::PANIC:  statusStr = "panic";    break;
         default: break;
     }
 
