@@ -78,6 +78,7 @@ public:
     }
 
     uint32_t getCurrentTime() { return _getCurrentTime(); }
+    bool isTimeSynced() { return _timeOffset != 0; }
 
 private:
     PhoneTokenManager& _tokens;

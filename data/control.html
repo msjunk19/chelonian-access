@@ -131,7 +131,7 @@
                 const resp = await fetch('/pair', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: deviceId })
+                    body: JSON.stringify({ device_id: deviceId, timestamp: Math.floor(Date.now() / 1000) })
                 });
 
                 const data = await resp.json();
@@ -166,14 +166,15 @@
                     body: JSON.stringify({
                         device_id: pairing.id,
                         token:     pairing.token,
-                        command:   command
+                        command:   command,
+                        timestamp: Math.floor(Date.now() / 1000)
                     })
                 });
 
                 const data = await resp.json();
 
                 if (resp.status === 401 || (data.error && 
-                    (data.error === 'Unauthorized' || data.error === 'Unknown device'))) {
+                    (data.error === 'Unauthorized' || data.error === 'Unknown device' || data.error === 'Timestamp expired'))) {
                     showPairingLostModal();
                     return;
                 }
@@ -199,7 +200,8 @@
                     body: JSON.stringify({
                         device_id: pairing.id,
                         token: pairing.token,
-                        command: 0
+                        command: 0,
+                        timestamp: Math.floor(Date.now() / 1000)
                     }),
                     signal: controller.signal
                 });

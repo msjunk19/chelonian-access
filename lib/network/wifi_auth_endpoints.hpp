@@ -16,6 +16,10 @@ static constexpr uint32_t PAIRING_WINDOW_MS = 60000;
 extern WebServer server;
 extern PhoneTokenManager phoneTokenManager;
 extern MacroConfigManager macroConfigManager;
+extern AuthManager authManager;
+
+// Max allowed clock drift between phone and device (seconds)
+static constexpr uint32_t CMD_TIMESTAMP_WINDOW = 30;
 
 
 // -------------------------
@@ -97,6 +101,12 @@ inline void handlePair() {
         return;
     }
 
+    // Sync time if phone sends timestamp
+    uint32_t phoneTimestamp = doc["timestamp"] | 0;
+    if (phoneTimestamp > 1000000000) { // sanity check: must be reasonable Unix time
+        authManager.syncTime(phoneTimestamp);
+    }
+
     // Generate a random session token
     String token = generateToken();
 
@@ -124,7 +134,7 @@ inline void handlePair() {
 
 // -------------------------
 // POST /cmd
-// Body: { "device_id": "uuid", "token": "32-char-hex", "command": 1 }
+// Body: { "device_id": "uuid", "token": "32-char-hex", "command": 1, "timestamp": 1234567890 }
 // Response: { "ok": true, "status": "unlocked" }
 
 inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
@@ -143,8 +153,9 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
     const char* deviceId = doc["device_id"];
     const char* token    = doc["token"];
     uint8_t     command  = doc["command"] | 0;
+    uint32_t    timestamp = doc["timestamp"] | 0;
 
-    if (!deviceId || !token || command == 0) {
+    if (!deviceId || !token || command == 0 || timestamp == 0) {
         sendJsonError(400, "Missing required fields");
         return;
     }
@@ -174,6 +185,18 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
         ESP_LOGW(WIFIAUTHTAG, "Invalid token for device: %s", deviceId);
         sendJsonError(401, "Unauthorized");
         return;
+    }
+
+    // Validate timestamp to prevent replay attacks (skip if time not yet synced)
+    if (authManager.isTimeSynced()) {
+        uint32_t now = authManager.getCurrentTime();
+        int32_t drift = (int32_t)timestamp - (int32_t)now;
+        if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
+            drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
+            ESP_LOGW(WIFIAUTHTAG, "Timestamp rejected — drift: %ld seconds (cmd from %s)", drift, deviceId);
+            sendJsonError(401, "Timestamp expired");
+            return;
+        }
     }
 
     // Dispatch command
