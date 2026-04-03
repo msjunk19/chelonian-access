@@ -75,6 +75,7 @@ h2 { font-size: 1rem; color: var(--text); margin-bottom: 1rem; display: flex; al
     transition: transform 0.1s, background 0.2s;
 }
 .btn:active { transform: scale(0.97); }
+.btn-pressed { transform: scale(0.95) !important; opacity: 0.8; }
 .btn-green { background: var(--accent-green); color: white; }
 .btn-green:hover { background: #16a34a; }
 .btn-red { background: var(--accent-red); color: white; }
