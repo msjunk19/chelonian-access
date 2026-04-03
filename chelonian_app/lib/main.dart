@@ -18,6 +18,7 @@ const String MAC_UUID_CHAR    = "beb54842-36e1-4688-b7f5-ea07361b26a8";
 
 const int RSSI_UNLOCK_THRESHOLD = -70;
 const int RSSI_LOCK_THRESHOLD   = -85;
+const int PROXIMITY_LOCK_COOLDOWN_SECS = 10;
 
 const List<String> _unpairingErrors = [
   'error:unknown_device',
@@ -201,6 +202,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool   _isUnlocked       = false;
   int    _lastRSSI         = -999;
   String _proximityStatus  = "Proximity: Off";
+  DateTime? _lastLockTime;  // prevents rapid unlock after lock
 
   // UI
   String _status              = "Disconnected";
@@ -520,6 +522,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       setState(() {
         _status     = _commandName(command);
         _isUnlocked = command == 1;
+        if (command == 2) _lastLockTime = DateTime.now();
       });
     } on Exception catch (e) {
       final msg = e.toString();
@@ -574,7 +577,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         if (result.beacons.isNotEmpty) {
           final rssi = result.beacons.first.rssi;
           setState(() { _lastRSSI = rssi; _proximityStatus = "Signal: $rssi dBm"; });
-          if (rssi > RSSI_UNLOCK_THRESHOLD && !_isUnlocked) _sendCommand(1);
+          
+          // Proximity unlock with cooldown protection
+          bool inCooldown = _lastLockTime != null &&
+            DateTime.now().difference(_lastLockTime!).inSeconds < PROXIMITY_LOCK_COOLDOWN_SECS;
+          if (inCooldown) {
+            final secs = PROXIMITY_LOCK_COOLDOWN_SECS - 
+              DateTime.now().difference(_lastLockTime!).inSeconds;
+            setState(() { _proximityStatus = "Cooldown: ${secs}s"; });
+          }
+          if (rssi > RSSI_UNLOCK_THRESHOLD && !_isUnlocked && !inCooldown) {
+            _sendCommand(1);
+          }
           if (rssi < RSSI_LOCK_THRESHOLD   &&  _isUnlocked) _sendCommand(2);
         } else {
           setState(() { _proximityStatus = "Beacon not detected"; });
