@@ -1,42 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <title>403 Forbidden</title>
     <meta charset="UTF-8">
-    <title>403 Forbidden 🐰</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: "Courier New", monospace;
-            text-align: center;
-            margin-top: 50px;
-            background: #fff8f0;
-            color: #ff69b4;
-        }
-        h1 {
-            font-size: 48px;
-        }
-        p {
-            font-size: 20px;
-        }
-        pre {
-            font-size: 14px;
-            line-height: 1;
-            color: #ff85b3;
-        }
-        a {
-            color: #ff69b4;
-            text-decoration: none;
-            font-weight: bold;
+        @media (prefers-color-scheme: dark) {
+            html { color-scheme: dark; }
+            body { background: #0f172a; color: #fb7185; }
+            pre { color: #f472b6; }
+            a { color: #fb7185; }
         }
     </style>
 </head>
-<body>
-    <h1>403 Forbidden 🐰</h1>
-    <pre>
-       (\_._/)   
-       ( o_o )   How did you get down my bunny trail?!
-       ( > < )   
-    </pre>
-    <p>Hop back to the safe path — only the proper pages are allowed! 🥕🐾<br>
-       <a href="/">Go back to safety</a></p>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="text-center">
+        <h1 class="text-5xl font-bold mb-6" style="color: #fb7185;">403 Forbidden</h1>
+        <pre class="text-lg leading-tight mb-6" style="color: #f472b6;">
+   (\_._/)   
+   ( o_o )   How did you get down my bunny trail?!
+   ( > < )   
+        </pre>
+        <p class="text-lg mb-6" style="color: #94a3b8;">
+            Hop back to the safe path — only the proper pages are allowed!<br>
+            <a href="/" class="font-bold hover:underline">Go back to safety</a>
+        </p>
+    </div>
 </body>
 </html>

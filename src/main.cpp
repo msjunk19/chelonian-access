@@ -56,9 +56,10 @@ void setup() {
 
     delay(1000);
 
-    // phoneTokenManager.clearAll();
     // masterUidManager.clearMasters();
-    // while(true);
+
+        // phoneTokenManager.clearAll();
+        // while(true);
 
     masterUidManager.readUIDs();
     userUidManager.readUIDs();
