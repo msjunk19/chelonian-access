@@ -1823,7 +1823,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     try {
       await _macroGetChar!.read();
       final value = _macroGetChar!.lastValue;
-      if (value != null && value.isNotEmpty) {
+      if (value.isNotEmpty) {
         final jsonStr = utf8.decode(value).trim();
         // Parse simple JSON format
         return _parseMacroJson(jsonStr);
@@ -2635,20 +2635,11 @@ class _DebugTile extends StatelessWidget {
         children: [
           SizedBox(
             width: 96,
-            child: Text(label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 12,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            child: Text(value, style: const TextStyle(fontSize: 12, fontFamily: 'monospace', fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+          ),
         ],
       ),
     );
@@ -2752,7 +2743,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                       ),
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: _tagMacro < _macros.length ? _tagMacro : 0,
+                          initialValue: _tagMacro < _macros.length ? _tagMacro : 0,
                           decoration: const InputDecoration(
                             labelText: 'Tag fires:',
                             border: OutlineInputBorder(),
@@ -3027,5 +3018,4 @@ class _StepEditor extends StatelessWidget {
       ),
     );
   }
-}
 }
