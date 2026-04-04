@@ -94,6 +94,9 @@ public:
         );
         _macroSetChar->setCallbacks(new MacroCallbacks(this));
 
+        // Initialize macro config characteristic with current values
+        refreshMacroChar();
+
         _server->start();
 
         // Generate unique iBeacon UUID from MAC address
