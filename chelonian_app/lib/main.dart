@@ -18,7 +18,6 @@ const String MAC_UUID_CHAR    = "beb54842-36e1-4688-b7f5-ea07361b26a8";
 
 const int RSSI_UNLOCK_THRESHOLD = -70;
 const int RSSI_LOCK_THRESHOLD   = -85;
-const int PROXIMITY_LOCK_COOLDOWN_SECS = 10;
 
 const List<String> _unpairingErrors = [
   'error:unknown_device',
@@ -202,7 +201,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool   _isUnlocked       = false;
   int    _lastRSSI         = -999;
   String _proximityStatus  = "Proximity: Off";
-  DateTime? _lastLockTime;  // prevents rapid unlock after lock
+  bool   _wasOutOfProximity = false;  // must leave and return to trigger auto-unlock
 
   // UI
   String _status              = "Disconnected";
@@ -522,7 +521,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       setState(() {
         _status     = _commandName(command);
         _isUnlocked = command == 1;
-        if (command == 2) _lastLockTime = DateTime.now();
       });
     } on Exception catch (e) {
       final msg = e.toString();
@@ -576,21 +574,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _beaconSub = flutterBeacon.ranging(regions).listen((result) {
         if (result.beacons.isNotEmpty) {
           final rssi = result.beacons.first.rssi;
+          final wasInProximity = _lastRSSI > RSSI_LOCK_THRESHOLD;
+          final isInProximity = rssi > RSSI_LOCK_THRESHOLD;
+          final isNearProximity = rssi > RSSI_UNLOCK_THRESHOLD;
+          
+          // Track when we left proximity zone
+          if (wasInProximity && !isInProximity) {
+            _wasOutOfProximity = true;
+          }
+          
           setState(() { _lastRSSI = rssi; _proximityStatus = "Signal: $rssi dBm"; });
           
-          // Proximity unlock with cooldown protection
-          bool inCooldown = _lastLockTime != null &&
-            DateTime.now().difference(_lastLockTime!).inSeconds < PROXIMITY_LOCK_COOLDOWN_SECS;
-          if (inCooldown) {
-            final secs = PROXIMITY_LOCK_COOLDOWN_SECS - 
-              DateTime.now().difference(_lastLockTime!).inSeconds;
-            setState(() { _proximityStatus = "Cooldown: ${secs}s"; });
-          }
-          if (rssi > RSSI_UNLOCK_THRESHOLD && !_isUnlocked && !inCooldown) {
+          // Auto-unlock: only if we were out of proximity and now back in close range
+          if (isNearProximity && !_isUnlocked && _wasOutOfProximity) {
             _sendCommand(1);
+            _wasOutOfProximity = false;  // reset after triggering
           }
-          if (rssi < RSSI_LOCK_THRESHOLD   &&  _isUnlocked) _sendCommand(2);
+          
+          // Auto-lock: if out of proximity
+          if (!isInProximity && _isUnlocked) {
+            _sendCommand(2);
+            _wasOutOfProximity = false;
+          }
         } else {
+          // Beacon lost entirely
           setState(() { _proximityStatus = "Beacon not detected"; });
           if (_isUnlocked) _sendCommand(2);
         }
