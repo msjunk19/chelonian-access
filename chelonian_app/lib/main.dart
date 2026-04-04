@@ -16,8 +16,9 @@ const String PAIR_UUID        = "beb54840-36e1-4688-b7f5-ea07361b26a8";
 const String BEACON_UUID_CHAR = "beb54841-36e1-4688-b7f5-ea07361b26a8";
 const String MAC_UUID_CHAR    = "beb54842-36e1-4688-b7f5-ea07361b26a8";
 
-const int RSSI_UNLOCK_THRESHOLD = -70;
-const int RSSI_LOCK_THRESHOLD   = -85;
+const int RSSI_UNLOCK_THRESHOLD = -70;  // auto-unlock when close
+const int RSSI_LOCK_THRESHOLD   = -85;    // auto-lock when nearby
+const int RSSI_LEAVE_THRESHOLD  = -95;    // must leave this range to reset auto-unlock
 
 const List<String> _unpairingErrors = [
   'error:unknown_device',
@@ -201,7 +202,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool   _isUnlocked       = false;
   int    _lastRSSI         = -999;
   String _proximityStatus  = "Proximity: Off";
-  bool   _wasOutOfProximity = false;  // must leave and return to trigger auto-unlock
+  bool   _wasOutOfProximity = true;  // true initially so first approach auto-unlocks, must leave and return after lock
 
   // UI
   String _status              = "Disconnected";
@@ -574,30 +575,32 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _beaconSub = flutterBeacon.ranging(regions).listen((result) {
         if (result.beacons.isNotEmpty) {
           final rssi = result.beacons.first.rssi;
-          final wasInProximity = _lastRSSI > RSSI_LOCK_THRESHOLD;
+          final wasInRange = _lastRSSI > RSSI_LEAVE_THRESHOLD;
+          final isInRange = rssi > RSSI_LEAVE_THRESHOLD;
           final isInProximity = rssi > RSSI_LOCK_THRESHOLD;
           final isNearProximity = rssi > RSSI_UNLOCK_THRESHOLD;
           
-          // Track when we left proximity zone
-          if (wasInProximity && !isInProximity) {
+          // Track when we left the leave threshold zone
+          if (wasInRange && !isInRange) {
             _wasOutOfProximity = true;
           }
           
           setState(() { _lastRSSI = rssi; _proximityStatus = "Signal: $rssi dBm"; });
           
-          // Auto-unlock: only if we were out of proximity and now back in close range
+          // Auto-unlock: only if we left and returned to close proximity
           if (isNearProximity && !_isUnlocked && _wasOutOfProximity) {
             _sendCommand(1);
             _wasOutOfProximity = false;  // reset after triggering
           }
           
-          // Auto-lock: if out of proximity
+          // Auto-lock: if out of proximity (but still in BLE range)
           if (!isInProximity && _isUnlocked) {
             _sendCommand(2);
-            _wasOutOfProximity = false;
+            // Don't reset _wasOutOfProximity here - user still needs to leave fully
           }
         } else {
-          // Beacon lost entirely
+          // Beacon lost entirely - user definitely left
+          _wasOutOfProximity = true;
           setState(() { _proximityStatus = "Beacon not detected"; });
           if (_isUnlocked) _sendCommand(2);
         }
