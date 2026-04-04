@@ -2643,11 +2643,12 @@ class _DebugTile extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontSize: 12,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w500,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
-            overflow: TextOverflow.ellipsis,
-          ),
+          ],
         ],
       ),
     );
