@@ -484,8 +484,9 @@ private:
             // Simple pipe-separated format
             // Count the pipes to determine fields
             int pipeCount = 0;
-            for (char c : payload.c_str()) {
-                if (c == '|') pipeCount++;
+            const char* str = payload.c_str();
+            for (size_t i = 0; str[i]; i++) {
+                if (str[i] == '|') pipeCount++;
             }
 
             // Expected: at least 2 pipes for header (macro_count, tag_macro)

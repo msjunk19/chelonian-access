@@ -1835,70 +1835,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Map<String, dynamic> _parseMacroJson(String json) {
-    // Simple JSON parser for macro config
-    final result = <String, dynamic>{};
-    result['macro_count'] = 0;
-    result['tag_macro'] = 0;
-    result['macros'] = [];
-    
-    // Extract macro_count
-    final countMatch = RegExp(r'"macro_count":(\d+)').firstMatch(json);
-    if (countMatch != null) {
-      result['macro_count'] = int.parse(countMatch.group(1)!);
-    }
-    
-    // Extract tag_macro
-    final tagMatch = RegExp(r'"tag_macro":(\d+)').firstMatch(json);
-    if (tagMatch != null) {
-      result['tag_macro'] = int.parse(tagMatch.group(1)!);
-    }
-    
-    // Extract macros array
-    final macrosMatch = RegExp(r'"macros":\s*\[(.*)\]', dotAll: true).firstMatch(json);
-    if (macrosMatch != null) {
-      final macrosStr = macrosMatch.group(1)!;
-      // Find each macro object
-      final macroRegex = RegExp(r'\{[^}]+\}', dotAll: true);
-      for (final match in macroRegex.allMatches(macrosStr)) {
-        final macroStr = match.group(0)!;
-        final macro = <String, dynamic>{};
-        
-        final nameMatch = RegExp(r'"name":\s*"([^"]*)"').firstMatch(macroStr);
-        if (nameMatch != null) macro['name'] = nameMatch.group(1);
-        
-        final stepsMatch = RegExp(r'"steps":\s*\[(.*)\]', dotAll: true).firstMatch(macroStr);
-        if (stepsMatch != null) {
-          macro['steps'] = _parseSteps(stepsMatch.group(1)!);
+    try {
+      // Use dart:convert for proper JSON parsing
+      final parsed = jsonDecode(json);
+      if (parsed is Map<String, dynamic>) {
+        // Ensure macros is a list
+        if (!parsed.containsKey('macros') || parsed['macros'] is! List) {
+          parsed['macros'] = [];
         }
-        
-        if (macro.isNotEmpty) {
-          (result['macros'] as List).add(macro);
+        // Normalize step_count to steps if needed
+        for (var macro in (parsed['macros'] as List)) {
+          if (macro is Map<String, dynamic> && macro.containsKey('step_count')) {
+            // step_count is just info, steps array has actual data
+          }
         }
+        return parsed;
       }
+    } catch (e) {
+      debugPrint("JSON parse error: $e");
     }
-    
-    return result;
-  }
-
-  List<Map<String, dynamic>> _parseSteps(String stepsStr) {
-    final steps = <Map<String, dynamic>>[];
-    final stepRegex = RegExp(r'\{[^}]+\}', dotAll: true);
-    for (final match in stepRegex.allMatches(stepsStr)) {
-      final stepStr = match.group(0)!;
-      final step = <String, dynamic>{};
-      
-      final relayMatch = RegExp(r'"relay_mask":(\d+)').firstMatch(stepStr);
-      if (relayMatch != null) step['relay_mask'] = int.parse(relayMatch.group(1)!);
-      
-      final durMatch = RegExp(r'"duration":(\d+)').firstMatch(stepStr);
-      if (durMatch != null) step['duration'] = int.parse(durMatch.group(1)!);
-      
-      final gapMatch = RegExp(r'"gap":(\d+)').firstMatch(stepStr);
-      if (gapMatch != null) step['gap'] = int.parse(gapMatch.group(1)!);
-      
-      if (step.isNotEmpty) steps.add(step);
-    }
-    return steps;
+    return {'macro_count': 0, 'tag_macro': 0, 'macros': []};
   }
 
   Future<bool> writeMacros(int macroCount, int tagMacro, List<Map<String, dynamic>> macros) async {
