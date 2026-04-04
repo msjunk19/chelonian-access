@@ -15,6 +15,8 @@ const String STATUS_UUID      = "beb5483f-36e1-4688-b7f5-ea07361b26a8";
 const String PAIR_UUID        = "beb54840-36e1-4688-b7f5-ea07361b26a8";
 const String BEACON_UUID_CHAR = "beb54841-36e1-4688-b7f5-ea07361b26a8";
 const String MAC_UUID_CHAR    = "beb54842-36e1-4688-b7f5-ea07361b26a8";
+const String MACRO_GET_UUID  = "beb54844-36e1-4688-b7f5-ea07361b26a8";
+const String MACRO_SET_UUID  = "beb54845-36e1-4688-b7f5-ea07361b26a8";
 
 const int RSSI_UNLOCK_THRESHOLD = -70;  // auto-unlock when close
 const int RSSI_LOCK_THRESHOLD   = -85;    // auto-lock when nearby
@@ -185,6 +187,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   BluetoothCharacteristic? _pairChar;
   BluetoothCharacteristic? _beaconUUIDCharacteristic;
   BluetoothCharacteristic? _macCharacteristic;
+  BluetoothCharacteristic? _macroGetChar;
+  BluetoothCharacteristic? _macroSetChar;
 
   bool _connected = false;
   bool _scanning  = false; //not used rn
@@ -339,6 +343,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             if (u == PAIR_UUID)        _pairChar                 = c;
             if (u == BEACON_UUID_CHAR) _beaconUUIDCharacteristic = c;
             if (u == MAC_UUID_CHAR)    _macCharacteristic        = c;
+            if (u == MACRO_GET_UUID)   _macroGetChar             = c;
+            if (u == MACRO_SET_UUID)   _macroSetChar             = c;
           }
         }
       }
@@ -383,6 +389,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _connected = false; _device = null;
       _cmdChar = null; _statusChar = null; _pairChar = null;
       _beaconUUIDCharacteristic = null; _macCharacteristic = null;
+      _macroGetChar = null; _macroSetChar = null;
       _status = "Disconnected";
     });
   }
@@ -553,6 +560,115 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
+  // ── Macro Config ────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>?> readMacros() async {
+    if (_macroGetChar == null) return null;
+    try {
+      await _macroGetChar!.read();
+      final value = _macroGetChar!.lastValue;
+      if (value != null && value.isNotEmpty) {
+        final jsonStr = utf8.decode(value).trim();
+        // Parse simple JSON format
+        return _parseMacroJson(jsonStr);
+      }
+    } catch (e) {
+      debugPrint("Failed to read macros: $e");
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _parseMacroJson(String json) {
+    // Simple JSON parser for macro config
+    final result = <String, dynamic>{};
+    result['macro_count'] = 0;
+    result['tag_macro'] = 0;
+    result['macros'] = [];
+    
+    // Extract macro_count
+    final countMatch = RegExp(r'"macro_count":(\d+)').firstMatch(json);
+    if (countMatch != null) {
+      result['macro_count'] = int.parse(countMatch.group(1)!);
+    }
+    
+    // Extract tag_macro
+    final tagMatch = RegExp(r'"tag_macro":(\d+)').firstMatch(json);
+    if (tagMatch != null) {
+      result['tag_macro'] = int.parse(tagMatch.group(1)!);
+    }
+    
+    // Extract macros array
+    final macrosMatch = RegExp(r'"macros":\s*\[(.*)\]', dotAll: true).firstMatch(json);
+    if (macrosMatch != null) {
+      final macrosStr = macrosMatch.group(1)!;
+      // Find each macro object
+      final macroRegex = RegExp(r'\{[^}]+\}', dotAll: true);
+      for (final match in macroRegex.allMatches(macrosStr)) {
+        final macroStr = match.group(0)!;
+        final macro = <String, dynamic>{};
+        
+        final nameMatch = RegExp(r'"name":\s*"([^"]*)"').firstMatch(macroStr);
+        if (nameMatch != null) macro['name'] = nameMatch.group(1);
+        
+        final stepsMatch = RegExp(r'"steps":\s*\[(.*)\]', dotAll: true).firstMatch(macroStr);
+        if (stepsMatch != null) {
+          macro['steps'] = _parseSteps(stepsMatch.group(1)!);
+        }
+        
+        if (macro.isNotEmpty) {
+          (result['macros'] as List).add(macro);
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  List<Map<String, dynamic>> _parseSteps(String stepsStr) {
+    final steps = <Map<String, dynamic>>[];
+    final stepRegex = RegExp(r'\{[^}]+\}', dotAll: true);
+    for (final match in stepRegex.allMatches(stepsStr)) {
+      final stepStr = match.group(0)!;
+      final step = <String, dynamic>{};
+      
+      final relayMatch = RegExp(r'"relay_mask":(\d+)').firstMatch(stepStr);
+      if (relayMatch != null) step['relay_mask'] = int.parse(relayMatch.group(1)!);
+      
+      final durMatch = RegExp(r'"duration":(\d+)').firstMatch(stepStr);
+      if (durMatch != null) step['duration'] = int.parse(durMatch.group(1)!);
+      
+      final gapMatch = RegExp(r'"gap":(\d+)').firstMatch(stepStr);
+      if (gapMatch != null) step['gap'] = int.parse(gapMatch.group(1)!);
+      
+      if (step.isNotEmpty) steps.add(step);
+    }
+    return steps;
+  }
+
+  Future<bool> writeMacros(int macroCount, int tagMacro, List<Map<String, dynamic>> macros) async {
+    if (_macroSetChar == null) return false;
+    try {
+      // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
+      final buffer = StringBuffer();
+      buffer.write('$macroCount|$tagMacro|');
+      for (final macro in macros) {
+        buffer.write('${macro['name']}|');
+        final steps = macro['steps'] as List;
+        buffer.write('${steps.length}|');
+        for (final step in steps) {
+          buffer.write('${step['relay_mask']}|');
+          buffer.write('${step['duration']}|');
+          buffer.write('${step['gap']}|');
+        }
+      }
+      await _macroSetChar!.write(utf8.encode(buffer.toString()), withoutResponse: false);
+      return true;
+    } catch (e) {
+      debugPrint("Failed to write macros: $e");
+      return false;
+    }
+  }
+
   // ── Proximity ─────────────────────────────────────────────────────────
 
   Future<void> _requestPermissions() async {
@@ -637,6 +753,8 @@ void _openSettings() {
         onUnpair:         _unpair,
         onStartProximity: _startProximityMonitoring,
         onStopProximity:  _stopProximityMonitoring,
+        onReadMacros:     readMacros,
+        onWriteMacros:    writeMacros,
       ),
     ),
   );
@@ -967,6 +1085,8 @@ class SettingsPage extends StatelessWidget {
   final VoidCallback onUnpair;
   final VoidCallback onStartProximity;
   final VoidCallback onStopProximity;
+  final Future<Map<String, dynamic>?> Function() onReadMacros;
+  final Future<bool> Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
 
   const SettingsPage({
     super.key,
@@ -983,6 +1103,8 @@ class SettingsPage extends StatelessWidget {
     required this.onUnpair,
     required this.onStartProximity,
     required this.onStopProximity,
+    required this.onReadMacros,
+    required this.onWriteMacros,
   });
 
   @override
@@ -1085,6 +1207,30 @@ class SettingsPage extends StatelessWidget {
                               foregroundColor: Colors.white,
                             ),
                           ),
+                  ),
+                ],
+              ),
+
+              // ── Configuration ──────────────────────────────────────────
+              _SettingsSection(
+                title: "Configuration",
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.tune),
+                    title: const Text("Relay Macros"),
+                    subtitle: const Text("Configure unlock/lock/trunk/panic sequences"),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MacroConfigPage(
+                            onReadMacros: onReadMacros,
+                            onWriteMacros: onWriteMacros,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1241,14 +1387,388 @@ class _DebugTile extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontSize: 12,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w500,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────
+// Macro Configuration Page
+// ─────────────────────────────────────────────
+class MacroConfigPage extends StatefulWidget {
+  final Function() onReadMacros;
+  final Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
+
+  const MacroConfigPage({
+    super.key,
+    required this.onReadMacros,
+    required this.onWriteMacros,
+  });
+
+  @override
+  State<MacroConfigPage> createState() => _MacroConfigPageState();
+}
+
+class _MacroConfigPageState extends State<MacroConfigPage> {
+  List<Map<String, dynamic>> _macros = [];
+  int _tagMacro = 0;
+  bool _useMs = false;
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMacros();
+  }
+
+  Future<void> _loadMacros() async {
+    setState(() => _loading = true);
+    final data = await widget.onReadMacros();
+    if (data != null && mounted) {
+      setState(() {
+        _macros = List<Map<String, dynamic>>.from(data['macros'] ?? []);
+        _tagMacro = data['tag_macro'] ?? 0;
+        _loading = false;
+      });
+    } else if (mounted) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load macros'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _saveMacros() async {
+    setState(() => _saving = true);
+    final success = await widget.onWriteMacros(_macros.length, _tagMacro, _macros);
+    if (mounted) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Macros saved!' : 'Failed to save macros'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Macro Config'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        actions: [
+          if (!_loading)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadMacros,
+            ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // Settings row
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: _useMs,
+                              onChanged: (v) => setState(() => _useMs = v ?? false),
+                            ),
+                            const Text('Show ms'),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          value: _tagMacro < _macros.length ? _tagMacro : 0,
+                          decoration: const InputDecoration(
+                            labelText: 'Tag fires:',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          items: _macros.asMap().entries.map((e) {
+                            return DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value['name'] ?? 'Macro ${e.key + 1}'),
+                            );
+                          }).toList(),
+                          onChanged: (v) => setState(() => _tagMacro = v ?? 0),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Macro list
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _macros.length,
+                    itemBuilder: (context, i) => _MacroCard(
+                      macro: _macros[i],
+                      index: i,
+                      useMs: _useMs,
+                      onChanged: (updated) {
+                        setState(() => _macros[i] = updated);
+                      },
+                      onRemove: _macros.length > 1
+                          ? () => setState(() {
+                                _macros.removeAt(i);
+                                if (_tagMacro >= _macros.length) _tagMacro = 0;
+                              })
+                          : null,
+                    ),
+                  ),
+                ),
+                // Add macro button
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      if (_macros.length < 6)
+                        OutlinedButton.icon(
+                          onPressed: () => setState(() {
+                            _macros.add({'name': '', 'steps': [{'relay_mask': 0, 'duration': 1000, 'gap': 0}]});
+                          }),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Macro'),
+                        ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _saving ? null : _saveMacros,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _saving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Save Changes'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _MacroCard extends StatelessWidget {
+  final Map<String, dynamic> macro;
+  final int index;
+  final bool useMs;
+  final Function(Map<String, dynamic>) onChanged;
+  final VoidCallback? onRemove;
+
+  const _MacroCard({
+    required this.macro,
+    required this.index,
+    required this.useMs,
+    required this.onChanged,
+    this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = macro['steps'] as List;
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: macro['name'] ?? '',
+                    decoration: const InputDecoration(
+                      labelText: 'Macro Name',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) {
+                      macro['name'] = v;
+                      onChanged(macro);
+                    },
+                  ),
+                ),
+                if (onRemove != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: onRemove,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Steps', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            ...steps.asMap().entries.map((e) => _StepEditor(
+              step: e.value,
+              stepIndex: e.key,
+              isLast: e.key == steps.length - 1,
+              useMs: useMs,
+              onChanged: (updated) {
+                steps[e.key] = updated;
+                onChanged(macro);
+              },
+              onRemove: steps.length > 1
+                  ? () {
+                      steps.removeAt(e.key);
+                      onChanged(macro);
+                    }
+                  : null,
+            )),
+            if (steps.length < 4)
+              TextButton.icon(
+                onPressed: () {
+                  steps.add({'relay_mask': 0, 'duration': 1000, 'gap': 0});
+                  onChanged(macro);
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Step'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StepEditor extends StatelessWidget {
+  final Map<String, dynamic> step;
+  final int stepIndex;
+  final bool isLast;
+  final bool useMs;
+  final Function(Map<String, dynamic>) onChanged;
+  final VoidCallback? onRemove;
+
+  const _StepEditor({
+    required this.step,
+    required this.stepIndex,
+    required this.isLast,
+    required this.useMs,
+    required this.onChanged,
+    this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final relayMask = step['relay_mask'] as int? ?? 0;
+    final duration = step['duration'] as int? ?? 1000;
+    final gap = step['gap'] as int? ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Step ${stepIndex + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              if (onRemove != null)
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: onRemove,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text('Relays:', style: TextStyle(fontSize: 12)),
+          Row(
+            children: List.generate(4, (i) {
+              final bit = 1 << i;
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: (relayMask & bit) != 0,
+                      onChanged: (v) {
+                        step['relay_mask'] = v == true ? (relayMask | bit) : (relayMask & ~bit);
+                        onChanged(step);
+                      },
+                    ),
+                    Text('R${i + 1}'),
+                  ],
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  initialValue: useMs ? '$duration' : '${duration / 1000}',
+                  decoration: InputDecoration(
+                    labelText: 'Duration (${useMs ? 'ms' : 's'})',
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) {
+                    step['duration'] = useMs ? int.tryParse(v) ?? 1000 : ((double.tryParse(v) ?? 1) * 1000).round();
+                    onChanged(step);
+                  },
+                ),
+              ),
+              if (!isLast) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: useMs ? '$gap' : '${gap / 1000}',
+                    decoration: InputDecoration(
+                      labelText: 'Gap (${useMs ? 'ms' : 's'})',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) {
+                      step['gap'] = useMs ? int.tryParse(v) ?? 0 : ((double.tryParse(v) ?? 0) * 1000).round();
+                      onChanged(step);
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 }

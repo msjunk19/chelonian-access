@@ -2,6 +2,7 @@
 #include <NimBLEDevice.h>
 #include "phone_token_manager.hpp"
 #include "auth_manager.hpp"
+#include "macro_config.hpp"
 #include "esp_log.h"
 #include <config.hpp>
 
@@ -13,14 +14,16 @@ static const char* BLETAG = "BLE";
 #define BLE_PAIR_UUID        "beb54840-36e1-4688-b7f5-ea07361b26a8"
 #define BLE_BEACON_UUID_CHAR "beb54841-36e1-4688-b7f5-ea07361b26a8" // read only
 #define BLE_MAC_UUID_CHAR    "beb54842-36e1-4688-b7f5-ea07361b26a8" // read only
-
-#define BLE_VERIFY_UUID "beb54843-36e1-4688-b7f5-ea07361b26a8" // write/read
+#define BLE_VERIFY_UUID      "beb54843-36e1-4688-b7f5-ea07361b26a8" // write/read
+#define BLE_MACRO_GET_UUID   "beb54844-36e1-4688-b7f5-ea07361b26a8" // read macro config
+#define BLE_MACRO_SET_UUID   "beb54845-36e1-4688-b7f5-ea07361b26a8" // write macro config
 #define BLE_CMD_UNLOCK  0x01
 #define BLE_CMD_LOCK    0x02
 #define BLE_CMD_STATUS  0x03
 
 extern PhoneTokenManager phoneTokenManager;
 extern AuthManager authManager;
+extern MacroConfigManager macroConfigManager;
 
 class BLEManager {
 public:
@@ -78,6 +81,19 @@ public:
         );
         _verifyChar->setCallbacks(new VerifyCallbacks(this));
 
+        // Macro config - read
+        _macroGetChar = service->createCharacteristic(
+            BLE_MACRO_GET_UUID,
+            NIMBLE_PROPERTY::READ
+        );
+
+        // Macro config - write
+        _macroSetChar = service->createCharacteristic(
+            BLE_MACRO_SET_UUID,
+            NIMBLE_PROPERTY::WRITE
+        );
+        _macroSetChar->setCallbacks(new MacroCallbacks(this));
+
         _server->start();
 
         // Generate unique iBeacon UUID from MAC address
@@ -111,6 +127,42 @@ public:
         }
     }
 
+    String getMacroConfigJson() {
+        String json = "{";
+        json += "\"macro_count\":" + String(macroConfigManager.config.macro_count) + ",";
+        json += "\"tag_macro\":" + String(macroConfigManager.config.tag_macro) + ",";
+        json += "\"macros\":[";
+        
+        for (uint8_t i = 0; i < macroConfigManager.config.macro_count; i++) {
+            if (i > 0) json += ",";
+            Macro& m = macroConfigManager.config.macros[i];
+            json += "{";
+            json += "\"name\":\"" + String(m.name) + "\",";
+            json += "\"step_count\":" + String(m.step_count) + ",";
+            json += "\"steps\":[";
+            for (uint8_t s = 0; s < m.step_count; s++) {
+                if (s > 0) json += ",";
+                json += "{";
+                json += "\"relay_mask\":" + String(m.steps[s].relay_mask) + ",";
+                json += "\"duration\":" + String(m.steps[s].duration) + ",";
+                json += "\"gap\":" + String(m.steps[s].gap);
+                json += "}";
+            }
+            json += "]";
+            json += "}";
+        }
+        json += "]}";
+        return json;
+    }
+
+    void refreshMacroChar() {
+        if (_macroGetChar) {
+            String json = getMacroConfigJson();
+            _macroGetChar->setValue(json.c_str());
+            ESP_LOGI(BLETAG, "Macro config refreshed (%d bytes)", json.length());
+        }
+    }
+
     void openPairingWindow() {
         _pairingWindowOpen  = true;
         _pairingWindowStart = millis();
@@ -137,6 +189,8 @@ private:
     NimBLECharacteristic*  _beaconUUIDChar = nullptr;
     NimBLECharacteristic*  _macChar        = nullptr;
     NimBLECharacteristic*  _verifyChar     = nullptr;
+    NimBLECharacteristic*  _macroGetChar   = nullptr;
+    NimBLECharacteristic*  _macroSetChar   = nullptr;
 
     bool     _pairingWindowOpen  = false;
     uint32_t _pairingWindowStart = 0;
@@ -400,6 +454,112 @@ private:
 
     private:
         BLEManager* _mgr;
+    };
+
+    // -------------------------
+    // Macro configuration callbacks
+
+    class MacroCallbacks : public NimBLECharacteristicCallbacks {
+    public:
+        MacroCallbacks(BLEManager* mgr) : _mgr(mgr) {}
+
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            std::string raw = pChar->getValue();
+            ESP_LOGI(BLETAG, "Macro config write received (%d bytes)", raw.length());
+
+            // Format: macro_count|tag_macro|macro1_name|macro1_steps|step1_relay|duration|gap|...
+            // Example: "5|0|Unlock|1|1|1000|0|Lock|1|2|1000|0"
+            
+            String payload = String(raw.c_str());
+            _parseAndSaveMacroConfig(payload);
+        }
+
+    private:
+        BLEManager* _mgr;
+
+        void _parseAndSaveMacroConfig(const String& payload) {
+            // Simple pipe-separated format
+            // Count the pipes to determine fields
+            int pipeCount = 0;
+            for (char c : payload.c_str()) {
+                if (c == '|') pipeCount++;
+            }
+
+            // Expected: at least 2 pipes for header (macro_count, tag_macro)
+            // Then for each macro: name_length(1) + name + steps(1) + for each step: relay(1) + duration(2) + gap(2)
+            // Using simpler format: macro_count|tag_macro followed by JSON-like data
+            
+            // Find first two pipe positions
+            int sep1 = payload.indexOf('|');
+            int sep2 = payload.indexOf('|', sep1 + 1);
+            
+            if (sep1 < 0 || sep2 < 0) {
+                ESP_LOGW(BLETAG, "Invalid macro format");
+                _mgr->notifyStatus("error:macro_format");
+                return;
+            }
+
+            uint8_t macroCount = payload.substring(0, sep1).toInt();
+            uint8_t tagMacro = payload.substring(sep1 + 1, sep2).toInt();
+
+            if (macroCount == 0 || macroCount > MAX_MACROS) {
+                ESP_LOGW(BLETAG, "Invalid macro count: %d", macroCount);
+                return;
+            }
+
+            macroConfigManager.config.macro_count = macroCount;
+            macroConfigManager.config.tag_macro = tagMacro;
+
+            // Parse remaining macros
+            String remaining = payload.substring(sep2 + 1);
+            for (uint8_t i = 0; i < macroCount; i++) {
+                if (remaining.length() == 0) break;
+                
+                int delim = remaining.indexOf('|');
+                if (delim < 0) delim = remaining.length();
+                
+                String name = remaining.substring(0, delim);
+                name.trim();
+                strncpy(macroConfigManager.config.macros[i].name, name.c_str(), sizeof(macroConfigManager.config.macros[i].name) - 1);
+                
+                remaining = remaining.substring(delim + 1);
+                if (remaining.length() == 0) break;
+
+                delim = remaining.indexOf('|');
+                if (delim < 0) delim = remaining.length();
+                uint8_t stepCount = remaining.substring(0, delim).toInt();
+                if (stepCount > MAX_STEPS) stepCount = MAX_STEPS;
+                macroConfigManager.config.macros[i].step_count = stepCount;
+                
+                remaining = remaining.substring(delim + 1);
+
+                for (uint8_t s = 0; s < stepCount; s++) {
+                    if (remaining.length() == 0) break;
+                    
+                    // Parse relay_mask (1 byte as int)
+                    delim = remaining.indexOf('|');
+                    if (delim < 0) delim = remaining.length();
+                    macroConfigManager.config.macros[i].steps[s].relay_mask = remaining.substring(0, delim).toInt();
+                    remaining = remaining.substring(delim + 1);
+
+                    // Parse duration (2 bytes)
+                    delim = remaining.indexOf('|');
+                    if (delim < 0) delim = remaining.length();
+                    macroConfigManager.config.macros[i].steps[s].duration = remaining.substring(0, delim).toInt();
+                    remaining = remaining.substring(delim + 1);
+
+                    // Parse gap (2 bytes)
+                    delim = remaining.indexOf('|');
+                    if (delim < 0) delim = remaining.length();
+                    macroConfigManager.config.macros[i].steps[s].gap = remaining.substring(0, delim).toInt();
+                    remaining = remaining.substring(delim + 1);
+                }
+            }
+
+            macroConfigManager.saveAll();
+            ESP_LOGI(BLETAG, "Macro config saved: %d macros, tag=%d", macroCount, tagMacro);
+            _mgr->notifyStatus("ok:macros_saved");
+        }
     };
 
 }; // end BLEManager
