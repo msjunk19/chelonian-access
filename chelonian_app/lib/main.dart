@@ -340,9 +340,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _device = device;
 
       final services = await device.discoverServices();
+      debugPrint("Discovering services...");
       for (final svc in services) {
+        debugPrint("Service: ${svc.uuid}");
         if (svc.uuid.toString() == SERVICE_UUID) {
+          debugPrint("Found main service, discovering characteristics...");
           for (final c in svc.characteristics) {
+            debugPrint("  Char: ${c.uuid} props: ${c.properties}");
             final u = c.uuid.toString();
             if (u == CMD_UUID)         _cmdChar                  = c;
             if (u == STATUS_UUID)      _statusChar               = c;
@@ -356,6 +360,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           }
         }
       }
+      
+      debugPrint("Characteristic discovery complete:");
+      debugPrint("  _macroGetChar: ${_macroGetChar != null}");
+      debugPrint("  _macroSetChar: ${_macroSetChar != null}");
+      debugPrint("  _logGetChar: ${_logGetChar != null}");
+      debugPrint("  _logClearChar: ${_logClearChar != null}");
 
       if (_statusChar != null) {
         await _statusChar!.setNotifyValue(true);
@@ -577,13 +587,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // ── Macro Config ────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>?> readMacros() async {
+    debugPrint("readMacros called, _macroGetChar is ${_macroGetChar != null}");
     if (_macroGetChar == null) return null;
     try {
       final value = await _macroGetChar!.read();
+      debugPrint("Macro read returned ${value.length} bytes");
       if (value.isNotEmpty) {
         final jsonStr = utf8.decode(value).trim();
         debugPrint("Macro read: $jsonStr");
         return _parseMacroJson(jsonStr);
+      } else {
+        debugPrint("Macro read returned empty");
       }
     } catch (e) {
       debugPrint("Failed to read macros: $e");
@@ -641,9 +655,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // ── Logs ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>?> readLogs() async {
+    debugPrint("readLogs called, _logGetChar is ${_logGetChar != null}");
     if (_logGetChar == null) return null;
     try {
       final value = await _logGetChar!.read();
+      debugPrint("Logs read returned ${value.length} bytes");
       if (value.isNotEmpty) {
         final jsonStr = utf8.decode(value).trim();
         debugPrint("Logs read: $jsonStr");
@@ -651,6 +667,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         if (parsed is List) {
           return List<Map<String, dynamic>>.from(parsed);
         }
+      } else {
+        debugPrint("Logs read returned empty");
       }
     } catch (e) {
       debugPrint("Failed to read logs: $e");

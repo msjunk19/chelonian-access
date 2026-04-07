@@ -68,7 +68,10 @@ public:
     }
 
     void log(LogLevel level, LogSource source, LogResult result, const char* identifier, const char* message) {
-        if (!shouldLog(level)) return;
+        if (!shouldLog(level)) {
+            ESP_LOGI(LOGTAG, "log() skipped - level %d not enabled", (int)level);
+            return;
+        }
 
         uint32_t currentMillis = millis();
         if (_lastMillis != 0 && currentMillis < _lastMillis) {

@@ -106,6 +106,7 @@ public:
             BLE_LOG_GET_UUID,
             NIMBLE_PROPERTY::READ
         );
+        refreshLogsChar();
 
         // Log - clear
         _logClearChar = service->createCharacteristic(
@@ -179,7 +180,9 @@ public:
         if (_macroGetChar) {
             String json = getMacroConfigJson();
             _macroGetChar->setValue(json.c_str());
-            ESP_LOGI(BLETAG, "Macro config refreshed (%d bytes)", json.length());
+            ESP_LOGI(BLETAG, "Macro config refreshed (%d bytes): %s", json.length(), json.c_str());
+        } else {
+            ESP_LOGW(BLETAG, "refreshMacroChar: _macroGetChar is null!");
         }
     }
 
@@ -188,6 +191,9 @@ public:
             String json = accessLogger.getLogsJson();
             _logGetChar->setValue(json.c_str());
             ESP_LOGI(BLETAG, "Logs refreshed (%d bytes): %s", json.length(), json.c_str());
+            ESP_LOGI(BLETAG, "Log count: %u", accessLogger.getCount());
+        } else {
+            ESP_LOGW(BLETAG, "refreshLogsChar: _logGetChar is null!");
         }
     }
 
@@ -589,6 +595,7 @@ private:
 
             macroConfigManager.saveAll();
             ESP_LOGI(BLETAG, "Macro config saved: %d macros, tag=%d", macroCount, tagMacro);
+            _mgr->refreshMacroChar();
             _mgr->notifyStatus("ok:macros_saved");
         }
     };
