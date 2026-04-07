@@ -13,6 +13,7 @@
 #include <ble_manager.hpp>
 #include <factory_reset.hpp>
 #include <macro_config.hpp>
+#include <access_log.hpp>
 
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
@@ -33,6 +34,7 @@ RelayController relays;
 AudioContoller audio;
 
 MacroConfigManager macroConfigManager;
+AccessLogger accessLogger;
 
 static const char* TAG = "Main";
 
@@ -64,6 +66,8 @@ void setup() {
     masterUidManager.readUIDs();
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
+
+    accessLogger.begin();
 
     accessServiceSetup();   
 

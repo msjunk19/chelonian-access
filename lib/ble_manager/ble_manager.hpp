@@ -5,6 +5,7 @@
 #include "macro_config.hpp"
 #include "esp_log.h"
 #include <config.hpp>
+#include <access_log.hpp>
 
 static const char* BLETAG = "BLE";
 
@@ -17,6 +18,8 @@ static const char* BLETAG = "BLE";
 #define BLE_VERIFY_UUID      "beb54843-36e1-4688-b7f5-ea07361b26a8" // write/read
 #define BLE_MACRO_GET_UUID   "beb54844-36e1-4688-b7f5-ea07361b26a8" // read macro config
 #define BLE_MACRO_SET_UUID   "beb54845-36e1-4688-b7f5-ea07361b26a8" // write macro config
+#define BLE_LOG_GET_UUID     "beb54846-36e1-4688-b7f5-ea07361b26a8" // read logs
+#define BLE_LOG_CLEAR_UUID   "beb54847-36e1-4688-b7f5-ea07361b26a8" // clear logs
 #define BLE_CMD_UNLOCK  0x01
 #define BLE_CMD_LOCK    0x02
 #define BLE_CMD_STATUS  0x03
@@ -24,6 +27,7 @@ static const char* BLETAG = "BLE";
 extern PhoneTokenManager phoneTokenManager;
 extern AuthManager authManager;
 extern MacroConfigManager macroConfigManager;
+extern AccessLogger accessLogger;
 
 class BLEManager {
 public:
@@ -97,6 +101,19 @@ public:
         // Initialize macro config characteristic with current values
         refreshMacroChar();
 
+        // Log - read
+        _logGetChar = service->createCharacteristic(
+            BLE_LOG_GET_UUID,
+            NIMBLE_PROPERTY::READ
+        );
+
+        // Log - clear
+        _logClearChar = service->createCharacteristic(
+            BLE_LOG_CLEAR_UUID,
+            NIMBLE_PROPERTY::WRITE
+        );
+        _logClearChar->setCallbacks(new LogClearCallbacks(this));
+
         _server->start();
 
         // Generate unique iBeacon UUID from MAC address
@@ -166,6 +183,13 @@ public:
         }
     }
 
+    void refreshLogsChar() {
+        if (_logGetChar) {
+            String json = accessLogger.getLogsJson();
+            _logGetChar->setValue(json.c_str());
+        }
+    }
+
     void openPairingWindow() {
         _pairingWindowOpen  = true;
         _pairingWindowStart = millis();
@@ -194,6 +218,8 @@ private:
     NimBLECharacteristic*  _verifyChar     = nullptr;
     NimBLECharacteristic*  _macroGetChar   = nullptr;
     NimBLECharacteristic*  _macroSetChar   = nullptr;
+    NimBLECharacteristic*  _logGetChar     = nullptr;
+    NimBLECharacteristic*  _logClearChar   = nullptr;
 
     bool     _pairingWindowOpen  = false;
     uint32_t _pairingWindowStart = 0;
@@ -564,6 +590,22 @@ private:
             ESP_LOGI(BLETAG, "Macro config saved: %d macros, tag=%d", macroCount, tagMacro);
             _mgr->notifyStatus("ok:macros_saved");
         }
+    };
+
+    // Log clear callbacks
+    class LogClearCallbacks : public NimBLECharacteristicCallbacks {
+    public:
+        LogClearCallbacks(BLEManager* mgr) : _mgr(mgr) {}
+
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            std::string raw = pChar->getValue();
+            ESP_LOGI(BLETAG, "Log clear command received");
+            accessLogger.clear();
+            _mgr->notifyStatus("ok:logs_cleared");
+        }
+
+    private:
+        BLEManager* _mgr;
     };
 
 }; // end BLEManager
