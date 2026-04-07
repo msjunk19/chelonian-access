@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "esp_random.h"
 #include <led_states.hpp>
+#include <access_log.hpp>
 
 static const char* WIFIAUTHTAG = "WIFIAUTH";
 
@@ -17,6 +18,7 @@ extern WebServer server;
 extern PhoneTokenManager phoneTokenManager;
 extern MacroConfigManager macroConfigManager;
 extern AuthManager authManager;
+extern AccessLogger accessLogger;
 
 // Max allowed clock drift between phone and device (seconds)
 static constexpr uint32_t CMD_TIMESTAMP_WINDOW = 30;

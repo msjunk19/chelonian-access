@@ -1440,6 +1440,12 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
     _loadMacros();
   }
 
+  void _onTagChanged(int? value) {
+    setState(() {
+      _tagMacro = value ?? 0;
+    });
+  }
+
   Future<void> _loadMacros() async {
     setState(() => _loading = true);
     final data = await widget.onReadMacros();
@@ -1507,7 +1513,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                       ),
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          initialValue: _tagMacro < _macros.length ? _tagMacro : 0,
+                          value: _tagMacro < _macros.length ? _tagMacro : 0,
                           decoration: const InputDecoration(
                             labelText: 'Tag fires:',
                             border: OutlineInputBorder(),
@@ -1519,7 +1525,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                               child: Text(e.value['name'] ?? 'Macro ${e.key + 1}'),
                             );
                           }).toList(),
-                          onChanged: (v) => setState(() => _tagMacro = v ?? 0),
+                          onChanged: _onTagChanged,
                         ),
                       ),
                     ],

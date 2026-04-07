@@ -187,6 +187,7 @@ public:
         if (_logGetChar) {
             String json = accessLogger.getLogsJson();
             _logGetChar->setValue(json.c_str());
+            ESP_LOGI(BLETAG, "Logs refreshed (%d bytes): %s", json.length(), json.c_str());
         }
     }
 
