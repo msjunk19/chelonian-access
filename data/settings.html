@@ -45,6 +45,16 @@
             </h2>
             <p class="status-text">Access Controller v1.0</p>
         </div>
+
+        <div class="card">
+            <h2>
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Device
+            </h2>
+            <button id="rebootBtn" class="btn btn-orange" onclick="rebootDevice()">Reboot Device</button>
+        </div>
     </div>
 
     <div id="modal-overlay" class="modal-overlay">
@@ -179,6 +189,24 @@
                 }
             } catch(e) {
                 setPairStatus('Unpair request failed.', false);
+            }
+        }
+
+        async function rebootDevice() {
+            const btn = document.getElementById('rebootBtn');
+            btn.disabled = true;
+            
+            try {
+                const resp = await fetch('/api/reboot', { method: 'POST' });
+                if (resp.ok) {
+                    btn.innerText = 'Rebooting...';
+                } else {
+                    btn.innerText = 'Reboot failed';
+                    setTimeout(() => { btn.disabled = false; btn.innerText = 'Reboot Device'; }, 2000);
+                }
+            } catch (e) {
+                btn.innerText = 'Reboot failed';
+                setTimeout(() => { btn.disabled = false; btn.innerText = 'Reboot Device'; }, 2000);
             }
         }
 

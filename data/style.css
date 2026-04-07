@@ -86,6 +86,8 @@ h2 { font-size: 1rem; color: var(--text); margin-bottom: 1rem; display: flex; al
 .btn-gray:hover { background: #4b5563; }
 .btn-purple { background: var(--accent-purple); color: white; }
 .btn-purple:hover { background: #9333ea; }
+.btn-orange { background: #f97316; color: white; }
+.btn-orange:hover { background: #ea580c; }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover { background: var(--primary-hover); }
 .btn-half { width: 48%; display: inline-block; margin: 1%; }

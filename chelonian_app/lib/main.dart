@@ -19,6 +19,7 @@ const String MACRO_GET_UUID  = "beb54844-36e1-4688-b7f5-ea07361b26a8";
 const String MACRO_SET_UUID  = "beb54845-36e1-4688-b7f5-ea07361b26a8";
 const String LOG_GET_UUID   = "beb54846-36e1-4688-b7f5-ea07361b26a8";
 const String LOG_CLEAR_UUID = "beb54847-36e1-4688-b7f5-ea07361b26a8";
+const String REBOOT_UUID   = "beb54848-36e1-4688-b7f5-ea07361b26a8";
 
 const int RSSI_UNLOCK_THRESHOLD = -70;  // auto-unlock when close
 const int RSSI_LOCK_THRESHOLD   = -85;    // auto-lock when nearby
@@ -193,6 +194,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   BluetoothCharacteristic? _macroSetChar;
   BluetoothCharacteristic? _logGetChar;
   BluetoothCharacteristic? _logClearChar;
+  BluetoothCharacteristic? _rebootChar;
 
   bool _connected = false;
   bool _scanning  = false; //not used rn
@@ -357,6 +359,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             if (u == MACRO_SET_UUID)   _macroSetChar             = c;
             if (u == LOG_GET_UUID)     _logGetChar               = c;
             if (u == LOG_CLEAR_UUID)   _logClearChar             = c;
+            if (u == REBOOT_UUID)      _rebootChar               = c;
           }
         }
       }
@@ -366,6 +369,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       debugPrint("  _macroSetChar: ${_macroSetChar != null}");
       debugPrint("  _logGetChar: ${_logGetChar != null}");
       debugPrint("  _logClearChar: ${_logClearChar != null}");
+      debugPrint("  _rebootChar: ${_rebootChar != null}");
 
       if (_statusChar != null) {
         await _statusChar!.setNotifyValue(true);
@@ -687,6 +691,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
+  Future<bool> reboot() async {
+    if (_rebootChar == null) return false;
+    try {
+      await _rebootChar!.write(utf8.encode("reboot"), withoutResponse: false);
+      return true;
+    } catch (e) {
+      debugPrint("Failed to reboot: $e");
+      return false;
+    }
+  }
+
   // ── Proximity ─────────────────────────────────────────────────────────
 
   Future<void> _requestPermissions() async {
@@ -775,6 +790,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             onWriteMacros:    writeMacros,
             onReadLogs:       readLogs,
             onClearLogs:      clearLogs,
+            onReboot:         reboot,
           ),
         ),
       );
@@ -1109,6 +1125,7 @@ class SettingsPage extends StatelessWidget {
   final Future<bool> Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
   final Future<List<Map<String, dynamic>>?> Function() onReadLogs;
   final Future<bool> Function() onClearLogs;
+  final Future<bool> Function() onReboot;
 
   const SettingsPage({
     super.key,
@@ -1129,6 +1146,7 @@ class SettingsPage extends StatelessWidget {
     required this.onWriteMacros,
     required this.onReadLogs,
     required this.onClearLogs,
+    required this.onReboot,
   });
 
   @override
@@ -1272,6 +1290,38 @@ class SettingsPage extends StatelessWidget {
                         ),
                       );
                     },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text("Reboot Device"),
+                            content: const Text("Are you sure you want to reboot the device?"),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text("Cancel"),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text("Reboot"),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await onReboot();
+                        }
+                      },
+                      icon: const Icon(Icons.refresh, color: Colors.orange),
+                      label: const Text("Reboot Device", style: TextStyle(color: Colors.orange)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.orange),
+                      ),
+                    ),
                   ),
                 ],
               ),

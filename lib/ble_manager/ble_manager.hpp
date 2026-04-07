@@ -20,6 +20,7 @@ static const char* BLETAG = "BLE";
 #define BLE_MACRO_SET_UUID   "beb54845-36e1-4688-b7f5-ea07361b26a8" // write macro config
 #define BLE_LOG_GET_UUID     "beb54846-36e1-4688-b7f5-ea07361b26a8" // read logs
 #define BLE_LOG_CLEAR_UUID   "beb54847-36e1-4688-b7f5-ea07361b26a8" // clear logs
+#define BLE_REBOOT_UUID      "beb54848-36e1-4688-b7f5-ea07361b26a8" // reboot
 #define BLE_CMD_UNLOCK  0x01
 #define BLE_CMD_LOCK    0x02
 #define BLE_CMD_STATUS  0x03
@@ -115,6 +116,13 @@ public:
             NIMBLE_PROPERTY::WRITE
         );
         _logClearChar->setCallbacks(new LogClearCallbacks(this));
+
+        // Reboot
+        NimBLECharacteristic* rebootChar = service->createCharacteristic(
+            BLE_REBOOT_UUID,
+            NIMBLE_PROPERTY::WRITE
+        );
+        rebootChar->setCallbacks(new RebootCallbacks());
 
         _server->start();
 
@@ -650,6 +658,16 @@ private:
 
     private:
         BLEManager* _mgr;
+    };
+
+    // Reboot callbacks
+    class RebootCallbacks : public NimBLECharacteristicCallbacks {
+    public:
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            ESP_LOGI(BLETAG, "Reboot command received");
+            delay(50);
+            ESP.restart();
+        }
     };
 
 }; // end BLEManager

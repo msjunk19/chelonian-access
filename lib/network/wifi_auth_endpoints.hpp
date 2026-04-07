@@ -404,5 +404,16 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
     server.on("/api/macros", HTTP_GET,  handleGetMacros);
     server.on("/api/macros", HTTP_POST, handleSetMacros);
 
+    server.on("/api/reboot", HTTP_POST, []() {
+        ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API");
+        JsonDocument resp;
+        resp["ok"] = true;
+        String body;
+        serializeJson(resp, body);
+        server.send(200, "application/json", body);
+        delay(100);
+        ESP.restart();
+    });
+
     ESP_LOGI(WIFIAUTHTAG, "Auth endpoints registered");
 }
