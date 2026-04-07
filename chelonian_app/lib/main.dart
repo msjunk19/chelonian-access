@@ -1952,30 +1952,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // ── Navigation ────────────────────────────────────────────────────────
 
-void _openSettings() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => SettingsPage(
-        appState: _appState,
-        deviceId:         _deviceId,
-        savedMac:         _savedMac,
-        beaconUUID:       _beaconUUID,
-        proximityEnabled: _proximityEnabled,
-        lastRSSI:         _lastRSSI,
-        proximityStatus:  _proximityStatus,
-        onScanAndConnect: _scanAndConnect,
-        onDisconnect:     _disconnect,
-        onPair:           _pair,
-        onUnpair:         _unpair,
-        onStartProximity: _startProximityMonitoring,
-        onStopProximity:  _stopProximityMonitoring,
-        onReadMacros:     readMacros,
-        onWriteMacros:    writeMacros,
-      ),
-    ),
-  );
-}
+    void _openSettings() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SettingsPage(
+            appState: _appState,
+            deviceId:         _deviceId,
+            savedMac:         _savedMac,
+            beaconUUID:       _beaconUUID,
+            proximityEnabled: _proximityEnabled,
+            lastRSSI:         _lastRSSI,
+            proximityStatus:  _proximityStatus,
+            onScanAndConnect: _scanAndConnect,
+            onDisconnect:     _disconnect,
+            onPair:           _pair,
+            onUnpair:         _unpair,
+            onStartProximity: _startProximityMonitoring,
+            onStopProximity:  _stopProximityMonitoring,
+            onReadMacros:     readMacros,
+            onWriteMacros:    writeMacros,
+          ),
+        ),
+      );
+    }
 
 
   // ── Build ─────────────────────────────────────────────────────────────
