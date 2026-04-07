@@ -17,6 +17,8 @@ const String BEACON_UUID_CHAR = "beb54841-36e1-4688-b7f5-ea07361b26a8";
 const String MAC_UUID_CHAR    = "beb54842-36e1-4688-b7f5-ea07361b26a8";
 const String MACRO_GET_UUID  = "beb54844-36e1-4688-b7f5-ea07361b26a8";
 const String MACRO_SET_UUID  = "beb54845-36e1-4688-b7f5-ea07361b26a8";
+const String LOG_GET_UUID   = "beb54846-36e1-4688-b7f5-ea07361b26a8";
+const String LOG_CLEAR_UUID = "beb54847-36e1-4688-b7f5-ea07361b26a8";
 
 const int RSSI_UNLOCK_THRESHOLD = -70;  // auto-unlock when close
 const int RSSI_LOCK_THRESHOLD   = -85;    // auto-lock when nearby
@@ -189,6 +191,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   BluetoothCharacteristic? _macCharacteristic;
   BluetoothCharacteristic? _macroGetChar;
   BluetoothCharacteristic? _macroSetChar;
+  BluetoothCharacteristic? _logGetChar;
+  BluetoothCharacteristic? _logClearChar;
 
   bool _connected = false;
   bool _scanning  = false; //not used rn
@@ -343,6 +347,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             if (u == MAC_UUID_CHAR)    _macCharacteristic        = c;
             if (u == MACRO_GET_UUID)   _macroGetChar             = c;
             if (u == MACRO_SET_UUID)   _macroSetChar             = c;
+            if (u == LOG_GET_UUID)     _logGetChar               = c;
+            if (u == LOG_CLEAR_UUID)   _logClearChar             = c;
           }
         }
       }
@@ -388,6 +394,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _cmdChar = null; _statusChar = null; _pairChar = null;
       _beaconUUIDCharacteristic = null; _macCharacteristic = null;
       _macroGetChar = null; _macroSetChar = null;
+      _logGetChar = null; _logClearChar = null;
       _status = "Disconnected";
     });
   }
@@ -628,6 +635,37 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
+  // ── Logs ──────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>?> readLogs() async {
+    if (_logGetChar == null) return null;
+    try {
+      await _logGetChar!.read();
+      final value = _logGetChar!.lastValue;
+      if (value.isNotEmpty) {
+        final jsonStr = utf8.decode(value).trim();
+        final parsed = jsonDecode(jsonStr);
+        if (parsed is List) {
+          return List<Map<String, dynamic>>.from(parsed);
+        }
+      }
+    } catch (e) {
+      debugPrint("Failed to read logs: $e");
+    }
+    return null;
+  }
+
+  Future<bool> clearLogs() async {
+    if (_logClearChar == null) return false;
+    try {
+      await _logClearChar!.write(utf8.encode("clear"), withoutResponse: false);
+      return true;
+    } catch (e) {
+      debugPrint("Failed to clear logs: $e");
+      return false;
+    }
+  }
+
   // ── Proximity ─────────────────────────────────────────────────────────
 
   Future<void> _requestPermissions() async {
@@ -714,6 +752,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             onStopProximity:  _stopProximityMonitoring,
             onReadMacros:     readMacros,
             onWriteMacros:    writeMacros,
+            onReadLogs:       readLogs,
+            onClearLogs:      clearLogs,
           ),
         ),
       );
@@ -1046,6 +1086,8 @@ class SettingsPage extends StatelessWidget {
   final VoidCallback onStopProximity;
   final Future<Map<String, dynamic>?> Function() onReadMacros;
   final Future<bool> Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
+  final Future<List<Map<String, dynamic>>?> Function() onReadLogs;
+  final Future<bool> Function() onClearLogs;
 
   const SettingsPage({
     super.key,
@@ -1064,6 +1106,8 @@ class SettingsPage extends StatelessWidget {
     required this.onStopProximity,
     required this.onReadMacros,
     required this.onWriteMacros,
+    required this.onReadLogs,
+    required this.onClearLogs,
   });
 
   @override
@@ -1186,6 +1230,23 @@ class SettingsPage extends StatelessWidget {
                           builder: (context) => MacroConfigPage(
                             onReadMacros: onReadMacros,
                             onWriteMacros: onWriteMacros,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.history),
+                    title: const Text("Access Logs"),
+                    subtitle: const Text("View RFID and command history"),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LogsPage(
+                            onReadLogs: onReadLogs,
+                            onClearLogs: onClearLogs,
                           ),
                         ),
                       );
@@ -1521,7 +1582,231 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                   ),
                 ),
               ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Logs Page
+// ─────────────────────────────────────────────
+class LogsPage extends StatefulWidget {
+  final Future<List<Map<String, dynamic>>?> Function() onReadLogs;
+  final Future<bool> Function() onClearLogs;
+
+  const LogsPage({
+    super.key,
+    required this.onReadLogs,
+    required this.onClearLogs,
+  });
+
+  @override
+  State<LogsPage> createState() => _LogsPageState();
+}
+
+class _LogsPageState extends State<LogsPage> {
+  List<Map<String, dynamic>> _logs = [];
+  bool _loading = true;
+  int _filter = 0; // 0=all, 1=access, 2=system, 3=debug
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLogs();
+  }
+
+  Future<void> _loadLogs() async {
+    setState(() => _loading = true);
+    final logs = await widget.onReadLogs();
+    if (mounted) {
+      setState(() {
+        _logs = logs ?? [];
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _clearLogs() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Clear Logs"),
+        content: const Text("Are you sure you want to clear all logs?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text("Clear"),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final success = await widget.onClearLogs();
+      if (mounted) {
+        if (success) {
+          setState(() => _logs = []);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Logs cleared"), backgroundColor: Colors.green),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Failed to clear logs"), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  String _formatTime(int secondsAgo) {
+    if (secondsAgo < 60) return 'Just now';
+    if (secondsAgo < 3600) return '${(secondsAgo / 60).floor()}m ago';
+    if (secondsAgo < 86400) return '${(secondsAgo / 3600).floor()}h ago';
+    return '${(secondsAgo / 86400).floor()}d ago';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredLogs = _filter == 0
+        ? _logs
+        : _logs.where((l) => l['level'] == _filter - 1).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Access Logs'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _clearLogs,
+            tooltip: 'Clear Logs',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Filter chips
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                _FilterChip(label: 'All', selected: _filter == 0, onTap: () => setState(() => _filter = 0)),
+                const SizedBox(width: 8),
+                _FilterChip(label: 'Access', selected: _filter == 1, onTap: () => setState(() => _filter = 1)),
+                const SizedBox(width: 8),
+                _FilterChip(label: 'System', selected: _filter == 2, onTap: () => setState(() => _filter = 2)),
+                const SizedBox(width: 8),
+                _FilterChip(label: 'Debug', selected: _filter == 3, onTap: () => setState(() => _filter = 3)),
+              ],
             ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredLogs.isEmpty
+                    ? const Center(child: Text("No logs yet"))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        itemCount: filteredLogs.length,
+                        itemBuilder: (context, index) {
+                          final log = filteredLogs[filteredLogs.length - 1 - index];
+                          final level = log['level'] as int;
+                          final source = log['source'] as int;
+                          final result = log['result'] as int;
+                          final ts = log['ts'] as int;
+                          final msg = log['msg'] ?? '';
+
+                          Color levelColor;
+                          String levelName;
+                          switch (level) {
+                            case 0: levelColor = Colors.green; levelName = 'Access'; break;
+                            case 1: levelColor = Colors.blue; levelName = 'System'; break;
+                            default: levelColor = Colors.grey; levelName = 'Debug'; break;
+                          }
+
+                          String sourceName;
+                          switch (source) {
+                            case 0: sourceName = 'RFID'; break;
+                            case 1: sourceName = 'WiFi'; break;
+                            case 2: sourceName = 'BLE'; break;
+                            default: sourceName = 'Unknown'; break;
+                          }
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(_formatTime(ts), style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: levelColor.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(levelName, style: TextStyle(fontSize: 10, color: levelColor, fontWeight: FontWeight.bold)),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(sourceName, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                      const Spacer(),
+                                      Icon(
+                                        result == 1 ? Icons.check_circle : Icons.cancel,
+                                        size: 16,
+                                        color: result == 1 ? Colors.green : Colors.red,
+                                      ),
+                                    ],
+                                  ),
+                                  if (msg.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(msg, style: const TextStyle(fontSize: 14)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? Theme.of(context).colorScheme.primary : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: selected ? Colors.white : Colors.grey.shade700,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
     );
   }
 }
