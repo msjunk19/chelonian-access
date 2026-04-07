@@ -404,8 +404,15 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
     server.on("/api/macros", HTTP_GET,  handleGetMacros);
     server.on("/api/macros", HTTP_POST, handleSetMacros);
 
+    server.on("/api/reboot", HTTP_OPTIONS, []() {
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        server.sendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+        server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+        server.send(204);
+    });
     server.on("/api/reboot", HTTP_POST, []() {
         ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API");
+        server.sendHeader("Access-Control-Allow-Origin", "*");
         JsonDocument resp;
         resp["ok"] = true;
         String body;
