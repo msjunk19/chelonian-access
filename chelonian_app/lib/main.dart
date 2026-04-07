@@ -254,6 +254,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     });
     _appState.update(paired: _paired); 
     if (_beaconUUID != null && _paired) _startProximityMonitoring();
+    // Auto-connect if paired
+    if (_paired) {
+      _scanAndConnect();
+    }
     // Auto-open settings on first run
     if (!_paired) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openSettings());
@@ -1450,9 +1454,11 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
     setState(() => _loading = true);
     final data = await widget.onReadMacros();
     if (data != null && mounted) {
+      final tagVal = data['tag_macro'] as int?;
+      debugPrint("Loaded tag_macro: $tagVal");
       setState(() {
         _macros = List<Map<String, dynamic>>.from(data['macros'] ?? []);
-        _tagMacro = data['tag_macro'] ?? 0;
+        _tagMacro = tagVal ?? 0;
         _loading = false;
       });
     } else if (mounted) {
