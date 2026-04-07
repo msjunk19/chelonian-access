@@ -24,6 +24,7 @@ struct Macro {
     char     icon[16];
     uint8_t  step_count;
     RelayStep steps[MAX_STEPS];
+    uint32_t updated_at;  // timestamp of last modification (millis)
 };
 
 struct MacroConfig {
@@ -38,12 +39,12 @@ static const MacroConfig DEFAULT_MACRO_CONFIG = {
     .macro_count = 5,
     .tag_macro   = 0,
     .macros = {
-        { MACRO_MAGIC, "Unlock",     "", 1, {{ 0b0001, 1000, 0    }} },
+        { MACRO_MAGIC, "Unlock",     "", 1, {{ 0b0001, 1000, 0    }}, 0 },
         { MACRO_MAGIC, "Unlock All", "", 2, {{ 0b0001, 1000, 1000 },
-                                              { 0b0001, 1000, 0    }} },
-        { MACRO_MAGIC, "Lock",       "", 1, {{ 0b0010, 1000, 0    }} },
-        { MACRO_MAGIC, "Trunk",      "", 1, {{ 0b0100, 1000, 0    }} },
-        { MACRO_MAGIC, "Panic",      "", 1, {{ 0b1111, 1000, 0    }} },
+                                              { 0b0001, 1000, 0    }}, 0 },
+        { MACRO_MAGIC, "Lock",       "", 1, {{ 0b0010, 1000, 0    }}, 0 },
+        { MACRO_MAGIC, "Trunk",      "", 1, {{ 0b0100, 1000, 0    }}, 0 },
+        { MACRO_MAGIC, "Panic",      "", 1, {{ 0b1111, 1000, 0    }}, 0 },
     }
 };
 
@@ -58,6 +59,8 @@ public:
         config.macro_count = prefs.getUChar("macro_count", DEFAULT_MACRO_CONFIG.macro_count);
         config.tag_macro   = prefs.getUChar("tag_macro",   DEFAULT_MACRO_CONFIG.tag_macro);
 
+        ESP_LOGI(MACROTAG, "NVS macro_count=%d, tag_macro=%d", config.macro_count, config.tag_macro);
+
         // clamp in case of corrupt data
         if (config.macro_count > MAX_MACROS) config.macro_count = MAX_MACROS;
         if (config.tag_macro   >= config.macro_count) config.tag_macro = 0;
@@ -69,21 +72,29 @@ public:
             Macro temp;
             size_t read = prefs.getBytes(key, &temp, sizeof(Macro));
 
+            ESP_LOGI(MACROTAG, "Loading macro %u: read=%d bytes, magic=0x%08X (expected 0x%08X)", 
+                i, read, temp.magic, MACRO_MAGIC);
+
             if (read == sizeof(Macro) && temp.magic == MACRO_MAGIC) {
                 // sanity check step count
                 if (temp.step_count > MAX_STEPS) temp.step_count = MAX_STEPS;
                 config.macros[i] = temp;
+                ESP_LOGI(MACROTAG, "  Loaded: %s, steps=%d", temp.name, temp.step_count);
             } else {
                 // blob missing, wrong size, or corrupt — fall back to default if available
+                ESP_LOGW(MACROTAG, "Macro %u corrupt (read=%d, magic=0x%08X), using default", i, read, temp.magic);
                 if (i < DEFAULT_MACRO_CONFIG.macro_count) {
                     config.macros[i] = DEFAULT_MACRO_CONFIG.macros[i];
-                    ESP_LOGW(MACROTAG, "Macro %u invalid or missing from NVS, using default", i);
+                    ESP_LOGW(MACROTAG, "  Using default for macro %u: %s", i, DEFAULT_MACRO_CONFIG.macros[i].name);
                 }
             }
         }
 
         prefs.end();
         ESP_LOGI(MACROTAG, "Macros loaded: %u, tag macro: %u", config.macro_count, config.tag_macro);
+        for (uint8_t i = 0; i < config.macro_count; i++) {
+            ESP_LOGI(MACROTAG, "  [%u] %s, steps=%d", i, config.macros[i].name, config.macros[i].step_count);
+        }
     }
 
     void save(uint8_t index) {
@@ -99,9 +110,12 @@ public:
 
         char key[16];
         snprintf(key, sizeof(key), "macro_%u", index);
+        ESP_LOGI(MACROTAG, "Saving macro %u to NVS key '%s': name='%s', steps=%d, magic=0x%08X",
+            index, key, config.macros[index].name, config.macros[index].step_count, config.macros[index].magic);
         prefs.putBytes(key, &config.macros[index], sizeof(Macro));
         prefs.putUChar("macro_count", config.macro_count);
         prefs.putUChar("tag_macro",   config.tag_macro);
+        ESP_LOGI(MACROTAG, "  Saved macro_count=%d, tag_macro=%d to NVS", config.macro_count, config.tag_macro);
 
         prefs.end();
         ESP_LOGI(MACROTAG, "Macro %u saved: %s", index, config.macros[index].name);
@@ -135,7 +149,8 @@ public:
         ESP_LOGI(MACROTAG, "Macro count: %u, tag macro: %u", config.macro_count, config.tag_macro);
         for (uint8_t i = 0; i < config.macro_count; i++) {
             Macro& m = config.macros[i];
-            ESP_LOGI(MACROTAG, "  [%u] %s (icon: %s) steps: %u", i, m.name, m.icon, m.step_count);
+            ESP_LOGI(MACROTAG, "  [%u] %s (icon: %s, updated: %u) steps: %u, magic: 0x%08X", 
+                i, m.name, m.icon, m.updated_at, m.step_count, m.magic);
             for (uint8_t s = 0; s < m.step_count; s++) {
                 ESP_LOGI(MACROTAG, "    step %u: mask=0b%04b dur=%u gap=%u",
                     s, m.steps[s].relay_mask, m.steps[s].duration, m.steps[s].gap);

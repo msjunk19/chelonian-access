@@ -343,6 +343,7 @@ inline void handleSetMacros() {
     macroConfigManager.config.macro_count = count;
     macroConfigManager.config.tag_macro   = tag_macro;
 
+    uint32_t now = millis();
     JsonArray macros = doc["macros"].as<JsonArray>();
     for (uint8_t i = 0; i < count; i++) {
         JsonObject m = macros[i].as<JsonObject>();
@@ -354,10 +355,19 @@ inline void handleSetMacros() {
         macro.name[sizeof(macro.name) - 1] = '\0';
         strncpy(macro.icon, icon, sizeof(macro.icon) - 1);
         macro.icon[sizeof(macro.icon) - 1] = '\0';
+        macro.magic = MACRO_MAGIC;
+        macro.updated_at = now;
 
         uint8_t step_count = m["step_count"] | 0;
         if (step_count > MAX_STEPS) step_count = MAX_STEPS;
         macro.step_count = step_count;
+
+        // Clear unused steps
+        for (uint8_t s = step_count; s < MAX_STEPS; s++) {
+            macro.steps[s].relay_mask = 0;
+            macro.steps[s].duration = 0;
+            macro.steps[s].gap = 0;
+        }
 
         JsonArray steps = m["steps"].as<JsonArray>();
         for (uint8_t s = 0; s < step_count; s++) {

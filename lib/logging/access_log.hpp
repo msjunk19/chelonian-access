@@ -119,7 +119,7 @@ public:
 
     uint8_t getCount() const { return _count; }
 
-    String getLogsJson(uint8_t minLevel = 0) const {
+    String getLogsJson(uint8_t minLevel = 0, size_t maxLen = 512) const {
         String json = "[";
         bool first = true;
         uint32_t currentUptime = _uptimeOffset + millis();
@@ -140,8 +140,17 @@ public:
             json += ",\"id\":\"" + String(entry.identifier) + "\"";
             json += ",\"msg\":\"" + String(entry.message) + "\"";
             json += "}";
+            
+            if (json.length() > maxLen) {
+                json = json.substring(0, maxLen);
+                int lastComma = json.lastIndexOf(",{");
+                if (lastComma > 0) {
+                    json = json.substring(0, lastComma) + "]";
+                }
+                break;
+            }
         }
-        json += "]";
+        if (!json.endsWith("]")) json += "]";
         return json;
     }
 

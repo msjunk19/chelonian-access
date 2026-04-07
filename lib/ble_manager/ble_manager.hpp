@@ -90,6 +90,7 @@ public:
             BLE_MACRO_GET_UUID,
             NIMBLE_PROPERTY::READ
         );
+        _macroGetChar->setCallbacks(new MacroGetCallbacks(this));
 
         // Macro config - write
         _macroSetChar = service->createCharacteristic(
@@ -148,7 +149,7 @@ public:
         }
     }
 
-    String getMacroConfigJson() {
+    String buildMacroConfigJson() {
         String json = "{";
         json += "\"macro_count\":" + String(macroConfigManager.config.macro_count) + ",";
         json += "\"tag_macro\":" + String(macroConfigManager.config.tag_macro) + ",";
@@ -178,9 +179,9 @@ public:
 
     void refreshMacroChar() {
         if (_macroGetChar) {
-            String json = getMacroConfigJson();
+            String json = buildMacroConfigJson();
             _macroGetChar->setValue(json.c_str());
-            ESP_LOGI(BLETAG, "Macro config refreshed (%d bytes): %s", json.length(), json.c_str());
+            ESP_LOGI(BLETAG, "Macro config refreshed (%d bytes)", json.length());
         } else {
             ESP_LOGW(BLETAG, "refreshMacroChar: _macroGetChar is null!");
         }
@@ -493,7 +494,25 @@ private:
     };
 
     // -------------------------
-    // Macro configuration callbacks
+    // Macro GET callbacks - reloads from NVS on each read
+
+    class MacroGetCallbacks : public NimBLECharacteristicCallbacks {
+    public:
+        MacroGetCallbacks(BLEManager* mgr) : _mgr(mgr) {}
+
+        void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            macroConfigManager.load();
+            String json = _mgr->buildMacroConfigJson();
+            pChar->setValue(json.c_str());
+            ESP_LOGI(BLETAG, "Macro config read from NVS - %d bytes", json.length());
+        }
+
+    private:
+        BLEManager* _mgr;
+    };
+
+    // -------------------------
+    // Macro SET callbacks
 
     class MacroCallbacks : public NimBLECharacteristicCallbacks {
     public:
@@ -513,91 +532,108 @@ private:
     private:
         BLEManager* _mgr;
 
-        void _parseAndSaveMacroConfig(const String& payload) {
-            // Simple pipe-separated format
-            // Count the pipes to determine fields
-            int pipeCount = 0;
-            const char* str = payload.c_str();
-            for (size_t i = 0; str[i]; i++) {
-                if (str[i] == '|') pipeCount++;
-            }
+    void _parseAndSaveMacroConfig(const String& payload) {
+        ESP_LOGI(BLETAG, "Parsing macro config payload: %s", payload.c_str());
+        
+        // Simple pipe-separated format
+        // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
+        
+        int sep1 = payload.indexOf('|');
+        int sep2 = payload.indexOf('|', sep1 + 1);
+        
+        if (sep1 < 0 || sep2 < 0) {
+            ESP_LOGW(BLETAG, "Invalid macro format - sep1=%d, sep2=%d", sep1, sep2);
+            _mgr->notifyStatus("error:macro_format");
+            return;
+        }
 
-            // Expected: at least 2 pipes for header (macro_count, tag_macro)
-            // Then for each macro: name_length(1) + name + steps(1) + for each step: relay(1) + duration(2) + gap(2)
-            // Using simpler format: macro_count|tag_macro followed by JSON-like data
+        uint8_t macroCount = payload.substring(0, sep1).toInt();
+        uint8_t tagMacro = payload.substring(sep1 + 1, sep2).toInt();
+        ESP_LOGI(BLETAG, "Parsed: macroCount=%d, tagMacro=%d", macroCount, tagMacro);
+
+        if (macroCount == 0 || macroCount > MAX_MACROS) {
+            ESP_LOGW(BLETAG, "Invalid macro count: %d", macroCount);
+            return;
+        }
+
+        macroConfigManager.config.macro_count = macroCount;
+        macroConfigManager.config.tag_macro = tagMacro;
+
+        // Parse remaining macros
+        String remaining = payload.substring(sep2 + 1);
+        for (uint8_t i = 0; i < macroCount; i++) {
+            if (remaining.length() == 0) break;
             
-            // Find first two pipe positions
-            int sep1 = payload.indexOf('|');
-            int sep2 = payload.indexOf('|', sep1 + 1);
+            int delim = remaining.indexOf('|');
+            if (delim < 0) delim = remaining.length();
             
-            if (sep1 < 0 || sep2 < 0) {
-                ESP_LOGW(BLETAG, "Invalid macro format");
-                _mgr->notifyStatus("error:macro_format");
-                return;
+            String name = remaining.substring(0, delim);
+            name.trim();
+            strncpy(macroConfigManager.config.macros[i].name, name.c_str(), sizeof(macroConfigManager.config.macros[i].name) - 1);
+            macroConfigManager.config.macros[i].name[sizeof(macroConfigManager.config.macros[i].name) - 1] = '\0';
+            
+            // Clear icon and set magic with timestamp
+            memset(macroConfigManager.config.macros[i].icon, 0, sizeof(macroConfigManager.config.macros[i].icon));
+            macroConfigManager.config.macros[i].magic = MACRO_MAGIC;
+            macroConfigManager.config.macros[i].updated_at = millis();
+            
+            ESP_LOGI(BLETAG, "Macro %d: name='%s', magic=0x%08X", i, name.c_str(), MACRO_MAGIC);
+            
+            remaining = remaining.substring(delim + 1);
+            if (remaining.length() == 0) break;
+
+            delim = remaining.indexOf('|');
+            if (delim < 0) delim = remaining.length();
+            uint8_t stepCount = remaining.substring(0, delim).toInt();
+            if (stepCount > MAX_STEPS) stepCount = MAX_STEPS;
+            macroConfigManager.config.macros[i].step_count = stepCount;
+            
+            // Clear any unused steps
+            for (uint8_t s = stepCount; s < MAX_STEPS; s++) {
+                macroConfigManager.config.macros[i].steps[s].relay_mask = 0;
+                macroConfigManager.config.macros[i].steps[s].duration = 0;
+                macroConfigManager.config.macros[i].steps[s].gap = 0;
             }
+            
+            ESP_LOGI(BLETAG, "Macro %d: stepCount=%d", i, stepCount);
+            
+            remaining = remaining.substring(delim + 1);
 
-            uint8_t macroCount = payload.substring(0, sep1).toInt();
-            uint8_t tagMacro = payload.substring(sep1 + 1, sep2).toInt();
-
-            if (macroCount == 0 || macroCount > MAX_MACROS) {
-                ESP_LOGW(BLETAG, "Invalid macro count: %d", macroCount);
-                return;
-            }
-
-            macroConfigManager.config.macro_count = macroCount;
-            macroConfigManager.config.tag_macro = tagMacro;
-
-            // Parse remaining macros
-            String remaining = payload.substring(sep2 + 1);
-            for (uint8_t i = 0; i < macroCount; i++) {
+            for (uint8_t s = 0; s < stepCount; s++) {
                 if (remaining.length() == 0) break;
                 
-                int delim = remaining.indexOf('|');
+                delim = remaining.indexOf('|');
                 if (delim < 0) delim = remaining.length();
-                
-                String name = remaining.substring(0, delim);
-                name.trim();
-                strncpy(macroConfigManager.config.macros[i].name, name.c_str(), sizeof(macroConfigManager.config.macros[i].name) - 1);
-                
+                uint16_t relayMask = remaining.substring(0, delim).toInt();
+                macroConfigManager.config.macros[i].steps[s].relay_mask = relayMask;
                 remaining = remaining.substring(delim + 1);
-                if (remaining.length() == 0) break;
 
                 delim = remaining.indexOf('|');
                 if (delim < 0) delim = remaining.length();
-                uint8_t stepCount = remaining.substring(0, delim).toInt();
-                if (stepCount > MAX_STEPS) stepCount = MAX_STEPS;
-                macroConfigManager.config.macros[i].step_count = stepCount;
-                
+                uint16_t duration = remaining.substring(0, delim).toInt();
+                macroConfigManager.config.macros[i].steps[s].duration = duration;
                 remaining = remaining.substring(delim + 1);
 
-                for (uint8_t s = 0; s < stepCount; s++) {
-                    if (remaining.length() == 0) break;
-                    
-                    // Parse relay_mask (1 byte as int)
-                    delim = remaining.indexOf('|');
-                    if (delim < 0) delim = remaining.length();
-                    macroConfigManager.config.macros[i].steps[s].relay_mask = remaining.substring(0, delim).toInt();
-                    remaining = remaining.substring(delim + 1);
-
-                    // Parse duration (2 bytes)
-                    delim = remaining.indexOf('|');
-                    if (delim < 0) delim = remaining.length();
-                    macroConfigManager.config.macros[i].steps[s].duration = remaining.substring(0, delim).toInt();
-                    remaining = remaining.substring(delim + 1);
-
-                    // Parse gap (2 bytes)
-                    delim = remaining.indexOf('|');
-                    if (delim < 0) delim = remaining.length();
-                    macroConfigManager.config.macros[i].steps[s].gap = remaining.substring(0, delim).toInt();
-                    remaining = remaining.substring(delim + 1);
-                }
+                delim = remaining.indexOf('|');
+                if (delim < 0) delim = remaining.length();
+                uint16_t gap = remaining.substring(0, delim).toInt();
+                macroConfigManager.config.macros[i].steps[s].gap = gap;
+                remaining = remaining.substring(delim + 1);
+                
+                ESP_LOGI(BLETAG, "  Step %d: relay=%d, duration=%d, gap=%d", s, relayMask, duration, gap);
             }
-
-            macroConfigManager.saveAll();
-            ESP_LOGI(BLETAG, "Macro config saved: %d macros, tag=%d", macroCount, tagMacro);
-            _mgr->refreshMacroChar();
-            _mgr->notifyStatus("ok:macros_saved");
         }
+        
+        ESP_LOGI(BLETAG, "Parsed %d macros, calling saveAll()", macroConfigManager.config.macro_count);
+        macroConfigManager.printConfig();
+
+        macroConfigManager.saveAll();
+        ESP_LOGI(BLETAG, "Macro config saved: %d macros, tag=%d", macroCount, tagMacro);
+        
+        ESP_LOGI(BLETAG, "Calling refreshMacroChar() after save");
+        _mgr->refreshMacroChar();
+        _mgr->notifyStatus("ok:macros_saved");
+    }
     };
 
     // Log clear callbacks
