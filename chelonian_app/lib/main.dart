@@ -1653,11 +1653,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // ── Pairing ───────────────────────────────────────────────────────────
 
   Future<void> _pair() async {
+    // if (_pairChar == null) { 
+    //   setState(() { _status = "Not connected"; }); 
+    //   setState(() { _status = "Pairing..."; });
+    //   _appState.update(status: "Pairing...");
+    //   return; }
     if (_pairChar == null) { 
-      // setState(() { _status = "Not connected"; }); 
-      setState(() { _status = "Pairing..."; });
-      _appState.update(status: "Pairing...");
-      return; }
+      setState(() { _status = "Not connected"; });  // ← restore this
+      _appState.update(status: "Not connected");     // ← keep this too
+      return; 
+    }
     final deviceId = const Uuid().v4();
     setState(() { _status = "Pairing..."; });
     try {
