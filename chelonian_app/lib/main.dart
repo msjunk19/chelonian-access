@@ -579,11 +579,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Future<Map<String, dynamic>?> readMacros() async {
     if (_macroGetChar == null) return null;
     try {
-      await _macroGetChar!.read();
-      final value = _macroGetChar!.lastValue;
+      final value = await _macroGetChar!.read();
       if (value.isNotEmpty) {
         final jsonStr = utf8.decode(value).trim();
-        // Parse simple JSON format
+        debugPrint("Macro read: $jsonStr");
         return _parseMacroJson(jsonStr);
       }
     } catch (e) {
@@ -644,10 +643,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Future<List<Map<String, dynamic>>?> readLogs() async {
     if (_logGetChar == null) return null;
     try {
-      await _logGetChar!.read();
-      final value = _logGetChar!.lastValue;
+      final value = await _logGetChar!.read();
       if (value.isNotEmpty) {
         final jsonStr = utf8.decode(value).trim();
+        debugPrint("Logs read: $jsonStr");
         final parsed = jsonDecode(jsonStr);
         if (parsed is List) {
           return List<Map<String, dynamic>>.from(parsed);
@@ -1418,8 +1417,8 @@ class _DebugTile extends StatelessWidget {
 // Macro Configuration Page
 // ─────────────────────────────────────────────
 class MacroConfigPage extends StatefulWidget {
-  final Function() onReadMacros;
-  final Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
+  final Future<Map<String, dynamic>?> Function() onReadMacros;
+  final Future<bool> Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
 
   const MacroConfigPage({
     super.key,
