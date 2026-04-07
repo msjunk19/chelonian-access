@@ -1543,15 +1543,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // ── BLE ──────────────────────────────────────────────────────────────
 
-  Future<void> _scanAndConnect() async {
-    // setState(() { _scanning = true; _status = "Scanning..."; });
+  // Future<void> _scanAndConnect() async {
+  //   // setState(() { _scanning = true; _status = "Scanning..."; });
 
+  //   setState(() { _scanning = true; _status = "Scanning..."; });
+  //   _appState.update(scanning: true, status: "Scanning...");
+
+  //   final state = await FlutterBluePlus.adapterState.first;
+  //   if (state != BluetoothAdapterState.on) {
+  //     setState(() { _status = "Bluetooth is off"; _scanning = false; });
+  //     return;
+  //   }
+
+  Future<void> _scanAndConnect() async {
     setState(() { _scanning = true; _status = "Scanning..."; });
     _appState.update(scanning: true, status: "Scanning...");
 
     final state = await FlutterBluePlus.adapterState.first;
     if (state != BluetoothAdapterState.on) {
       setState(() { _status = "Bluetooth is off"; _scanning = false; });
+      _appState.update(scanning: false, status: "Bluetooth is off");  // ← add this
       return;
     }
 
