@@ -7,8 +7,6 @@
 #include <master_uid_manager.h>
 #include <access_log.hpp>
 #include <ble_manager.hpp>
-// #include <relay_states.hpp>
-
 extern BLEManager bleManager;
 
 static const char* TAG = "ACCESS";  // Add TAG definition
@@ -19,11 +17,10 @@ const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12,
                                                          23, 30, 38, 47, 57, 68};
 
 
-
 void accessServiceSetup() {
     macroConfigManager.load();
     led.begin();
-    LED_SET_SEQ(SYSTEM_READY);
+    // LED_SET_SEQ(SYSTEM_READY);
     rfid.begin();
     rfid.printFirmwareVersion();
     relays.begin();
@@ -41,6 +38,7 @@ void accessServiceSetup() {
     }
     ESP_LOGI(TAG, "Waiting for an ISO14443A card");
     markUserActivity(state);
+    LED_SET_SEQ(SYSTEM_READY);
 }
 
 void fireMacro(uint8_t macroIndex) {
@@ -52,7 +50,6 @@ static bool rfidOK = true;
 
 static void updateHardware() {
     led.update();
-    // handleRelaySequence();
     handleRelaySequence(state);
     
     if (millis() - lastRFIDCheck > RFID_HEALTH_CHECK_INTERVAL) {
@@ -98,7 +95,6 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
     static uint8_t storedLength = 0;
 
     if (!masterProgrammingMode) return false;
-    // disableImpatience(state);
 
     bool cardDetected = rfid.readCard(uid, &uidLength);
 
@@ -137,8 +133,6 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
             masterProgrammingMode = false;
             waitingForRemoval = false;
             ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
-            // ESP_LOGI(TAG, "Waiting for an ISO14443A card");
-            // markUserActivity(state);
         }
     }
 
@@ -151,9 +145,6 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     // Disable impatient timer while in programming mode
     state.impatientEnabled = false;  // stops the normal impatience loop
     state.impatient = false;         // reset any current impatience state
-
-    // ESP_LOGI(TAG, "User Programming Mode. Disabling Impatience Timer");
-    // disableImpatience(state);
 
     unsigned long now = millis();
     bool cardDetected = rfid.readCard(uid, &uidLength);

@@ -5,7 +5,6 @@
 #include <macro_config.hpp>
 #include <relay_controller.h>
 #include <audio_controller.h>
-// #include <led_colors.hpp>
 
 // Declare the global object (no memory allocated here)
 extern MasterUIDManager masterUidManager;
@@ -17,5 +16,3 @@ extern MacroConfigManager macroConfigManager;
 extern RFIDController rfid;
 extern RelayController relays;
 extern AudioContoller audio;
-
-// extern LedColor LedColor;
