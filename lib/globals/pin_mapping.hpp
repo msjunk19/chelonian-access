@@ -14,7 +14,7 @@
 #define PN532_MOSI (6)
 #define PN532_SS (7)
 
-// Pins for Internal/Single Solor External LED (8) and Neopixel (10)
+// Pins for Internal/Single Color External LED (8) and Neopixel (10)
 #define PN_LED (8)
 #define PN_NEOPIXEL (10)
 
