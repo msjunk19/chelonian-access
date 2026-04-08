@@ -8,10 +8,6 @@
 
 static const char* BTNTAG = "PAIRBUTTON";
 
-// static constexpr uint8_t  PAIRING_BUTTON_PIN    = 9;
-// static constexpr uint32_t PAIRING_HOLD_MS       = 3000;
-// static constexpr uint32_t FACTORY_RESET_HOLD_MS = 10000;
-
 class PairingButton {
 public:
     void begin(std::function<void()> onPairingHold,
@@ -43,7 +39,7 @@ public:
                 }
                 // Then pairing (3s)
                 else if (heldMs >= PAIRING_HOLD_MS) {
-                    ESP_LOGI(BTNTAG, "Pairing triggered on hold");
+                    ESP_LOGI(BTNTAG, "Pairing triggered on hold (%lums)", heldMs);
                     _onPairingHold();
                     LED_SET_SEQ(SYSTEM_PAIR);
                 }
@@ -52,20 +48,6 @@ public:
             if (_wasPressed) {
                 uint32_t heldMs = now - _pressStart;
                 ESP_LOGV(BTNTAG, "Button released after %lums", heldMs);
-                // if (_onPairingHold){
-
-                // }
-                // else if (_resetFired) {
-                //     // Factory reset already fired — do nothing on release
-                //     // ESP_LOGW(BTNTAG, "Factory reset release ignored");
-                // } 
-                // // else if (heldMs >= PAIRING_HOLD_MS) {
-                // //     // Released in pairing window — open pairing
-                // //     ESP_LOGI(BTNTAG, "Pairing triggered on release");
-                // //     _onPairingHold();
-                // //     LED_SET_SEQ(SYSTEM_PAIR);
-                // // }
-                // // Released before 3s — do nothing
             }
             _wasPressed = false;
             _resetFired = false;
