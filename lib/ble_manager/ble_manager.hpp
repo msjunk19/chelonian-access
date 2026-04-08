@@ -108,7 +108,7 @@ public:
             BLE_LOG_GET_UUID,
             NIMBLE_PROPERTY::READ
         );
-        refreshLogsChar();
+        _logGetChar->setCallbacks(new LogGetCallbacks(this));
 
         // Log - clear
         _logClearChar = service->createCharacteristic(
@@ -512,9 +512,22 @@ private:
             macroConfigManager.load();
             String json = _mgr->buildMacroConfigJson();
             pChar->setValue(json.c_str());
-            ESP_LOGI(BLETAG, "Macro config read from NVS - %d bytes", json.length());
         }
+    private:
+        BLEManager* _mgr;
+    };
 
+    // -------------------------
+    // Log GET callbacks - reads from NVS
+
+    class LogGetCallbacks : public NimBLECharacteristicCallbacks {
+    public:
+        LogGetCallbacks(BLEManager* mgr) : _mgr(mgr) {}
+
+        void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            String json = accessLogger.getLogsJson();
+            pChar->setValue(json.c_str());
+        }
     private:
         BLEManager* _mgr;
     };

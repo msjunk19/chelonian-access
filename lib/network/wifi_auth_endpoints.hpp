@@ -107,6 +107,7 @@ inline void handlePair() {
     uint32_t phoneTimestamp = doc["timestamp"] | 0;
     if (phoneTimestamp > 1000000000) { // sanity check: must be reasonable Unix time
         authManager.syncTime(phoneTimestamp);
+        accessLogger.clear(); // Clear old logs with wrong timestamps
     }
 
     // Generate a random session token
@@ -190,6 +191,7 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
 
     if (diff != 0) {
         ESP_LOGW(WIFIAUTHTAG, "Invalid token for device: %s", deviceId);
+        accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId ? deviceId : "?", "Auth failed");
         sendJsonError(401, "Unauthorized");
         return;
     }
@@ -201,6 +203,7 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
         if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
             drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
             ESP_LOGW(WIFIAUTHTAG, "Timestamp rejected — drift: %ld seconds (cmd from %s)", drift, deviceId);
+            accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Timestamp expired");
             sendJsonError(401, "Timestamp expired");
             return;
         }
@@ -209,6 +212,17 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
     // Dispatch command
     PhoneCommand cmd = static_cast<PhoneCommand>(command);
     onCommand(cmd);
+
+    // Log successful command
+    const char* cmdName = "unknown";
+    switch (cmd) {
+        case PhoneCommand::UNLOCK: cmdName = "Unlock"; break;
+        case PhoneCommand::LOCK:   cmdName = "Lock";   break;
+        case PhoneCommand::TRUNK:  cmdName = "Trunk";  break;
+        case PhoneCommand::PANIC:  cmdName = "Panic";   break;
+        default: break;
+    }
+    accessLogger.logAccess(LogSource::WIFI, LogResult::SUCCESS, deviceId, cmdName);
 
     const char* statusStr = "unknown";
     switch (cmd) {
@@ -388,6 +402,66 @@ inline void handleSetMacros() {
     server.send(200, "application/json", body);
 }
 
+// GET /api/logs
+inline void handleGetLogs() {
+    String json = accessLogger.getLogsJson();
+    server.send(200, "application/json", json);
+}
+
+// POST /api/logs/clear
+inline void handleClearLogs() {
+    if (!server.hasArg("plain")) {
+        sendJsonError(400, "Missing body");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    if (err) {
+        sendJsonError(400, "Invalid JSON");
+        return;
+    }
+
+    const char* deviceId = doc["device_id"];
+    const char* token    = doc["token"];
+
+    if (!deviceId || !token) {
+        sendJsonError(400, "Missing required fields");
+        return;
+    }
+
+    if (strlen(token) != 32) {
+        sendJsonError(400, "Invalid token length");
+        return;
+    }
+
+    uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+    if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+        sendJsonError(401, "Unknown device");
+        return;
+    }
+
+    uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+    memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+    uint8_t diff = 0;
+    for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+        diff |= storedToken[i] ^ incomingToken[i];
+    }
+
+    if (diff != 0) {
+        sendJsonError(401, "Unauthorized");
+        return;
+    }
+
+    accessLogger.clear();
+    JsonDocument resp;
+    resp["ok"] = true;
+    String body;
+    serializeJson(resp, body);
+    server.send(200, "application/json", body);
+}
+
 
 // -------------------------
 // Register endpoints
@@ -403,6 +477,8 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
 
     server.on("/api/macros", HTTP_GET,  handleGetMacros);
     server.on("/api/macros", HTTP_POST, handleSetMacros);
+    server.on("/api/logs", HTTP_GET, handleGetLogs);
+    server.on("/api/logs/clear", HTTP_POST, handleClearLogs);
 
     server.on("/api/reboot", HTTP_OPTIONS, []() {
         server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -411,7 +487,69 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
         server.send(204);
     });
     server.on("/api/reboot", HTTP_POST, []() {
-        ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API");
+        if (!server.hasArg("plain")) {
+            sendJsonError(400, "Missing body");
+            return;
+        }
+
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, server.arg("plain"));
+        if (err) {
+            sendJsonError(400, "Invalid JSON");
+            return;
+        }
+
+        const char* deviceId = doc["device_id"];
+        const char* token    = doc["token"];
+        uint32_t    timestamp = doc["timestamp"] | 0;
+
+        if (!deviceId || !token) {
+            sendJsonError(400, "Missing required fields");
+            return;
+        }
+
+        if (timestamp == 0) {
+            sendJsonError(400, "Timestamp required for replay protection");
+            return;
+        }
+
+        if (strlen(token) != 32) {
+            sendJsonError(400, "Invalid token length");
+            return;
+        }
+
+        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+        if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+            sendJsonError(401, "Unknown device");
+            return;
+        }
+
+        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+        memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+        uint8_t diff = 0;
+        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+            diff |= storedToken[i] ^ incomingToken[i];
+        }
+
+        if (diff != 0) {
+            ESP_LOGW(WIFIAUTHTAG, "Invalid token for device: %s", deviceId);
+            sendJsonError(401, "Unauthorized");
+            return;
+        }
+
+        if (authManager.isTimeSynced()) {
+            uint32_t now = authManager.getCurrentTime();
+            int32_t drift = (int32_t)timestamp - (int32_t)now;
+            if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
+                drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
+                ESP_LOGW(WIFIAUTHTAG, "Reboot timestamp rejected — drift: %ld seconds", drift);
+                sendJsonError(401, "Timestamp expired");
+                return;
+            }
+        }
+
+        ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API by %s", deviceId);
         server.sendHeader("Access-Control-Allow-Origin", "*");
         JsonDocument resp;
         resp["ok"] = true;

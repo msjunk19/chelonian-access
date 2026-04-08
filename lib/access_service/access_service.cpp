@@ -360,7 +360,6 @@ static void handleAccessGranted(AccessLoopState& state) {
         state.impatient        = false;
         ESP_LOGI(TAG, "Access Granted. Disabling Impatience Timer");
         accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "Access granted");
-        bleManager.refreshLogsChar();
     }
 }
 
@@ -371,7 +370,6 @@ static void handleAccessDenied(AccessLoopState &state) {
     ESP_LOGW(TAG, "Invalid card attempt #%u, please wait %u seconds before trying again",
         state.invalidAttempts + 1, delayMs / 1000);
     accessLogger.logAccess(LogSource::RFID, LogResult::FAIL, "RFID", "Access denied");
-    bleManager.refreshLogsChar();
 
     if (!led.isRunning() && !state.audioQueued) {
         LED_SET_SEQ(ACCESS_DENIED);

@@ -170,6 +170,13 @@ inline void setupWebServer(std::function<void(PhoneCommand)> onCommand) {
         file.close();
     });
 
+    server.on("/logs.html", HTTP_GET, []() {
+        File file = LittleFS.open("/logs.html", "r");
+        if (!file) { server.send(404, "text/html", "<h1>Not found</h1>"); return; }
+        server.streamFile(file, "text/html");
+        file.close();
+    });
+
     server.on("/style.css", HTTP_GET, []() {
         File file = LittleFS.open("/style.css", "r");
         if (!file) { server.send(404, "text/css", ""); return; }

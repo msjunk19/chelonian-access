@@ -67,6 +67,7 @@ void setup() {
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
 
+    authManager.restoreTime();
     accessLogger.begin();
 
     accessServiceSetup();   
@@ -119,14 +120,12 @@ setupWebServer([](PhoneCommand cmd) {
             LED_SET_SEQ(UNLOCK); 
             fireMacro(macroConfigManager.config.tag_macro);
             accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
-            bleManager.refreshLogsChar();
             break;
         case PhoneCommand::LOCK: {
             LED_SET_SEQ(LOCK);
             int8_t idx = macroConfigManager.findByName("Lock");
             if (idx >= 0) fireMacro(idx);
             accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Lock command");
-            bleManager.refreshLogsChar();
             break;
         }
         case PhoneCommand::STATUS: break;
@@ -135,7 +134,6 @@ setupWebServer([](PhoneCommand cmd) {
             int8_t idx = macroConfigManager.findByName("Trunk");
             if (idx >= 0) fireMacro(idx);
             accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Trunk command");
-            bleManager.refreshLogsChar();
             break;
         }
         case PhoneCommand::PANIC: {
@@ -143,14 +141,11 @@ setupWebServer([](PhoneCommand cmd) {
             int8_t idx = macroConfigManager.findByName("Panic");
             if (idx >= 0) fireMacro(idx);
             accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Panic command");
-            bleManager.refreshLogsChar();
             break;
         }
         default: break;
         }
     });
-
-    bleManager.refreshLogsChar();
 
 }
 

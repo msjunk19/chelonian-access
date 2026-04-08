@@ -193,17 +193,38 @@
         }
 
         async function rebootDevice() {
+            const pairing = getStoredPairing();
+            if (!pairing) {
+                setPairStatus('Not paired - cannot reboot', false);
+                return;
+            }
+
             const btn = document.getElementById('rebootBtn');
             btn.disabled = true;
+            btn.innerText = 'Rebooting...';
             
             try {
-                const resp = await fetch('/api/reboot', { method: 'POST' });
-                if (resp.ok) {
-                    btn.innerText = 'Rebooting...';
-                } else {
-                    btn.innerText = 'Reboot failed';
-                    setTimeout(() => { btn.disabled = false; btn.innerText = 'Reboot Device'; }, 2000);
+                const resp = await fetch('/api/reboot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: pairing.id,
+                        token: pairing.token,
+                        timestamp: Math.floor(Date.now() / 1000)
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (resp.status === 401 || (data.error && 
+                    (data.error === 'Unauthorized' || data.error === 'Unknown device' || data.error === 'Timestamp expired'))) {
+                    setPairStatus('Reboot failed - pairing lost', false);
+                    clearPairing();
+                    showPairingLostModal();
+                    return;
                 }
+
+                btn.innerText = 'Rebooting...';
             } catch (e) {
                 btn.innerText = 'Reboot failed';
                 setTimeout(() => { btn.disabled = false; btn.innerText = 'Reboot Device'; }, 2000);

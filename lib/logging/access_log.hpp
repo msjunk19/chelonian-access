@@ -2,6 +2,8 @@
 #include <Preferences.h>
 #include <esp_log.h>
 #include <Arduino.h>
+#include <sys/time.h>
+#include <time.h>
 
 static const char* LOGTAG = "LOG";
 
@@ -32,7 +34,7 @@ struct LoggingSettings {
 
 class AccessLogger {
 public:
-    AccessLogger() : _head(0), _count(0), _initialized(false), _lastMillis(0), _uptimeOffset(0) {}
+    AccessLogger() : _head(0), _count(0), _initialized(false), _lastMillis(0), _uptimeOffset(0), _timeOffset(0) {}
 
     void begin() {
         Preferences prefs;
@@ -48,6 +50,7 @@ public:
         prefs.begin(LOG_NAMESPACE, true);
         _lastMillis = prefs.getUInt("last_millis", 0);
         _uptimeOffset = prefs.getUInt("uptime_off", 0);
+        _timeOffset = prefs.getUInt("time_off", 0);
         prefs.end();
         
         uint32_t currentMillis = millis();
@@ -62,6 +65,11 @@ public:
         _initialized = true;
     }
 
+    void setTimeOffset(uint32_t offset) {
+        _timeOffset = offset;
+        saveTimeOffset();
+    }
+
     void updateSettings(const LoggingSettings& settings) {
         _settings = settings;
         saveSettings();
@@ -73,13 +81,11 @@ public:
             return;
         }
 
-        uint32_t currentMillis = millis();
-        if (_lastMillis != 0 && currentMillis < _lastMillis) {
-            _uptimeOffset += _lastMillis;
+        uint32_t timestamp = (uint32_t)time(nullptr);
+        if (timestamp < 1000000000) { // If time not set (before 2001), use uptime
+            timestamp = _uptimeOffset + millis() / 1000;
         }
-        _lastMillis = currentMillis;
         
-        uint32_t timestamp = _uptimeOffset + currentMillis;
         LogEntry& entry = _entries[_head];
         entry.timestamp = timestamp;
         entry.level = static_cast<uint8_t>(level);
@@ -119,21 +125,18 @@ public:
 
     uint8_t getCount() const { return _count; }
 
-    String getLogsJson(uint8_t minLevel = 0, size_t maxLen = 512) const {
+    String getLogsJson(uint8_t minLevel = 0, size_t maxLen = 0) const {
         String json = "[";
         bool first = true;
-        uint32_t currentUptime = _uptimeOffset + millis();
         for (uint8_t i = 0; i < _count; i++) {
             LogEntry entry;
             if (!getEntry(i, entry)) continue;
             if (entry.level < minLevel) continue;
             
-            uint32_t ageMs = (entry.timestamp >= currentUptime) ? 0 : (currentUptime - entry.timestamp);
-            
             if (!first) json += ",";
             first = false;
             json += "{";
-            json += "\"ts\":" + String(ageMs / 1000);
+            json += "\"ts\":" + String(entry.timestamp);
             json += ",\"level\":" + String(entry.level);
             json += ",\"source\":" + String(entry.source);
             json += ",\"result\":" + String(entry.result);
@@ -141,7 +144,7 @@ public:
             json += ",\"msg\":\"" + String(entry.message) + "\"";
             json += "}";
             
-            if (json.length() > maxLen) {
+            if (maxLen > 0 && json.length() > maxLen) {
                 json = json.substring(0, maxLen);
                 int lastComma = json.lastIndexOf(",{");
                 if (lastComma > 0) {
@@ -165,6 +168,7 @@ public:
         prefs.end();
         _lastMillis = 0;
         _uptimeOffset = 0;
+        _timeOffset = 0;
     }
 
 private:
@@ -174,6 +178,7 @@ private:
     bool _initialized;
     uint32_t _lastMillis;
     uint32_t _uptimeOffset;
+    uint32_t _timeOffset;  // offset from uptime to real Unix time
     LoggingSettings _settings;
 
     void loadEntries() {
@@ -216,6 +221,13 @@ private:
         prefs.putBool("log_access", _settings.log_access);
         prefs.putBool("log_system", _settings.log_system);
         prefs.putBool("log_debug", _settings.log_debug);
+        prefs.end();
+    }
+
+    void saveTimeOffset() {
+        Preferences prefs;
+        prefs.begin(LOG_NAMESPACE, false);
+        prefs.putUInt("time_off", _timeOffset);
         prefs.end();
     }
 

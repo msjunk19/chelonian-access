@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <Preferences.h>
+#include <sys/time.h>
 #include <mbedtls/md.h>
 #include <esp_random.h>
 #include <esp_log.h>
@@ -72,23 +74,51 @@ public:
     return true;
     }
 
-    // Call this after pairing so the device knows what time it is
-    // Phone sends its unix timestamp during pairing handshake
     void syncTime(uint32_t phoneTimestamp) {
-        _timeOffset = phoneTimestamp - (millis() / 1000);
-        ESP_LOGI(AUTHTAG, "Time synced. Offset: %lu", _timeOffset);
+        struct timeval tv = { (time_t)phoneTimestamp, 0 };
+        settimeofday(&tv, nullptr);
+        
+        Preferences prefs;
+        prefs.begin("auth", false);
+        prefs.putUInt("saved_epoch", phoneTimestamp);
+        prefs.putULong("saved_ms", millis());
+        prefs.end();
+        
+        ESP_LOGI(AUTHTAG, "Time synced from phone: %lu", phoneTimestamp);
     }
 
-    uint32_t getCurrentTime() { return _getCurrentTime(); }
-    bool isTimeSynced() { return _timeOffset != 0; }
+    void restoreTime() {
+        Preferences prefs;
+        prefs.begin("auth", true);
+        uint32_t saved_epoch = prefs.getUInt("saved_epoch", 0);
+        uint32_t saved_ms = prefs.getULong("saved_ms", 0);
+        prefs.end();
+
+        if (saved_epoch == 0) return;
+
+        unsigned long elapsed = millis() - saved_ms;
+        uint32_t restored = saved_epoch + (elapsed / 1000);
+        struct timeval tv = { (time_t)restored, 0 };
+        settimeofday(&tv, nullptr);
+        ESP_LOGI(AUTHTAG, "Time restored: %lu (saved %lu + %lu seconds)", restored, saved_epoch, elapsed / 1000);
+    }
+
+    uint32_t getCurrentTime() {
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        return (uint32_t)tv.tv_sec;
+    }
+
+    bool isTimeSynced() {
+        Preferences prefs;
+        prefs.begin("auth", true);
+        uint32_t saved = prefs.getUInt("saved_epoch", 0);
+        prefs.end();
+        return saved != 0;
+    }
 
 private:
     PhoneTokenManager& _tokens;
-    uint32_t _timeOffset = 0; // offset between millis()/1000 and unix time
-
-    uint32_t _getCurrentTime() {
-        return (millis() / 1000) + _timeOffset;
-    }
 
     void _computeHMAC(const uint8_t* secret,
                       const char* deviceId,
