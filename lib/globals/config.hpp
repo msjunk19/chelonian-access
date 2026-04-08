@@ -18,6 +18,9 @@ static constexpr uint8_t MAX_USER_UIDS = 10;
 // Relay Related Variables
 const unsigned long RELAY_COUNT = 4; //How many relays are connected
 
+// Pairing/Reset Button Hold Times
+static constexpr uint32_t PAIRING_HOLD_MS       = 3000;
+static constexpr uint32_t FACTORY_RESET_HOLD_MS = 10000;
 
 // Timeouts
 const unsigned long IMPATIENCE_TIMEOUT= 10000; //How long before you get the waiting notifications

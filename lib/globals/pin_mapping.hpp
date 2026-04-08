@@ -21,3 +21,6 @@
 // RX and TX Pins for JQ6500
 #define RX_PIN (20)
 #define TX_PIN (21)
+
+// Pairing Button (internal)
+#define  PAIRING_BUTTON_PIN (9)
