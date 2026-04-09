@@ -70,7 +70,7 @@ void setup() {
     authManager.restoreTime();
     accessLogger.begin();
 
-    accessServiceSetup();   
+    // accessServiceSetup();   
 
     pairingButton.begin(
     []() {
@@ -147,6 +147,7 @@ setupWebServer([](PhoneCommand cmd) {
         }
     });
 
+    accessServiceSetup();   
 }
 
 void loop() {
