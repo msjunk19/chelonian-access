@@ -128,7 +128,8 @@ public:
     String getLogsJson(uint8_t minLevel = 0, size_t maxLen = 0) const {
         String json = "[";
         bool first = true;
-        for (uint8_t i = 0; i < _count; i++) {
+        // Reverse: most recent first
+        for (int i = _count - 1; i >= 0; i--) {
             LogEntry entry;
             if (!getEntry(i, entry)) continue;
             if (entry.level < minLevel) continue;
