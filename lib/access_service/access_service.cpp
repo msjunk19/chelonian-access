@@ -80,6 +80,7 @@ static bool handleBootProgrammingCheck() {
             ESP_LOGW(TAG, "No Master UID Stored. Enter Master Programming Mode.");
             bootMasterProgrammingMode = true;
             LED_SET_SEQ(PROGRAMMING_MODE);
+            accessLogger.logAccess(LogSource::RFID, LogResult::FAIL, "RFID", "Master UID not set - programming mode");
         }
         bootChecked = true;
     }
@@ -113,6 +114,7 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
             }
 
             ESP_LOGI(TAG, "Detected New Master Card: UID: %s", uidStr);
+            accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "Master card scanned");
 
             waitingForRemoval = true;
 
@@ -133,6 +135,7 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
             masterProgrammingMode = false;
             waitingForRemoval = false;
             ESP_LOGI(TAG, "Master UID Stored, Exiting Master Programming.");
+            accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "Master UID saved");
         }
     }
 
@@ -141,6 +144,13 @@ static bool handleMasterProgrammingMode(uint8_t* uid, uint8_t& uidLength) {
 
 static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
     if (!state.userProgrammingModeActive) return false;
+
+    // Log when entering programming mode
+    static bool loggedEntry = false;
+    if (!loggedEntry) {
+        accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "User programming mode entered");
+        loggedEntry = true;
+    }
 
     // Disable impatient timer while in programming mode
     state.impatientEnabled = false;  // stops the normal impatience loop
@@ -166,6 +176,7 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         if (!userUidManager.checkUID(uid, uidLength)) {
             if (userUidManager.addUID(uid, uidLength)) {
                 LED_SET_SEQ(USER_ADDED);
+                accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "User card added");
             } else {
                 ESP_LOGW(TAG, "User storage full, cannot add card");
                 LED_SET_SEQ(USER_FULL);
@@ -173,6 +184,7 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         } else {
             userUidManager.removeUID(uid, uidLength);
             LED_SET_SEQ(USER_REMOVED);
+            accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "User card removed");
         }
 
         return true;
@@ -196,6 +208,8 @@ static bool handleUserProgrammingMode(uint8_t* uid, uint8_t uidLength) {
         state.impatientEnabled = true;
 
         LED_SET_SEQ(PLACEHOLDER);
+        accessLogger.logAccess(LogSource::RFID, LogResult::FAIL, "RFID", "User programming mode exited");
+        loggedEntry = false;
         return false;
     }
 
@@ -310,6 +324,7 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
         state.masterPresent = true;
         LED_SET_SEQ(MASTER_CARD);
         ESP_LOGI(TAG, "Master card detected - hold started");
+        accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "Master card scanned");
     }
 
     state.masterLastSeen = now;
@@ -317,6 +332,7 @@ void handleMasterCard(uint8_t* uid, uint8_t uidLength, AccessLoopState &state) {
     // Hold detection
     if (state.masterPresent && (now - state.masterStartTime >= MASTER_HOLD_TIME)) {
         ESP_LOGI(TAG, "Master hold confirmed (%us)", (MASTER_HOLD_TIME / 1000));
+        accessLogger.logAccess(LogSource::RFID, LogResult::SUCCESS, "RFID", "Programming mode entered");
 
         if (!led.isRunning() && !state.audioQueued) {
             LED_SET_SEQ(PROGRAMMING_MODE);

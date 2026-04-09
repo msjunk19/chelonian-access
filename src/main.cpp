@@ -69,6 +69,7 @@ void setup() {
 
     authManager.restoreTime();
     accessLogger.begin();
+    ESP_LOGI(TAG, "Device boot completed");
 
     // accessServiceSetup();   
 
