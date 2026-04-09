@@ -397,10 +397,10 @@ private:
                 return;
             }
 
-            // Sync time from the incoming timestamp (keeps time fresh)
-            if (timestamp > 1000000000) {
-                authManager.syncTime(timestamp);
-            }
+            // // Sync time from the incoming timestamp (keeps time fresh)
+            // if (timestamp > 1000000000) {
+            //     authManager.syncTime(timestamp);
+            // }
 
             // Validate timestamp (replay attack protection - epoch-based)
             if (timestamp > 0 && authManager.isTimeSynced()) {
