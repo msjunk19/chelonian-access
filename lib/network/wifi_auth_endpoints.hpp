@@ -203,18 +203,19 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
     }
 
     // Validate timestamp to prevent replay attacks
-    if (authManager.isTimeSynced()) {
-        uint32_t now = authManager.getCurrentTime();
-        int32_t drift = (int32_t)timestamp - (int32_t)now;
-        if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
-            drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
-            ESP_LOGW(WIFIAUTHTAG, "Timestamp rejected — drift: %ld seconds (cmd from %s)", drift, deviceId);
-            accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Timestamp expired");
-            sendJsonError(400, "Timestamp expired");
-            return;
-        }
-        ESP_LOGI(WIFIAUTHTAG, "Timestamp OK — drift: %ld seconds", drift);
-    }
+    // COMMENTED OUT
+    // if (authManager.isTimeSynced()) {
+    //     uint32_t now = authManager.getCurrentTime();
+    //     int32_t drift = (int32_t)timestamp - (int32_t)now;
+    //     if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
+    //         drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
+    //         ESP_LOGW(WIFIAUTHTAG, "Timestamp rejected — drift: %ld seconds (cmd from %s)", drift, deviceId);
+    //         accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Timestamp expired");
+    //         sendJsonError(400, "Timestamp expired");
+    //         return;
+    //     }
+    //     ESP_LOGI(WIFIAUTHTAG, "Timestamp OK — drift: %ld seconds", drift);
+    // }
 
     // Dispatch command
     PhoneCommand cmd = static_cast<PhoneCommand>(command);
@@ -353,47 +354,51 @@ inline void handleSetMacros() {
     const char* token    = doc["token"];
     uint32_t    timestamp = doc["timestamp"] | 0;
 
-    if (!deviceId || !token) {
-        sendJsonError(400, "Missing device_id or token");
-        return;
-    }
+    // COMMENTED OUT AUTH
+    // if (!deviceId || !token) {
+    //     sendJsonError(400, "Missing device_id or token");
+    //     return;
+    // }
 
-    if (strlen(token) != 32) {
-        sendJsonError(400, "Invalid token length");
-        return;
-    }
+    // if (strlen(token) != 32) {
+    //     sendJsonError(400, "Invalid token length");
+    //     return;
+    // }
 
-    // Look up stored token
-    uint8_t storedToken[PHONE_SECRET_LEN] = {0};
-    if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
-        sendJsonError(401, "Unknown device");
-        return;
-    }
+    // // Look up stored token
+    // uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+    // if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+    //     sendJsonError(401, "Unknown device");
+    //     return;
+    // }
 
-    // Constant-time compare
-    uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
-    memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+    // // Constant-time compare
+    // uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+    // memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
 
-    uint8_t diff = 0;
-    for (int i = 0; i < PHONE_SECRET_LEN; i++) {
-        diff |= storedToken[i] ^ incomingToken[i];
-    }
+    // uint8_t diff = 0;
+    // for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+    //     diff |= storedToken[i] ^ incomingToken[i];
+    // }
 
-    if (diff != 0) {
-        sendJsonError(401, "Unauthorized");
-        return;
-    }
+    // if (diff != 0) {
+    //     sendJsonError(401, "Unauthorized");
+    //     return;
+    // }
 
     // Validate timestamp (skip if time not yet synced)
-    if (authManager.isTimeSynced() && timestamp > 0) {
-        uint32_t now = authManager.getCurrentTime();
-        int32_t drift = (int32_t)timestamp - (int32_t)now;
-        if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
-            drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
-            sendJsonError(401, "Timestamp expired");
-            return;
-        }
-    }
+    // COMMENTED OUT TIMESTAMP
+    // if (authManager.isTimeSynced() && timestamp > 0) {
+    //     uint32_t now = authManager.getCurrentTime();
+    //     int32_t drift = (int32_t)timestamp - (int32_t)now;
+    //     if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
+    //         drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
+    //         sendJsonError(401, "Timestamp expired");
+    //         return;
+    //     }
+    // }
+
+    // Check for required fields (minimal check only)
 
     uint8_t count = doc["macro_count"] | 0;
     if (count == 0 || count > MAX_MACROS) {

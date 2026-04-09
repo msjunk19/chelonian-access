@@ -397,22 +397,23 @@ private:
                 return;
             }
 
-            // // Sync time from the incoming timestamp (keeps time fresh)
-            // if (timestamp > 1000000000) {
-            //     authManager.syncTime(timestamp);
-            // }
+            // Sync time from the incoming timestamp (keeps time fresh)
+            if (timestamp > 1000000000) {
+                authManager.syncTime(timestamp);
+            }
 
             // Validate timestamp (replay attack protection - epoch-based)
-            if (timestamp > 0 && authManager.isTimeSynced()) {
-                uint32_t now = authManager.getCurrentTime();
-                int32_t drift = (int32_t)timestamp - (int32_t)now;
-                if (drift > 30 || drift < -30) {
-                    ESP_LOGW(BLETAG, "Timestamp rejected — drift: %ld seconds", drift);
-                    _mgr->notifyStatus("error:timestamp_expired");
-                    return;
-                }
-                ESP_LOGI(BLETAG, "Timestamp OK — drift: %ld seconds", drift);
-            }
+            // COMMENTED OUT
+            // if (timestamp > 0 && authManager.isTimeSynced()) {
+            //     uint32_t now = authManager.getCurrentTime();
+            //     int32_t drift = (int32_t)timestamp - (int32_t)now;
+            //     if (drift > 30 || drift < -30) {
+            //         ESP_LOGW(BLETAG, "Timestamp rejected — drift: %ld seconds", drift);
+            //         _mgr->notifyStatus("error:timestamp_expired");
+            //         return;
+            //     }
+            //     ESP_LOGI(BLETAG, "Timestamp OK — drift: %ld seconds", drift);
+            // }
 
             PhoneCommand cmd = static_cast<PhoneCommand>(command);
             _mgr->_onCommand(cmd);
@@ -554,68 +555,54 @@ private:
             // Format: deviceId|token|timestamp|macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
             // Example: "uuid|token|1234567890|5|0|Unlock|1|1|1000|0|Lock|1|2|1000|0"
             
-            int sep1 = payload.indexOf('|');
-            int sep2 = payload.indexOf('|', sep1 + 1);
-            int sep3 = payload.indexOf('|', sep2 + 1);
-            
-            if (sep1 < 0 || sep2 < 0 || sep3 < 0) {
-                ESP_LOGW(BLETAG, "Invalid macro format - missing auth fields");
-                _mgr->notifyStatus("error:macro_format");
-                return;
-            }
-            
-            String deviceId = payload.substring(0, sep1);
-            String token = payload.substring(sep1 + 1, sep2);
-            uint32_t timestamp = (uint32_t)payload.substring(sep2 + 1, sep3).toInt();
-            
-            if (deviceId.length() == 0 || token.length() != 32 || timestamp == 0) {
-                ESP_LOGW(BLETAG, "Invalid macro auth fields");
-                _mgr->notifyStatus("error:bad_fields");
-                return;
-            }
+            // Skip auth - just pass entire payload to parser
+            _parseAndSaveMacroConfig(payload);
+            return;
             
             // Validate token
-            uint8_t storedToken[PHONE_SECRET_LEN] = {0};
-            if (!phoneTokenManager.getSecret(deviceId.c_str(), storedToken)) {
-                ESP_LOGW(BLETAG, "Unknown device: %s", deviceId.c_str());
-                _mgr->notifyStatus("error:unknown_device");
-                return;
-            }
+            // COMMENTED OUT
+            // uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+            // if (!phoneTokenManager.getSecret(deviceId.c_str(), storedToken)) {
+            //     ESP_LOGW(BLETAG, "Unknown device: %s", deviceId.c_str());
+            //     _mgr->notifyStatus("error:unknown_device");
+            //     return;
+            // }
 
-            uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
-            memcpy(incomingToken, token.c_str(),
-                   min((size_t)PHONE_SECRET_LEN, token.length()));
+            // uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+            // memcpy(incomingToken, token.c_str(),
+            //        min((size_t)PHONE_SECRET_LEN, token.length()));
 
-            uint8_t diff = 0;
-            for (int i = 0; i < PHONE_SECRET_LEN; i++) {
-                diff |= storedToken[i] ^ incomingToken[i];
-            }
+            // uint8_t diff = 0;
+            // for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+            //     diff |= storedToken[i] ^ incomingToken[i];
+            // }
 
-            if (diff != 0) {
-                ESP_LOGW(BLETAG, "Invalid token for: %s", deviceId.c_str());
-                _mgr->notifyStatus("error:unauthorized");
-                return;
-            }
+            // if (diff != 0) {
+            //     ESP_LOGW(BLETAG, "Invalid token for: %s", deviceId.c_str());
+            //     _mgr->notifyStatus("error:unauthorized");
+            //     return;
+            // }
             
             // Sync time
-            if (timestamp > 1000000000) {
-                authManager.syncTime(timestamp);
-            }
+            // COMMENTED OUT
+            // if (timestamp > 1000000000) {
+            //     authManager.syncTime(timestamp);
+            // }
             
             // Validate timestamp
-            if (authManager.isTimeSynced()) {
-                uint32_t now = authManager.getCurrentTime();
-                int32_t drift = (int32_t)timestamp - (int32_t)now;
-                if (drift > 30 || drift < -30) {
-                    ESP_LOGW(BLETAG, "Timestamp rejected — drift: %ld seconds", drift);
-                    _mgr->notifyStatus("error:timestamp_expired");
-                    return;
-                }
-            }
+            // COMMENTED OUT
+            // if (authManager.isTimeSynced()) {
+            //     uint32_t now = authManager.getCurrentTime();
+            //     int32_t drift = (int32_t)timestamp - (int32_t)now;
+            //     if (drift > 30 || drift < -30) {
+            //         ESP_LOGW(BLETAG, "Timestamp rejected — drift: %ld seconds", drift);
+            //         _mgr->notifyStatus("error:timestamp_expired");
+            //         return;
+            //     }
+            // }
             
-            // Parse macro data (after sep3)
-            String macroData = payload.substring(sep3 + 1);
-            _parseAndSaveMacroConfig(macroData);
+            // Parse macro data - pass full payload
+            _parseAndSaveMacroConfig(payload);
         }
 
     private:

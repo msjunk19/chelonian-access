@@ -66,7 +66,7 @@ public:
         prefs.putULong("saved_ms", millis());
         prefs.end();
         
-        ESP_LOGI(AUTHTAG, "Time synced from phone: %lu", phoneTimestamp);
+            ESP_LOGI(AUTHTAG, "Time synced from phone: %lu", phoneTimestamp);
     }
 
     void restoreTime() {
