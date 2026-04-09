@@ -9,7 +9,7 @@ SECRET_HEX = "91e978b548d13b9316eac52ba1030d56837c30e9b58eb45e074c6c1f4319f329"
 COMMAND    = 0x01  # 0x01=UNLOCK, 0x02=LOCK, 0x03=STATUS
 
 secret    = bytes.fromhex(SECRET_HEX)
-timestamp = int(time.time())
+timestamp = int(Date.now())  # milliseconds since epoch (matches JS Date.now())
 
 # Build message: device_id + timestamp (4 bytes big-endian) + command
 message = DEVICE_ID.encode() + struct.pack(">I", timestamp) + bytes([COMMAND])

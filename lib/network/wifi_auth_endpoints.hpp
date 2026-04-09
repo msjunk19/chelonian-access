@@ -7,12 +7,13 @@
 #include "esp_random.h"
 #include <led_states.hpp>
 #include <access_log.hpp>
+#include <config.hpp>
 
 static const char* WIFIAUTHTAG = "WIFIAUTH";
 
 static bool pairingWindowOpen = false;
 static uint32_t pairingWindowStart = 0;
-static constexpr uint32_t PAIRING_WINDOW_MS = 60000;
+// static constexpr uint32_t PAIRING_WINDOW_MS = 60000;
 
 extern WebServer server;
 extern PhoneTokenManager phoneTokenManager;
@@ -196,7 +197,12 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
         return;
     }
 
-    // Validate timestamp to prevent replay attacks (skip if time not yet synced)
+    // Sync time from the incoming timestamp (keeps time fresh)
+    if (timestamp > 1000000000) {
+        authManager.syncTime(timestamp);
+    }
+
+    // Validate timestamp to prevent replay attacks
     if (authManager.isTimeSynced()) {
         uint32_t now = authManager.getCurrentTime();
         int32_t drift = (int32_t)timestamp - (int32_t)now;
@@ -204,9 +210,10 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
             drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
             ESP_LOGW(WIFIAUTHTAG, "Timestamp rejected — drift: %ld seconds (cmd from %s)", drift, deviceId);
             accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Timestamp expired");
-            sendJsonError(401, "Timestamp expired");
+            sendJsonError(400, "Timestamp expired");
             return;
         }
+        ESP_LOGI(WIFIAUTHTAG, "Timestamp OK — drift: %ld seconds", drift);
     }
 
     // Dispatch command
@@ -340,6 +347,52 @@ inline void handleSetMacros() {
     if (err) {
         sendJsonError(400, "Invalid JSON");
         return;
+    }
+
+    const char* deviceId = doc["device_id"];
+    const char* token    = doc["token"];
+    uint32_t    timestamp = doc["timestamp"] | 0;
+
+    if (!deviceId || !token) {
+        sendJsonError(400, "Missing device_id or token");
+        return;
+    }
+
+    if (strlen(token) != 32) {
+        sendJsonError(400, "Invalid token length");
+        return;
+    }
+
+    // Look up stored token
+    uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+    if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+        sendJsonError(401, "Unknown device");
+        return;
+    }
+
+    // Constant-time compare
+    uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+    memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+    uint8_t diff = 0;
+    for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+        diff |= storedToken[i] ^ incomingToken[i];
+    }
+
+    if (diff != 0) {
+        sendJsonError(401, "Unauthorized");
+        return;
+    }
+
+    // Validate timestamp (skip if time not yet synced)
+    if (authManager.isTimeSynced() && timestamp > 0) {
+        uint32_t now = authManager.getCurrentTime();
+        int32_t drift = (int32_t)timestamp - (int32_t)now;
+        if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
+            drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
+            sendJsonError(401, "Timestamp expired");
+            return;
+        }
     }
 
     uint8_t count = doc["macro_count"] | 0;
@@ -544,9 +597,10 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
             if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
                 drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
                 ESP_LOGW(WIFIAUTHTAG, "Reboot timestamp rejected — drift: %ld seconds", drift);
-                sendJsonError(401, "Timestamp expired");
+                sendJsonError(400, "Timestamp expired");
                 return;
             }
+            ESP_LOGI(WIFIAUTHTAG, "Reboot timestamp OK — drift: %ld seconds", drift);
         }
 
         ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API by %s", deviceId);
@@ -558,6 +612,63 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
         server.send(200, "application/json", body);
         delay(100);
         ESP.restart();
+    });
+
+    server.on("/settime", HTTP_POST, []() {
+        if (!server.hasArg("plain")) {
+            sendJsonError(400, "Missing body");
+            return;
+        }
+
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, server.arg("plain"));
+        if (err) {
+            sendJsonError(400, "Invalid JSON");
+            return;
+        }
+
+        const char* deviceId = doc["device_id"];
+        const char* token    = doc["token"];
+        uint32_t    timestamp = doc["timestamp"] | 0;
+
+        if (!deviceId || !token) {
+            sendJsonError(400, "Missing device_id or token");
+            return;
+        }
+
+        // Validate token
+        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+        if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+            sendJsonError(401, "Unknown device");
+            return;
+        }
+
+        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+        memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+        uint8_t diff = 0;
+        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+            diff |= storedToken[i] ^ incomingToken[i];
+        }
+
+        if (diff != 0) {
+            sendJsonError(401, "Unauthorized");
+            return;
+        }
+
+        // Sync time
+        uint32_t phoneTimestamp = doc["timestamp"] | 0;
+        if (phoneTimestamp > 1000000000) {
+            authManager.syncTime(phoneTimestamp);
+            accessLogger.clear();
+            ESP_LOGI(WIFIAUTHTAG, "Time synced via /settime: %lu", phoneTimestamp);
+        }
+
+        JsonDocument resp;
+        resp["ok"] = true;
+        String body;
+        serializeJson(resp, body);
+        server.send(200, "application/json", body);
     });
 
     ESP_LOGI(WIFIAUTHTAG, "Auth endpoints registered");

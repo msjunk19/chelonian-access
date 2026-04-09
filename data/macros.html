@@ -342,6 +342,9 @@
             btn.classList.add('btn-pressed');
 
             const payload = {
+                device_id: pairing.id,
+                token: pairing.token,
+                timestamp: Math.floor(Date.now() / 1000),
                 macro_count: macros.length,
                 tag_macro: parseInt(document.getElementById('tagMacro').value),
                 macros: macros
@@ -380,6 +383,9 @@
             macros.forEach(m => m.step_count = m.steps.length);
 
             const payload = {
+                device_id: pairing.id,
+                token: pairing.token,
+                timestamp: Math.floor(Date.now() / 1000),
                 macro_count: macros.length,
                 tag_macro: parseInt(document.getElementById('tagMacro').value),
                 macros: macros

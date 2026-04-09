@@ -9,10 +9,8 @@
 
 static const char* AUTHTAG = "AUTH";
 
-// Max clock drift allowed between phone and device (seconds)
 static constexpr uint32_t AUTH_TIMESTAMP_WINDOW = 30;
 
-// Commands the phone can send
 enum class PhoneCommand : uint8_t {
     UNLOCK  = 0x01,
     LOCK    = 0x02,
@@ -23,55 +21,39 @@ enum class PhoneCommand : uint8_t {
 };
 
 struct AuthPayload {
-    char     deviceId[PHONE_ID_MAX_LEN + 1]; // phone UUID
-    uint32_t timestamp;                       // unix epoch from phone
-    uint8_t  command;                         // PhoneCommand
-    uint8_t  hmac[32];                        // HMAC-SHA256
+    char     deviceId[PHONE_ID_MAX_LEN + 1];
+    uint32_t timestamp;
+    uint8_t  command;
+    uint8_t  hmac[32];
 };
 
 class AuthManager {
 public:
     AuthManager(PhoneTokenManager& tokenManager) : _tokens(tokenManager) {}
 
-    // Generate a cryptographically random 32-byte secret
-    // Call this during pairing, then pass to PhoneTokenManager::addPhone()
     void generateSecret(uint8_t* secretOut) {
         esp_fill_random(secretOut, PHONE_SECRET_LEN);
     }
 
-    // Verify an incoming payload from a phone
-    // Returns true if signature valid, device known, and timestamp fresh
     bool verify(const AuthPayload& payload) {
-    // 1. Look up secret for this device
-    uint8_t secret[PHONE_SECRET_LEN];
-    if (!_tokens.getSecret(payload.deviceId, secret)) {
-        ESP_LOGW(AUTHTAG, "Unknown device: %s", payload.deviceId);
-        return false;
-    }
+        uint8_t secret[PHONE_SECRET_LEN];
+        if (!_tokens.getSecret(payload.deviceId, secret)) {
+            ESP_LOGW(AUTHTAG, "Unknown device: %s", payload.deviceId);
+            return false;
+        }
 
-    // 2. TEMP — skip timestamp check for now
-    // uint32_t now = _getCurrentTime();
-    // int32_t drift = (int32_t)payload.timestamp - (int32_t)now;
-    // if (drift > (int32_t)AUTH_TIMESTAMP_WINDOW || 
-    //     drift < -(int32_t)AUTH_TIMESTAMP_WINDOW) {
-    //     ESP_LOGW(AUTHTAG, "Timestamp rejected — drift: %ld seconds", drift);
-    //     return false;
-    // }
+        uint8_t expected[32];
+        _computeHMAC(secret, payload.deviceId, payload.timestamp, 
+                     payload.command, expected);
 
-    // 3. Recompute expected HMAC
-    uint8_t expected[32];
-    _computeHMAC(secret, payload.deviceId, payload.timestamp, 
-                 payload.command, expected);
+        if (!_constantTimeCompare(expected, payload.hmac, 32)) {
+            ESP_LOGW(AUTHTAG, "HMAC mismatch for device: %s", payload.deviceId);
+            return false;
+        }
 
-    // 4. Constant-time compare
-    if (!_constantTimeCompare(expected, payload.hmac, 32)) {
-        ESP_LOGW(AUTHTAG, "HMAC mismatch for device: %s", payload.deviceId);
-        return false;
-    }
-
-    ESP_LOGI(AUTHTAG, "Auth OK — device: %s cmd: 0x%02X", 
-             payload.deviceId, payload.command);
-    return true;
+        ESP_LOGI(AUTHTAG, "Auth OK — device: %s cmd: 0x%02X", 
+                 payload.deviceId, payload.command);
+        return true;
     }
 
     void syncTime(uint32_t phoneTimestamp) {
@@ -96,11 +78,17 @@ public:
 
         if (saved_epoch == 0) return;
 
-        unsigned long elapsed = millis() - saved_ms;
-        uint32_t restored = saved_epoch + (elapsed / 1000);
+        unsigned long elapsed_ms;
+        if (millis() >= saved_ms) {
+            elapsed_ms = millis() - saved_ms;
+        } else {
+            elapsed_ms = 0;
+        }
+
+        uint32_t restored = saved_epoch + (elapsed_ms / 1000);
         struct timeval tv = { (time_t)restored, 0 };
         settimeofday(&tv, nullptr);
-        ESP_LOGI(AUTHTAG, "Time restored: %lu (saved %lu + %lu seconds)", restored, saved_epoch, elapsed / 1000);
+        ESP_LOGI(AUTHTAG, "Time restored: %lu (saved %lu + %lu seconds)", restored, saved_epoch, elapsed_ms / 1000);
     }
 
     uint32_t getCurrentTime() {
@@ -125,13 +113,10 @@ private:
                       uint32_t timestamp,
                       uint8_t command,
                       uint8_t* hmacOut) {
-
-        // Build the message: deviceId + timestamp (4 bytes BE) + command
         uint8_t message[PHONE_ID_MAX_LEN + 4 + 1];
         size_t idLen = strlen(deviceId);
         memcpy(message, deviceId, idLen);
 
-        // Timestamp big-endian
         message[idLen + 0] = (timestamp >> 24) & 0xFF;
         message[idLen + 1] = (timestamp >> 16) & 0xFF;
         message[idLen + 2] = (timestamp >>  8) & 0xFF;
@@ -140,7 +125,6 @@ private:
         message[idLen + 4] = command;
         size_t msgLen = idLen + 5;
 
-        // mbedTLS HMAC-SHA256 (built into ESP-IDF, no extra library needed)
         mbedtls_md_context_t ctx;
         mbedtls_md_init(&ctx);
         mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1);
@@ -150,7 +134,6 @@ private:
         mbedtls_md_free(&ctx);
     }
 
-    // Constant-time compare — prevents timing side channel attacks
     bool _constantTimeCompare(const uint8_t* a, const uint8_t* b, size_t len) {
         uint8_t diff = 0;
         for (size_t i = 0; i < len; i++) {
@@ -158,5 +141,4 @@ private:
         }
         return diff == 0;
     }
-
 };

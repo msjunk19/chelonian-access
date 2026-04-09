@@ -178,8 +178,13 @@
 
                 const data = await resp.json();
 
+                if (data.error === 'Timestamp expired') {
+                    statusEl.innerText = 'Error: Time not synced - pair first or wait for another device to sync time';
+                    return;
+                }
+
                 if (resp.status === 401 || (data.error && 
-                    (data.error === 'Unauthorized' || data.error === 'Unknown device' || data.error === 'Timestamp expired'))) {
+                    (data.error === 'Unauthorized' || data.error === 'Unknown device'))) {
                     showPairingLostModal();
                     return;
                 }

@@ -85,13 +85,19 @@ void setup() {
 );
 setupWebServer([](PhoneCommand cmd) {
     switch (cmd) {
-        case PhoneCommand::UNLOCK:
+        case PhoneCommand::UNLOCK: {
             LED_SET_SEQ(UNLOCK);
-            fireMacro(macroConfigManager.config.tag_macro);
+        //     fireMacro(macroConfigManager.config.tag_macro);
+            int8_t idx = macroConfigManager.findByName("Unlock");
+            if (idx >= 0) fireMacro(idx);
             break;
-        case PhoneCommand::LOCK:
+        }
+        case PhoneCommand::LOCK: {
             LED_SET_SEQ(LOCK);
+            int8_t idx = macroConfigManager.findByName("Lock");
+            if (idx >= 0) fireMacro(idx);
             break;
+        }
         case PhoneCommand::STATUS:
             break;
         case PhoneCommand::TRUNK: {
@@ -112,15 +118,21 @@ setupWebServer([](PhoneCommand cmd) {
 });
 
     startAP();
-    // ESP_LOGI("WiFi AP", "Setup complete. AP running.");
 
     bleManager.begin([](PhoneCommand cmd) {
     switch (cmd) {
-        case PhoneCommand::UNLOCK: 
-            LED_SET_SEQ(UNLOCK); 
-            fireMacro(macroConfigManager.config.tag_macro);
+        // case PhoneCommand::UNLOCK: 
+        //     LED_SET_SEQ(UNLOCK); 
+        //     fireMacro(macroConfigManager.config.tag_macro);
+        //     accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
+        //     break;
+        case PhoneCommand::UNLOCK: {
+            LED_SET_SEQ(UNLOCK);
+            int8_t idx = macroConfigManager.findByName("UNlock");
+            if (idx >= 0) fireMacro(idx);
             accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
             break;
+        }        
         case PhoneCommand::LOCK: {
             LED_SET_SEQ(LOCK);
             int8_t idx = macroConfigManager.findByName("Lock");
@@ -146,8 +158,11 @@ setupWebServer([](PhoneCommand cmd) {
         default: break;
         }
     });
-
+    
     accessServiceSetup();   
+
+
+
 }
 
 void loop() {

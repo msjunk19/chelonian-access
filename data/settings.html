@@ -217,10 +217,15 @@
                 const data = await resp.json();
 
                 if (resp.status === 401 || (data.error && 
-                    (data.error === 'Unauthorized' || data.error === 'Unknown device' || data.error === 'Timestamp expired'))) {
+                    (data.error === 'Unauthorized' || data.error === 'Unknown device'))) {
                     setPairStatus('Reboot failed - pairing lost', false);
                     clearPairing();
                     showPairingLostModal();
+                    return;
+                }
+
+                if (data.error === 'Timestamp expired') {
+                    setPairStatus('Reboot failed - Time not synced, pair first or wait for another device', false);
                     return;
                 }
 

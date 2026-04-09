@@ -22,6 +22,9 @@ const unsigned long RELAY_COUNT = 4; //How many relays are connected
 static constexpr uint32_t PAIRING_HOLD_MS       = 3000;
 static constexpr uint32_t FACTORY_RESET_HOLD_MS = 10000;
 
+static constexpr uint32_t PAIRING_WINDOW_MS = 60000;
+
+
 // Timeouts
 const unsigned long IMPATIENCE_TIMEOUT= 10000; //How long before you get the waiting notifications
 
@@ -42,6 +45,9 @@ const unsigned long AUDIO_INIT_DELAY_MS = 500; //How long to wait for audio cont
 const unsigned long INVALID_BASE_LOCKOUT_MS = 3000; //Base lockout time added to progressive delay
 
 const unsigned long AUDIO_DEFAULT_VOLUME = 20;
+
+// Replay Attack Protection
+static constexpr uint32_t CMD_TIMESTAMP_WINDOW_MS = 30; //In seconds
 
 
 // Phone auth
