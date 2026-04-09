@@ -634,12 +634,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Future<bool> writeMacros(int macroCount, int tagMacro, List<Map<String, dynamic>> macros) async {
     if (_macroSetChar == null) return false;
-    if (_deviceId == null || _token == null) return false;
     try {
-      // New format: deviceId|token|timestamp|macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
-      final timestamp = (DateTime.now().millisecondsSinceEpoch / 1000).floor();
+      // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
       final buffer = StringBuffer();
-      buffer.write('${_deviceId!.trim()}|${_token!.trim()}|$timestamp|');
       buffer.write('$macroCount|$tagMacro|');
       for (final macro in macros) {
         buffer.write('${macro['name']}|');
