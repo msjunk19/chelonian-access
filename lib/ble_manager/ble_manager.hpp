@@ -720,6 +720,7 @@ private:
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             std::string raw = pChar->getValue();
             ESP_LOGI(BLETAG, "Log clear command received");
+            accessLogger.logSystem(LogSource::BLE, LogResult::SUCCESS, "System", "Logs cleared");
             accessLogger.clear();
             _mgr->notifyStatus("ok:logs_cleared");
         }

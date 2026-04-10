@@ -69,6 +69,7 @@ void setup() {
 
     authManager.restoreTime();
     accessLogger.begin();
+    accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
     ESP_LOGI(TAG, "Device boot completed");
 
     // accessServiceSetup();   

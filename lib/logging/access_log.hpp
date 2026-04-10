@@ -76,6 +76,9 @@ public:
     }
 
     void log(LogLevel level, LogSource source, LogResult result, const char* identifier, const char* message) {
+        ESP_LOGI(LOGTAG, "log() called level=%d source=%d result=%d id=%s msg=%s", 
+            (int)level, (int)source, (int)result, identifier, message);
+        
         if (!shouldLog(level)) {
             ESP_LOGI(LOGTAG, "log() skipped - level %d not enabled", (int)level);
             return;
@@ -106,6 +109,14 @@ public:
         log(LogLevel::ACCESS, source, result, identifier, message);
     }
 
+    void logSystem(LogSource source, LogResult result, const char* identifier, const char* message) {
+        log(LogLevel::SYSTEM, source, result, identifier, message);
+    }
+
+    void logDebug(LogSource source, LogResult result, const char* identifier, const char* message) {
+        log(LogLevel::DEBUG, source, result, identifier, message);
+    }
+
     bool shouldLog(LogLevel level) const {
         if (!_settings.enabled) return false;
         switch (level) {
@@ -125,14 +136,14 @@ public:
 
     uint8_t getCount() const { return _count; }
 
-    String getLogsJson(uint8_t minLevel = 0, size_t maxLen = 0) const {
+    String getLogsJson(int8_t exactLevel = -1, size_t maxLen = 0) const {
         String json = "[";
         bool first = true;
         // Reverse: most recent first
         for (int i = _count - 1; i >= 0; i--) {
             LogEntry entry;
             if (!getEntry(i, entry)) continue;
-            if (entry.level < minLevel) continue;
+            if (exactLevel >= 0 && entry.level != exactLevel) continue;
             
             if (!first) json += ",";
             first = false;

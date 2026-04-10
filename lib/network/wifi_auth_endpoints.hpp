@@ -462,7 +462,11 @@ inline void handleSetMacros() {
 
 // GET /api/logs
 inline void handleGetLogs() {
-    String json = accessLogger.getLogsJson();
+    int8_t level = -1;
+    if (server.hasArg("level")) {
+        level = (int8_t)server.arg("level").toInt();
+    }
+    String json = accessLogger.getLogsJson(level);
     server.send(200, "application/json", json);
 }
 
@@ -513,6 +517,8 @@ inline void handleClearLogs() {
     }
 
     accessLogger.clear();
+    accessLogger.logSystem(LogSource::WIFI, LogResult::SUCCESS, deviceId, "Logs cleared");
+    
     JsonDocument resp;
     resp["ok"] = true;
     String body;
