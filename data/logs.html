@@ -87,9 +87,9 @@
 
         async function loadLogs() {
             try {
-                let url = '/api/logs';
+                let url = '/api/logs?timestamp=' + Math.floor(Date.now() / 1000);
                 if (currentFilter !== 'all') {
-                    url += '?level=' + currentFilter;
+                    url += '&level=' + currentFilter;
                 }
                 const resp = await fetch(url);
                 let logs = await resp.json();

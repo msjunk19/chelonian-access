@@ -67,6 +67,12 @@ void setup() {
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
 
+    // Store boot millis for time sync calculation
+    Preferences prefs;
+    prefs.begin("auth", false);
+    prefs.putUInt("boot_ms", millis());
+    prefs.end();
+
     authManager.restoreTime();
     accessLogger.begin();
     accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");

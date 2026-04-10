@@ -309,6 +309,12 @@ inline void handleUnpair() {
 // GET /api/macros
 // Returns full macro config as JSON
 inline void handleGetMacros() {
+    // [AUTO-SYNC] Sync time if phone sends timestamp in query string
+    uint32_t phoneTimestamp = server.arg("timestamp").toInt();
+    if (phoneTimestamp > 1000000000) {
+        authManager.syncTime(phoneTimestamp);
+    }
+
     JsonDocument doc;
     doc["macro_count"] = macroConfigManager.config.macro_count;
     doc["tag_macro"]   = macroConfigManager.config.tag_macro;
@@ -462,6 +468,12 @@ inline void handleSetMacros() {
 
 // GET /api/logs
 inline void handleGetLogs() {
+    // [AUTO-SYNC] Sync time if phone sends timestamp in query string
+    uint32_t phoneTimestamp = server.arg("timestamp").toInt();
+    if (phoneTimestamp > 1000000000) {
+        authManager.syncTime(phoneTimestamp);
+    }
+
     int8_t level = -1;
     if (server.hasArg("level")) {
         level = (int8_t)server.arg("level").toInt();

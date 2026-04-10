@@ -57,38 +57,54 @@ public:
     }
 
     void syncTime(uint32_t phoneTimestamp) {
-        struct timeval tv = { (time_t)phoneTimestamp, 0 };
-        settimeofday(&tv, nullptr);
-        
+        // Calculate epoch time at boot based on current millis
         Preferences prefs;
-        prefs.begin("auth", false);
-        prefs.putUInt("saved_epoch", phoneTimestamp);
-        prefs.putULong("saved_ms", millis());
+        prefs.begin("auth", true);
+        uint32_t boot_ms = prefs.getUInt("boot_ms", 0);
         prefs.end();
         
+        if (boot_ms > 0) {
+            uint32_t current_ms = millis();
+            uint32_t elapsed_s = (current_ms >= boot_ms) ? (current_ms - boot_ms) / 1000 : 0;
+            uint32_t epoch_at_boot = phoneTimestamp - elapsed_s;
+            
+            prefs.begin("auth", false);
+            prefs.putUInt("saved_epoch", epoch_at_boot); // Store corrected boot time
+            prefs.putUInt("boot_ms", 0); // Clear boot_ms marker
+            prefs.end();
+            
+            ESP_LOGI(AUTHTAG, "Time synced: phone=%lu, boot_epoch=%lu (elapsed %lus)", 
+                phoneTimestamp, epoch_at_boot, elapsed_s);
+        } else {
+            // First sync ever or boot_ms was cleared
+            prefs.begin("auth", false);
+            prefs.putUInt("saved_epoch", phoneTimestamp);
+            prefs.putULong("saved_ms", millis());
+            prefs.end();
+            
             ESP_LOGI(AUTHTAG, "Time synced from phone: %lu", phoneTimestamp);
+        }
+        
+        // Set system time
+        struct timeval tv = { (time_t)phoneTimestamp, 0 };
+        settimeofday(&tv, nullptr);
     }
 
     void restoreTime() {
         Preferences prefs;
         prefs.begin("auth", true);
-        uint32_t saved_epoch = prefs.getUInt("saved_epoch", 0);
-        uint32_t saved_ms = prefs.getULong("saved_ms", 0);
+        uint32_t boot_ms = prefs.getUInt("boot_ms", 0);
         prefs.end();
 
-        if (saved_epoch == 0) return;
-
-        unsigned long elapsed_ms;
-        if (millis() >= saved_ms) {
-            elapsed_ms = millis() - saved_ms;
+        if (boot_ms > 0 && millis() >= boot_ms) {
+            uint32_t elapsed_s = (millis() - boot_ms) / 1000;
+            
+            // Can't restore accurate time without phone sync
+            // Just log that we're waiting for sync
+            ESP_LOGI(AUTHTAG, "Time waiting for sync (elapsed %lu seconds since boot)", elapsed_s);
         } else {
-            elapsed_ms = 0;
+            ESP_LOGI(AUTHTAG, "No boot_ms found, waiting for phone time sync");
         }
-
-        uint32_t restored = saved_epoch + (elapsed_ms / 1000);
-        struct timeval tv = { (time_t)restored, 0 };
-        settimeofday(&tv, nullptr);
-        ESP_LOGI(AUTHTAG, "Time restored: %lu (saved %lu + %lu seconds)", restored, saved_epoch, elapsed_ms / 1000);
     }
 
     uint32_t getCurrentTime() {

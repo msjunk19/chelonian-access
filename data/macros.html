@@ -185,7 +185,7 @@
             document.getElementById('msToggle').checked = useMs;
 
             try {
-                const resp = await fetch('/api/macros');
+                const resp = await fetch('/api/macros?timestamp=' + Math.floor(Date.now() / 1000));
                 const data = await resp.json();
                 macros = data.macros || [];
                 document.getElementById('tagMacro').dataset.value = data.tag_macro || 0;
