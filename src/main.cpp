@@ -15,6 +15,8 @@
 #include <macro_config.hpp>
 #include <access_log.hpp>
 
+#include "esp_system.h"
+
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL);  // definition lives here
@@ -37,6 +39,8 @@ MacroConfigManager macroConfigManager;
 AccessLogger accessLogger;
 
 static const char* TAG = "Main";
+
+// static bool bootLogged = false;
 
 void setup() {
     setupGlobalExceptionHandler();
@@ -67,16 +71,10 @@ void setup() {
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
 
-    // Store boot millis for time sync calculation
-    Preferences prefs;
-    prefs.begin("auth", false);
-    prefs.putUInt("boot_ms", millis());
-    prefs.end();
-
-    authManager.restoreTime();
+    // authManager.restoreTime();
     accessLogger.begin();
-    accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
-    ESP_LOGI(TAG, "Device boot completed");
+    accessLogger.logBoot();
+
 
     // accessServiceSetup();   
 
@@ -169,7 +167,29 @@ setupWebServer([](PhoneCommand cmd) {
     
     accessServiceSetup();   
 
+    // accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
 
+    accessLogger.logBoot();
+    
+    // if (!_bootLogged)
+    // {
+    //     _bootLogged = true;
+
+    //     char msg[64];
+    //     snprintf(msg, sizeof(msg),
+    //             "Device boot (reason=%d)",
+    //             esp_reset_reason());
+
+    //     accessLogger.logSystem(
+    //         LogSource::RFID,
+    //         LogResult::SUCCESS,
+    //         "System",
+    //         msg
+    //     );
+    // }
+
+    ESP_LOGI(TAG, "Device boot completed");
+    ESP_LOGI("BOOT", "Reset reason: %d", esp_reset_reason());
 
 }
 

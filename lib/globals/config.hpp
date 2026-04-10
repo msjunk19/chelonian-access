@@ -49,11 +49,17 @@ const unsigned long AUDIO_DEFAULT_VOLUME = 20;
 // Replay Attack Protection
 static constexpr uint32_t CMD_TIMESTAMP_WINDOW_MS = 30; //In seconds
 
+static constexpr uint32_t BOOT_PLACEHOLDER_MAX = 60;
+static constexpr uint32_t AUTH_TIMESTAMP_WINDOW = 30;
+
 
 // Phone auth
 static constexpr uint8_t MAX_PAIRED_PHONES = 10;
 static constexpr uint8_t PHONE_SECRET_LEN  = 32;
 static constexpr uint8_t PHONE_ID_MAX_LEN  = 36; // standard UUID length
+
+// int8_t _bootLogIndex = -1;
+// bool _bootLogged = false;
 
 
 #define IBEACON_MAJOR    0x0001

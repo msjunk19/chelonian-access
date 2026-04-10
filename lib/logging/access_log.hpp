@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <sys/time.h>
 #include <time.h>
+#include <string.h>
+// #include <config.hpp>
 
 static const char* LOGTAG = "LOG";
 
@@ -35,6 +37,34 @@ struct LoggingSettings {
 class AccessLogger {
 public:
     AccessLogger() : _head(0), _count(0), _initialized(false), _lastMillis(0), _uptimeOffset(0), _timeOffset(0) {}
+
+    uint16_t getCount() const {
+        return _count;
+    }
+
+    // int8_t findLatestBootPlaceholder()
+    // {
+    //     for (int i = getCount() - 1; i >= 0; i--)
+    //     {
+    //         LogEntry entry;
+
+    //         if (!getEntry(i, entry))
+    //             continue;
+
+    //         if (entry.timestamp <= 60 &&
+    //             strcmp(entry.message, "Device boot") == 0)
+    //         {
+    //             return i;
+    //         }
+    //     }
+
+    //     return -1;
+    // }
+
+    int8_t getBootLogIndex() const
+    {
+        return _bootLogIndex;
+    }
 
     void begin() {
         Preferences prefs;
@@ -117,6 +147,23 @@ public:
         log(LogLevel::DEBUG, source, result, identifier, message);
     }
 
+    void logBoot() {
+        if (_bootLogged)
+            return;
+
+        _bootLogged = true;
+
+        logSystem(
+            LogSource::RFID,
+            LogResult::SUCCESS,
+            "System",
+            "Device boot"
+        );
+
+        // capture EXACT index safely
+        _bootLogIndex = (_head + LOG_MAX_ENTRIES - 1) % LOG_MAX_ENTRIES;
+    }
+
     bool shouldLog(LogLevel level) const {
         if (!_settings.enabled) return false;
         switch (level) {
@@ -134,7 +181,7 @@ public:
         return true;
     }
 
-    uint8_t getCount() const { return _count; }
+    // uint8_t getCount() const { return _count; }
 
     String getLogsJson(int8_t exactLevel = -1, size_t maxLen = 0) const {
         String json = "[";
@@ -171,6 +218,25 @@ public:
 
     const LoggingSettings& getSettings() const { return _settings; }
 
+    // int8_t findBootLogIndex() const {
+    //     for (uint8_t i = 0; i < _count; i++) {
+    //         LogEntry entry;
+    //         if (getEntry(i, entry)) {
+    //             if (strcmp(entry.message, "Device boot") == 0) {
+    //                 return i;
+    //             }
+    //         }
+    //     }
+    //     return -1;
+    // }
+
+    void updateEntryTimestamp(uint8_t index, uint32_t newTimestamp) {
+        if (index >= _count) return;
+        uint8_t actualIndex = (_head + LOG_MAX_ENTRIES - _count + index) % LOG_MAX_ENTRIES;
+        _entries[actualIndex].timestamp = newTimestamp;
+        saveAllEntries();
+    }
+
     void clear() {
         _head = 0;
         _count = 0;
@@ -192,6 +258,9 @@ private:
     uint32_t _uptimeOffset;
     uint32_t _timeOffset;  // offset from uptime to real Unix time
     LoggingSettings _settings;
+
+    bool _bootLogged = false;
+    int8_t _bootLogIndex = -1;
 
     void loadEntries() {
         Preferences prefs;
@@ -263,6 +332,12 @@ private:
             saveAllEntries();
         }
     }
+
+
+
+
+
+
 };
 
 extern AccessLogger accessLogger;
