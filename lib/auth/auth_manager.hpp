@@ -90,48 +90,79 @@ public:
 
     void syncTime(uint32_t phoneEpoch)
     {
-        if (_timeSynced) {
-            ESP_LOGI(AUTHTAG, "Time already synced");
+        if (_timeSynced)
             return;
-        }
 
         uint32_t elapsed = (millis() - _bootMillis) / 1000;
         uint32_t bootEpoch = phoneEpoch - elapsed;
 
-        ESP_LOGI(AUTHTAG,
-                 "Time sync: phone=%lu elapsed=%lus bootEpoch=%lu",
-                 phoneEpoch,
-                 elapsed,
-                 bootEpoch);
-
-        /* find newest boot placeholder */
-
-        // int8_t bootIdx = accessLogger.findLatestBootPlaceholder();
-        int8_t bootIdx = accessLogger.getBootLogIndex();
-
-        if (bootIdx >= 0) {
-
-            accessLogger.updateEntryTimestamp(bootIdx, bootEpoch);
-
-            ESP_LOGI(AUTHTAG,
-                     "Boot log corrected index=%d -> %lu",
-                     bootIdx,
-                     bootEpoch);
-        }
-        else {
-            ESP_LOGW(AUTHTAG, "No boot placeholder found");
-        }
-
-        /* set system time */
-
         struct timeval tv;
-        tv.tv_sec  = phoneEpoch;
+        tv.tv_sec = phoneEpoch;
         tv.tv_usec = 0;
 
         settimeofday(&tv, nullptr);
 
+        int8_t bootIdx = accessLogger.getBootLogIndex();
+
+        if (bootIdx >= 0)
+        {
+            accessLogger.updateEntryTimestamp(bootIdx, bootEpoch);
+        }
+
         _timeSynced = true;
+
+        ESP_LOGI(AUTHTAG, "System time synced: %lu", phoneEpoch);
     }
+
+    // void syncTime(uint32_t phoneEpoch)
+    // {
+    //     if (_timeSynced) {
+    //         ESP_LOGI(AUTHTAG, "Time already synced");
+    //         return;
+    //     }
+
+    //     uint32_t elapsed = (millis() - _bootMillis) / 1000;
+    //     uint32_t bootEpoch = phoneEpoch - elapsed;
+
+    //     ESP_LOGI(AUTHTAG,
+    //              "Time sync: phone=%lu elapsed=%lus bootEpoch=%lu",
+    //              phoneEpoch,
+    //              elapsed,
+    //              bootEpoch);
+
+    //     /* find newest boot placeholder */
+
+    //     // int8_t bootIdx = accessLogger.findLatestBootPlaceholder();
+    //     int8_t bootIdx = accessLogger.getBootLogIndex();
+
+    //     if (bootIdx >= 0) {
+
+    //         accessLogger.updateEntryTimestamp(bootIdx, bootEpoch);
+
+    //         ESP_LOGI(AUTHTAG,
+    //                  "Boot log corrected index=%d -> %lu",
+    //                  bootIdx,
+    //                  bootEpoch);
+    //     }
+    //     else {
+    //         // ESP_LOGW(AUTHTAG, "No boot placeholder found");
+    //         ESP_LOGW(AUTHTAG, "Boot log index not found");
+    //     }
+
+    //     /* set system time */
+
+    //     struct timeval tv;
+    //     tv.tv_sec  = phoneEpoch;
+    //     tv.tv_usec = 0;
+
+    //     settimeofday(&tv, nullptr);
+
+    //     _timeSynced = true;
+
+    //     ESP_LOGI(AUTHTAG, "Boot index = %d", accessLogger.getBootLogIndex());
+    //     ESP_LOGI(AUTHTAG, "Log count = %d", accessLogger.getCount());
+
+    // }
 
     /* ---------------- RESTORE ---------------- */
 

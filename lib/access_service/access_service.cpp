@@ -399,7 +399,6 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
     }
 }
 
-
 // --- Impatience Timeout ---
 // Currently working. Impatient at boot with known MasterUID, Impatient after unknown tag, impatient after short master card hold, Not impatient after access granted, impatience disabled during programming mode
 // Not working. markUserActivity blocks programming mode boot announcements

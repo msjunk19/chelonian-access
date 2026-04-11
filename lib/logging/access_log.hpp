@@ -77,11 +77,11 @@ public:
 
         loadEntries();
         
-        prefs.begin(LOG_NAMESPACE, true);
-        _lastMillis = prefs.getUInt("last_millis", 0);
-        _uptimeOffset = prefs.getUInt("uptime_off", 0);
-        _timeOffset = prefs.getUInt("time_off", 0);
-        prefs.end();
+        // prefs.begin(LOG_NAMESPACE, true);
+        // _lastMillis = prefs.getUInt("last_millis", 0);
+        // _uptimeOffset = prefs.getUInt("uptime_off", 0);
+        // _timeOffset = prefs.getUInt("time_off", 0);
+        // prefs.end();
         
         uint32_t currentMillis = millis();
         if (_lastMillis != 0 && currentMillis < _lastMillis) {
@@ -95,10 +95,10 @@ public:
         _initialized = true;
     }
 
-    void setTimeOffset(uint32_t offset) {
-        _timeOffset = offset;
-        saveTimeOffset();
-    }
+    // void setTimeOffset(uint32_t offset) {
+    //     _timeOffset = offset;
+    //     saveTimeOffset();
+    // }
 
     void updateSettings(const LoggingSettings& settings) {
         _settings = settings;
@@ -114,11 +114,13 @@ public:
             return;
         }
 
-        uint32_t timestamp = (uint32_t)time(nullptr);
-        if (timestamp < 1000000000) { // If time not set (before 2001), use uptime
-            timestamp = _uptimeOffset + millis() / 1000;
-        }
+        // uint32_t timestamp = (uint32_t)time(nullptr);
+        // if (timestamp < 1000000000) { // If time not set (before 2001), use uptime
+        //     timestamp = _uptimeOffset + millis() / 1000;
+        // }
         
+        uint32_t timestamp = (uint32_t)time(nullptr);
+
         LogEntry& entry = _entries[_head];
         entry.timestamp = timestamp;
         entry.level = static_cast<uint8_t>(level);
@@ -147,7 +149,8 @@ public:
         log(LogLevel::DEBUG, source, result, identifier, message);
     }
 
-    void logBoot() {
+    void logBoot()
+    {
         if (_bootLogged)
             return;
 
@@ -160,7 +163,6 @@ public:
             "Device boot"
         );
 
-        // capture EXACT index safely
         _bootLogIndex = (_head + LOG_MAX_ENTRIES - 1) % LOG_MAX_ENTRIES;
     }
 
@@ -305,12 +307,12 @@ private:
         prefs.end();
     }
 
-    void saveTimeOffset() {
-        Preferences prefs;
-        prefs.begin(LOG_NAMESPACE, false);
-        prefs.putUInt("time_off", _timeOffset);
-        prefs.end();
-    }
+    // void saveTimeOffset() {
+    //     Preferences prefs;
+    //     prefs.begin(LOG_NAMESPACE, false);
+    //     prefs.putUInt("time_off", _timeOffset);
+    //     prefs.end();
+    // }
 
     void purgeOldEntries() {
         uint32_t maxAgeMs = (uint32_t)LOG_MAX_HOURS * 3600UL * 1000UL;

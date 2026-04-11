@@ -62,6 +62,10 @@ void setup() {
 
     delay(1000);
 
+    accessLogger.begin();
+    // authManager.restoreTime();
+    accessLogger.logBoot();
+    
     // masterUidManager.clearMasters();
 
         // phoneTokenManager.clearAll();
@@ -72,8 +76,7 @@ void setup() {
     phoneTokenManager.readPhones();
 
     // authManager.restoreTime();
-    accessLogger.begin();
-    accessLogger.logBoot();
+
 
 
     // accessServiceSetup();   
@@ -134,7 +137,7 @@ setupWebServer([](PhoneCommand cmd) {
         //     break;
         case PhoneCommand::UNLOCK: {
             LED_SET_SEQ(UNLOCK);
-            int8_t idx = macroConfigManager.findByName("UNlock");
+            int8_t idx = macroConfigManager.findByName("Unlock");
             if (idx >= 0) fireMacro(idx);
             accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
             break;
@@ -169,15 +172,15 @@ setupWebServer([](PhoneCommand cmd) {
 
     // accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
 
-    accessLogger.logBoot();
-    
+    // accessLogger.logBoot();
+
     // if (!_bootLogged)
     // {
     //     _bootLogged = true;
 
     //     char msg[64];
     //     snprintf(msg, sizeof(msg),
-    //             "Device boot (reason=%d)",
+    //             "Device boot (reason=%d)", 
     //             esp_reset_reason());
 
     //     accessLogger.logSystem(
