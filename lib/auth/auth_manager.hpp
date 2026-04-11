@@ -102,7 +102,8 @@ public:
 
         settimeofday(&tv, nullptr);
 
-        int8_t bootIdx = accessLogger.getBootLogIndex();
+        // int8_t bootIdx = accessLogger.getBootLogIndex();
+        int8_t bootIdx = accessLogger.findBootLogIndex();
 
         if (bootIdx >= 0)
         {

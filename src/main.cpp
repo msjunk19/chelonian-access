@@ -42,158 +42,165 @@ static const char* TAG = "Main";
 
 // static bool bootLogged = false;
 
-void setup() {
+void setup()
+{
     setupGlobalExceptionHandler();
 
     Serial.begin(115200);
-    delay(1000);
+    delay(500);
 
-    ESP_LOGV(TAG, "Chelonian Access Service");
-    ESP_LOGV(TAG, "Version 1.0.0");
-    ESP_LOGV(TAG, "Copyright (C) 2023 Derek Molloy");
-    ESP_LOGV(TAG, "Licensed under the MIT License");
-    ESP_LOGV(TAG, "Starting up!");
+    ESP_LOGI(TAG, "Chelonian Access Service starting");
 
-    ESP_LOGE("TEST", "ERROR");
-    ESP_LOGW("TEST", "WARN");
-    ESP_LOGI("TEST", "INFO");
-    ESP_LOGD("TEST", "DEBUG");
-    ESP_LOGV("TEST", "VERBOSE");
+    ESP_LOGI("BOOT", "Reset reason: %d", esp_reset_reason());
 
-    delay(1000);
+    /* ---------------- LOGGING ---------------- */
 
     accessLogger.begin();
-    // authManager.restoreTime();
-    accessLogger.logBoot();
-    
-    // masterUidManager.clearMasters();
 
-        // phoneTokenManager.clearAll();
-        // while(true);
+    /* Log boot exactly once */
+    static bool bootLogged = false;
+
+    if (!bootLogged) {
+        bootLogged = true;
+
+        char msg[64];
+        snprintf(msg, sizeof(msg),
+            "Device boot (reason=%d)",
+            esp_reset_reason());
+
+        accessLogger.logSystem(
+            LogSource::RFID,
+            LogResult::SUCCESS,
+            "System",
+            msg
+        );
+    }
+
+    /* ---------------- LOAD STORED DATA ---------------- */
 
     masterUidManager.readUIDs();
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
 
-    // authManager.restoreTime();
-
-
-
-    // accessServiceSetup();   
+    /* ---------------- PAIRING BUTTON ---------------- */
 
     pairingButton.begin(
-    []() {
-        openPairingWindow();
-        bleManager.openPairingWindow();
-    },
-    []() {
-        // ESP_LOGW("FACTORY", "Factory reset triggered — not yet implemented");
-        LED_CANCEL();
-        factoryReset();
-    }
-);
-setupWebServer([](PhoneCommand cmd) {
-    switch (cmd) {
-        case PhoneCommand::UNLOCK: {
-            LED_SET_SEQ(UNLOCK);
-        //     fireMacro(macroConfigManager.config.tag_macro);
-            int8_t idx = macroConfigManager.findByName("Unlock");
-            if (idx >= 0) fireMacro(idx);
-            break;
+        []()
+        {
+            openPairingWindow();
+            bleManager.openPairingWindow();
+        },
+        []()
+        {
+            LED_CANCEL();
+            factoryReset();
         }
-        case PhoneCommand::LOCK: {
-            LED_SET_SEQ(LOCK);
-            int8_t idx = macroConfigManager.findByName("Lock");
-            if (idx >= 0) fireMacro(idx);
-            break;
+    );
+
+    /* ---------------- WEB SERVER ---------------- */
+
+    setupWebServer([](PhoneCommand cmd)
+    {
+        switch (cmd)
+        {
+            case PhoneCommand::UNLOCK:
+            {
+                LED_SET_SEQ(UNLOCK);
+                int8_t idx = macroConfigManager.findByName("Unlock");
+                if (idx >= 0) fireMacro(idx);
+                break;
+            }
+
+            case PhoneCommand::LOCK:
+            {
+                LED_SET_SEQ(LOCK);
+                int8_t idx = macroConfigManager.findByName("Lock");
+                if (idx >= 0) fireMacro(idx);
+                break;
+            }
+
+            case PhoneCommand::TRUNK:
+            {
+                LED_SET_SEQ(TRUNK);
+                int8_t idx = macroConfigManager.findByName("Trunk");
+                if (idx >= 0) fireMacro(idx);
+                break;
+            }
+
+            case PhoneCommand::PANIC:
+            {
+                LED_SET_SEQ(PANIC);
+                int8_t idx = macroConfigManager.findByName("Panic");
+                if (idx >= 0) fireMacro(idx);
+                break;
+            }
+
+            case PhoneCommand::STATUS:
+            default:
+                break;
         }
-        case PhoneCommand::STATUS:
-            break;
-        case PhoneCommand::TRUNK: {
-            LED_SET_SEQ(TRUNK);
-            int8_t idx = macroConfigManager.findByName("Trunk");
-            if (idx >= 0) fireMacro(idx);
-            break;
-        }
-        case PhoneCommand::PANIC: {
-            LED_SET_SEQ(PANIC);
-            int8_t idx = macroConfigManager.findByName("Panic");
-            if (idx >= 0) fireMacro(idx);
-            break;
-        }
-        default:
-            break;
-    }
-});
+    });
+
+    /* ---------------- NETWORK ---------------- */
 
     startAP();
 
-    bleManager.begin([](PhoneCommand cmd) {
-    switch (cmd) {
-        // case PhoneCommand::UNLOCK: 
-        //     LED_SET_SEQ(UNLOCK); 
-        //     fireMacro(macroConfigManager.config.tag_macro);
-        //     accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
-        //     break;
-        case PhoneCommand::UNLOCK: {
-            LED_SET_SEQ(UNLOCK);
-            int8_t idx = macroConfigManager.findByName("Unlock");
-            if (idx >= 0) fireMacro(idx);
-            accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
-            break;
-        }        
-        case PhoneCommand::LOCK: {
-            LED_SET_SEQ(LOCK);
-            int8_t idx = macroConfigManager.findByName("Lock");
-            if (idx >= 0) fireMacro(idx);
-            accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Lock command");
-            break;
-        }
-        case PhoneCommand::STATUS: break;
-        case PhoneCommand::TRUNK: {
-            LED_SET_SEQ(TRUNK);
-            int8_t idx = macroConfigManager.findByName("Trunk");
-            if (idx >= 0) fireMacro(idx);
-            accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Trunk command");
-            break;
-        }
-        case PhoneCommand::PANIC: {
-            LED_SET_SEQ(PANIC);
-            int8_t idx = macroConfigManager.findByName("Panic");
-            if (idx >= 0) fireMacro(idx);
-            accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Panic command");
-            break;
-        }
-        default: break;
+    /* ---------------- BLE ---------------- */
+
+    bleManager.begin([](PhoneCommand cmd)
+    {
+        switch (cmd)
+        {
+            case PhoneCommand::UNLOCK:
+            {
+                LED_SET_SEQ(UNLOCK);
+                int8_t idx = macroConfigManager.findByName("Unlock");
+                if (idx >= 0) fireMacro(idx);
+
+                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
+                break;
+            }
+
+            case PhoneCommand::LOCK:
+            {
+                LED_SET_SEQ(LOCK);
+                int8_t idx = macroConfigManager.findByName("Lock");
+                if (idx >= 0) fireMacro(idx);
+
+                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Lock command");
+                break;
+            }
+
+            case PhoneCommand::TRUNK:
+            {
+                LED_SET_SEQ(TRUNK);
+                int8_t idx = macroConfigManager.findByName("Trunk");
+                if (idx >= 0) fireMacro(idx);
+
+                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Trunk command");
+                break;
+            }
+
+            case PhoneCommand::PANIC:
+            {
+                LED_SET_SEQ(PANIC);
+                int8_t idx = macroConfigManager.findByName("Panic");
+                if (idx >= 0) fireMacro(idx);
+
+                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Panic command");
+                break;
+            }
+
+            default:
+                break;
         }
     });
-    
-    accessServiceSetup();   
 
-    // accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
+    /* ---------------- ACCESS SERVICE ---------------- */
 
-    // accessLogger.logBoot();
+    accessServiceSetup();
 
-    // if (!_bootLogged)
-    // {
-    //     _bootLogged = true;
-
-    //     char msg[64];
-    //     snprintf(msg, sizeof(msg),
-    //             "Device boot (reason=%d)", 
-    //             esp_reset_reason());
-
-    //     accessLogger.logSystem(
-    //         LogSource::RFID,
-    //         LogResult::SUCCESS,
-    //         "System",
-    //         msg
-    //     );
-    // }
-
-    ESP_LOGI(TAG, "Device boot completed");
-    ESP_LOGI("BOOT", "Reset reason: %d", esp_reset_reason());
-
+    ESP_LOGI(TAG, "System boot complete");
 }
 
 void loop() {

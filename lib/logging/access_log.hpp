@@ -61,10 +61,10 @@ public:
     //     return -1;
     // }
 
-    int8_t getBootLogIndex() const
-    {
-        return _bootLogIndex;
-    }
+    // int8_t getBootLogIndex() const
+    // {
+    //     return _bootLogIndex;
+    // }
 
     void begin() {
         Preferences prefs;
@@ -106,6 +106,7 @@ public:
     }
 
     void log(LogLevel level, LogSource source, LogResult result, const char* identifier, const char* message) {
+        ESP_LOGW("LOGGER", "LOG from %s : %s", identifier, message);
         ESP_LOGI(LOGTAG, "log() called level=%d source=%d result=%d id=%s msg=%s", 
             (int)level, (int)source, (int)result, identifier, message);
         
@@ -119,7 +120,14 @@ public:
         //     timestamp = _uptimeOffset + millis() / 1000;
         // }
         
+        // uint32_t timestamp = (uint32_t)time(nullptr);
+
         uint32_t timestamp = (uint32_t)time(nullptr);
+
+        /* If system time is not synced yet, use uptime placeholder */
+        if (timestamp < 1700000000) {
+            timestamp = millis() / 1000;
+        }
 
         LogEntry& entry = _entries[_head];
         entry.timestamp = timestamp;
@@ -163,7 +171,7 @@ public:
             "Device boot"
         );
 
-        _bootLogIndex = (_head + LOG_MAX_ENTRIES - 1) % LOG_MAX_ENTRIES;
+        // _bootLogIndex = (_head + LOG_MAX_ENTRIES - 1) % LOG_MAX_ENTRIES;
     }
 
     bool shouldLog(LogLevel level) const {
@@ -220,17 +228,17 @@ public:
 
     const LoggingSettings& getSettings() const { return _settings; }
 
-    // int8_t findBootLogIndex() const {
-    //     for (uint8_t i = 0; i < _count; i++) {
-    //         LogEntry entry;
-    //         if (getEntry(i, entry)) {
-    //             if (strcmp(entry.message, "Device boot") == 0) {
-    //                 return i;
-    //             }
-    //         }
-    //     }
-    //     return -1;
-    // }
+    int8_t findBootLogIndex() const {
+        for (uint8_t i = 0; i < _count; i++) {
+            LogEntry entry;
+            if (getEntry(i, entry)) {
+                if (strstr(entry.message, "Device boot") != nullptr) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
 
     void updateEntryTimestamp(uint8_t index, uint32_t newTimestamp) {
         if (index >= _count) return;
@@ -262,7 +270,7 @@ private:
     LoggingSettings _settings;
 
     bool _bootLogged = false;
-    int8_t _bootLogIndex = -1;
+    // int8_t _bootLogIndex = -1;
 
     void loadEntries() {
         Preferences prefs;
