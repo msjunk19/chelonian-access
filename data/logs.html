@@ -74,6 +74,10 @@
             </svg>
         </button>
 
+        <button class="icon-btn" onclick="toggleTimeFormat()" id="timeFormatBtn" title="Toggle 12h/24h">
+            <span style="font-size:0.8rem" id="timeFormatLabel">24h</span>
+        </button>
+
     </div>
 
     <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
@@ -104,6 +108,17 @@ function toggleDarkMode() {
     document.documentElement.classList.toggle('dark');
     localStorage.setItem('darkMode',
         document.documentElement.classList.contains('dark'));
+}
+
+function toggleTimeFormat() {
+    const is12h = localStorage.getItem('time_12h') === 'true';
+    localStorage.setItem('time_12h', is12h ? 'false' : 'true');
+    document.getElementById('timeFormatLabel').textContent = is12h ? '24h' : '12h';
+    loadLogs();
+}
+
+if (localStorage.getItem('time_12h') === 'true') {
+    document.getElementById('timeFormatLabel').textContent = '12h';
 }
 
 if (localStorage.getItem('darkMode') === 'true' ||
@@ -212,15 +227,45 @@ function formatTime(ts, mode)
     const age = now - ts;
 
     const date = new Date(ts*1000);
-    const hrs = String(date.getHours()).padStart(2,'0');
+    const day = String(date.getDate()).padStart(2,'0');
+    const month = String(date.getMonth()+1).padStart(2,'0');
+    const year = String(date.getFullYear()).slice(-2);
+
+    let hrs = date.getHours();
     const mins = String(date.getMinutes()).padStart(2,'0');
     const secs = String(date.getSeconds()).padStart(2,'0');
-    const month = String(date.getMonth()+1).padStart(2,'0');
-    const day = String(date.getDate()).padStart(2,'0');
-    const timeStr = `${date.getFullYear()}-${month}-${day} ${hrs}:${mins}:${secs}`;
 
-    if(mode === 1 && age < 86400)
-        return `${timeStr} (${age}s ago)`;
+    const use12h = localStorage.getItem('time_12h') === 'true';
+    const ampm = hrs >= 12 ? 'PM' : 'AM';
+    if(use12h) {
+        hrs = hrs % 12;
+        if(hrs === 0) hrs = 12;
+    }
+    const hrsStr = String(hrs).padStart(2,'0');
+
+    const timeOnly = `${hrsStr}:${mins}:${secs}${use12h ? ' ' + ampm : ''}`;
+
+    if(mode === 1) {
+        const nowDate = new Date();
+        const logDate = new Date(ts * 1000);
+        const isToday = nowDate.toDateString() === logDate.toDateString();
+        const yesterday = new Date(nowDate);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = yesterday.toDateString() === logDate.toDateString();
+
+        let dateLabel;
+        if(isToday)
+            dateLabel = 'Today';
+        else if(isYesterday)
+            dateLabel = 'Yesterday';
+        else
+            dateLabel = `${month}-${day}-${year}`;
+
+        if(age < 86400)
+            return `${dateLabel} ${timeOnly} (${age}s ago)`;
+
+        return `${dateLabel} ${timeOnly}`;
+    }
 
     if(age < 60)
         return `${age}s ago`;
@@ -231,7 +276,7 @@ function formatTime(ts, mode)
     if(age < 86400)
         return `${Math.floor(age/3600)}h ago`;
 
-    return timeStr;
+    return `${month}-${day}-${year} ${hrsStr}:${mins}:${secs}`;
 }
 
 function updateRelativeTimes()
@@ -250,25 +295,47 @@ function updateRelativeTimes()
 
         const date = new Date(ts * 1000);
 
-        const hrs = String(date.getHours()).padStart(2,'0');
+        const day = String(date.getDate()).padStart(2,'0');
+        const month = String(date.getMonth()+1).padStart(2,'0');
+        const year = String(date.getFullYear()).slice(-2);
+
+        let hrs = date.getHours();
         const mins = String(date.getMinutes()).padStart(2,'0');
         const secs = String(date.getSeconds()).padStart(2,'0');
-        const month = String(date.getMonth()+1).padStart(2,'0');
-        const day = String(date.getDate()).padStart(2,'0');
 
-        const timeStr =
-            `${date.getFullYear()}-${month}-${day} ${hrs}:${mins}:${secs}`;
+        const use12h = localStorage.getItem('time_12h') === 'true';
+        const ampm = hrs >= 12 ? 'PM' : 'AM';
+        if(use12h) {
+            hrs = hrs % 12;
+            if(hrs === 0) hrs = 12;
+        }
+        const hrsStr = String(hrs).padStart(2,'0');
+        const timeOnly = `${hrsStr}:${mins}:${secs}${use12h ? ' ' + ampm : ''}`;
 
-        // mode=1: always show unix timestamp + relative age
         if(mode === 1) {
-            if(age < 60)
-                el.textContent = `${timeStr} (${age}s ago)`;
-            else if(age < 3600)
-                el.textContent = `${timeStr} (${Math.floor(age/60)}m ago)`;
-            else if(age < 86400)
-                el.textContent = `${timeStr} (${Math.floor(age/3600)}h ago)`;
+            const nowDate = new Date();
+            const logDate = new Date(ts * 1000);
+            const isToday = nowDate.toDateString() === logDate.toDateString();
+            const yesterday = new Date(nowDate);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const isYesterday = yesterday.toDateString() === logDate.toDateString();
+
+            let dateLabel;
+            if(isToday)
+                dateLabel = 'Today';
+            else if(isYesterday)
+                dateLabel = 'Yesterday';
             else
-                el.textContent = timeStr;
+                dateLabel = `${month}-${day}-${year}`;
+
+            if(age < 60)
+                el.textContent = `${dateLabel} ${timeOnly} (${age}s ago)`;
+            else if(age < 3600)
+                el.textContent = `${dateLabel} ${timeOnly} (${Math.floor(age/60)}m ago)`;
+            else if(age < 86400)
+                el.textContent = `${dateLabel} ${timeOnly} (${Math.floor(age/3600)}h ago)`;
+            else
+                el.textContent = `${dateLabel} ${timeOnly}`;
         }
         // mode=0: standalone relative only
         else if(age < 60)

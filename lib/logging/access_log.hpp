@@ -85,6 +85,29 @@ public:
             (unsigned long)_syncUnix,
             (unsigned long)_syncUptime
         );
+
+        if (_count > 0) {
+            Serial.println("Backfilling mode=0 logs with absolute timestamps...");
+            _backfillLogs();
+        }
+    }
+
+    void _backfillLogs()
+    {
+        for (uint8_t i = 0; i < _count; i++)
+        {
+            if (_entries[i].timeMode == 0)
+            {
+                uint32_t uptimeAtLog = _entries[i].timestamp;
+                _entries[i].timestamp = _syncUnix + (uptimeAtLog - _syncUptime);
+                _entries[i].timeMode = 1;
+                Serial.print("Backfilled log entry ");
+                Serial.print(i);
+                Serial.print(": ");
+                Serial.println(_entries[i].timestamp);
+            }
+        }
+        saveAllEntries();
     }
 
     // ======================================================
