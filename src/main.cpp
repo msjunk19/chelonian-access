@@ -74,37 +74,28 @@ void debugTime()
 
 void setup()
 {
-    setupGlobalExceptionHandler();
-
     Serial.begin(115200);
     delay(500);
+
+    accessLogger.begin();
+    Serial.print("Log count after begin: ");
+    Serial.println(accessLogger.getCount());
+
+    setupGlobalExceptionHandler();
+
+
 
     ESP_LOGI(TAG, "Chelonian Access Service starting");
 
     ESP_LOGI("BOOT", "Reset reason: %d", esp_reset_reason());
 
-    /* ---------------- LOGGING ---------------- */
+    static int setup_calls = 0;
+    setup_calls++;
+    Serial.print("setup() #");
+    Serial.println(setup_calls);
+    Serial.println(millis());
+    delay(10);  // ensure serial flush
 
-    accessLogger.begin();
-
-    /* Log boot exactly once */
-    static bool bootLogged = false;
-
-    if (!bootLogged) {
-        bootLogged = true;
-
-        char msg[64];
-        snprintf(msg, sizeof(msg),
-            "Device boot (reason=%d)",
-            esp_reset_reason());
-
-        accessLogger.logSystem(
-            LogSource::RFID,
-            LogResult::SUCCESS,
-            "System",
-            msg
-        );
-    }
 
     /* ---------------- LOAD STORED DATA ---------------- */
 
@@ -226,14 +217,53 @@ void setup()
         }
     });
 
+    /* ---------------- LOGGING ---------------- */
+
+
+
     /* ---------------- ACCESS SERVICE ---------------- */
 
     accessServiceSetup();
 
-    ESP_LOGI(TAG, "System boot complete");
     
     debugTime();
 
+
+
+    // /* Log boot exactly once */
+    // static bool bootLogged = false;
+
+    // if (!bootLogged) {
+    //     bootLogged = true;
+
+    //     char msg[64];
+    //     snprintf(msg, sizeof(msg),
+    //         "Device boot (reason=%d)",
+    //         esp_reset_reason());
+
+    //     accessLogger.logSystem(
+    //         LogSource::RFID,
+    //         LogResult::SUCCESS,
+    //         "System",
+    //         msg
+    //     );
+    // }
+    for (int i = 0; i < accessLogger.getCount(); i++) {
+        LogEntry e;
+        accessLogger.getEntry(i, e);
+        Serial.print("Entry ");
+        Serial.print(i);
+        Serial.print(": ts=");
+        Serial.print(e.timestamp);
+        Serial.print(" mode=");
+        Serial.print(e.timeMode);
+        Serial.print(" id=");
+        Serial.print(e.identifier);
+        Serial.print(" msg=");
+        Serial.println(e.message);
+    }
+
+    ESP_LOGI(TAG, "System boot complete");
 
     
 }
@@ -246,4 +276,11 @@ void loop() {
     handleClient();
     bleManager.update();
     bleManager.updatePairingWindow();
+    static int loop_calls = 0;
+loop_calls++;
+if (loop_calls <= 5) {
+    Serial.print("loop() #");
+    Serial.println(loop_calls);
+}
+
 }

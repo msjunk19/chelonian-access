@@ -9,6 +9,8 @@
 static const char* LOGTAG   = "LOG";
 static const char* TIMETAG  = "TIME_TRACE";
 
+static int totalLogCalls = 0;
+
 #define LOG_NAMESPACE     "access_log"
 #define LOG_SETTINGS_NS   "log_settings"
 #define LOG_MAX_ENTRIES   50
@@ -21,15 +23,26 @@ enum class LogResult : uint8_t { FAIL = 0, SUCCESS = 1 };
 // ENTRY
 // ======================================================
 
-struct LogEntry {
-    uint32_t timestamp;   // unix OR uptime
-    uint8_t  timeMode;    // 0 = uptime, 1 = unix
-    uint8_t  level;
-    uint8_t  source;
-    uint8_t  result;
-    char identifier[32];
-    char message[64];
-};
+    struct LogEntry {
+        uint32_t timestamp;
+        uint8_t  timeMode;
+        uint8_t  level;
+        uint8_t  source;
+        uint8_t  result;
+        char identifier[32];
+        char message[64];
+
+        LogEntry() {
+            Serial.println("LogEntry constructed");  // Add this
+            timestamp = 0;
+            timeMode = 0;
+            level = 0;
+            source = 0;
+            result = 0;
+            identifier[0] = '\0';
+            message[0] = '\0';
+        }
+    };
 
 // ======================================================
 // SETTINGS
@@ -62,6 +75,8 @@ public:
 
     void setSystemTime(uint32_t unixTime)
     {
+        if (_timeSynced) return;  // Don't backfill if already synced
+    
         _syncUnix   = unixTime;
         _syncUptime = millis() / 1000;
         _timeSynced = true;
@@ -117,6 +132,21 @@ public:
     void begin()
     {
         Preferences prefs;
+            // Clear NVS on each boot to start fresh
+        // Preferences prefs;
+        // prefs.begin(LOG_NAMESPACE, false);
+        // prefs.clear();
+        // prefs.end();
+    
+        // First ensure namespace exists with defaults
+        prefs.begin(LOG_SETTINGS_NS, false);
+        prefs.putBool("enabled", true);
+        prefs.putBool("log_access", true);
+        prefs.putBool("log_system", true);
+        prefs.putBool("log_debug", false);
+        prefs.end();
+        
+        // Then read
         prefs.begin(LOG_SETTINGS_NS, true);
 
         _settings.enabled    = prefs.getBool("enabled", true);
@@ -127,6 +157,21 @@ public:
         prefs.end();
 
         loadEntries();
+
+        Serial.print("After load - _head=");
+        Serial.print(_head);
+        Serial.print(" _count=");
+        Serial.println(_count);
+
+        for (int i = 0; i < LOG_MAX_ENTRIES; i++) {
+            if (_entries[i].identifier[0] != '\0') {
+                Serial.print("Array slot ");
+                Serial.print(i);
+                Serial.print(": ");
+                Serial.println(_entries[i].identifier);
+            }
+        }
+
         _bootLogged = false;
     }
 
@@ -141,6 +186,19 @@ public:
              const char* message,
              int32_t externalTimestamp = -1)
     {
+    totalLogCalls++;
+    Serial.print("log() call #");
+    Serial.println(totalLogCalls);
+
+    Serial.print("[");
+    Serial.print(millis());
+    Serial.print("] LOG: id=");
+    Serial.print(identifier);
+    Serial.print(" msg=");
+    Serial.println(message);
+    Serial.print("  backtrace:");
+    Serial.println(esp_get_free_heap_size());
+
         if (!shouldLog(level))
             return;
 
@@ -203,16 +261,16 @@ public:
     void logDebug(LogSource s, LogResult r, const char* id, const char* msg)
         { log(LogLevel::DEBUG, s, r, id, msg); }
 
-    void logBoot()
-    {
-        if (_bootLogged) return;
-        _bootLogged = true;
+    // void logBoot()
+    // {
+    //     if (_bootLogged) return;
+    //     _bootLogged = true;
 
-        logSystem(LogSource::RFID,
-                  LogResult::SUCCESS,
-                  "System",
-                  "Device boot");
-    }
+    //     logSystem(LogSource::RFID,
+    //               LogResult::SUCCESS,
+    //               "System",
+    //               "Device boot");
+    // }
 
     // ======================================================
     // TIME RESOLVE (FIXED DISPLAY LOGIC)
@@ -285,6 +343,7 @@ public:
 
     const LoggingSettings& getSettings() const { return _settings; }
     uint16_t getCount() const { return _count; }
+    uint8_t getHead() const { return _head; }  // Add this line
 
     bool getEntry(uint8_t index, LogEntry& out) const
     {
@@ -329,17 +388,23 @@ private:
 
     void loadEntries()
     {
+        
         Preferences prefs;
         prefs.begin(LOG_NAMESPACE, true);
 
         _count = prefs.getUChar("count", 0);
-        if (_count > LOG_MAX_ENTRIES) _count = 0;
-
+        Serial.print("LOAD: _count from NVS=");
+        Serial.println(_count);
+        
         for (uint8_t i = 0; i < _count; i++)
         {
             char key[8];
             snprintf(key, sizeof(key), "log_%u", i);
             prefs.getBytes(key, &_entries[i], sizeof(LogEntry));
+            Serial.print("LOAD entry ");
+            Serial.print(i);
+            Serial.print(": ts=");
+            Serial.println(_entries[i].timestamp);
         }
 
         _head = _count % LOG_MAX_ENTRIES;
@@ -348,6 +413,9 @@ private:
 
     void saveAllEntries()
     {
+        Serial.print("SAVE: _count=");
+        Serial.println(_count);
+
         Preferences prefs;
         prefs.begin(LOG_NAMESPACE, false);
 

@@ -22,7 +22,7 @@ extern AuthManager authManager;
 extern AccessLogger accessLogger;
 
 // Max allowed clock drift between phone and device (seconds)
-static constexpr uint32_t CMD_TIMESTAMP_WINDOW = 30;
+// static constexpr uint32_t CMD_TIMESTAMP_WINDOW = 30;
 
 
 // -------------------------
@@ -616,17 +616,17 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
             return;
         }
 
-        if (authManager.isTimeSynced()) {
-            uint32_t now = authManager.getCurrentTime();
-            int32_t drift = (int32_t)timestamp - (int32_t)now;
-            if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
-                drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
-                ESP_LOGW(WIFIAUTHTAG, "Reboot timestamp rejected — drift: %ld seconds", drift);
-                sendJsonError(400, "Timestamp expired");
-                return;
-            }
-            ESP_LOGI(WIFIAUTHTAG, "Reboot timestamp OK — drift: %ld seconds", drift);
-        }
+        // if (authManager.isTimeSynced()) {
+        //     uint32_t now = authManager.getCurrentTime();
+        //     int32_t drift = (int32_t)timestamp - (int32_t)now;
+        //     if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
+        //         drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
+        //         ESP_LOGW(WIFIAUTHTAG, "Reboot timestamp rejected — drift: %ld seconds", drift);
+        //         sendJsonError(400, "Timestamp expired");
+        //         return;
+        //     }
+        //     ESP_LOGI(WIFIAUTHTAG, "Reboot timestamp OK — drift: %ld seconds", drift);
+        // }
 
         ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API by %s", deviceId);
         server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -638,3 +638,6 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
         delay(1000);
         ESP.restart();
     });
+
+    ESP_LOGI(WIFIAUTHTAG, "Auth endpoints registered");
+}

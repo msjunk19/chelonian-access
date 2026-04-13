@@ -48,6 +48,7 @@ const unsigned long AUDIO_DEFAULT_VOLUME = 20;
 
 // Replay Attack Protection
 static constexpr uint32_t CMD_TIMESTAMP_WINDOW_MS = 30; //In seconds
+static constexpr uint32_t CMD_TIMESTAMP_WINDOW = 30;
 
 static constexpr uint32_t BOOT_PLACEHOLDER_MAX = 60;
 static constexpr uint32_t AUTH_TIMESTAMP_WINDOW = 30;
