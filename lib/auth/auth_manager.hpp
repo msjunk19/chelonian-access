@@ -90,9 +90,6 @@ public:
 
     void syncTime(uint32_t phoneEpoch)
     {
-        if (_timeSynced)
-            return;
-
         uint32_t elapsed = (millis() - _bootMillis) / 1000;
         uint32_t bootEpoch = phoneEpoch - elapsed;
 
@@ -102,17 +99,14 @@ public:
 
         settimeofday(&tv, nullptr);
 
-        // int8_t bootIdx = accessLogger.getBootLogIndex();
-        int8_t bootIdx = accessLogger.findBootLogIndex();
-
-        if (bootIdx >= 0)
-        {
-            accessLogger.updateEntryTimestamp(bootIdx, bootEpoch);
-        }
+        accessLogger.setSystemTime(phoneEpoch);
 
         _timeSynced = true;
 
-        ESP_LOGI(AUTHTAG, "System time synced: %lu", phoneEpoch);
+        ESP_LOGI(AUTHTAG,
+                "Time sync: phone=%lu elapsed=%lus",
+                phoneEpoch,
+                elapsed);
     }
 
     // void syncTime(uint32_t phoneEpoch)
@@ -188,6 +182,7 @@ public:
         return _timeSynced;
     }
 
+    
 private:
 
     PhoneTokenManager& _tokens;

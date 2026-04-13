@@ -197,7 +197,7 @@ public:
 
     void refreshLogsChar() {
         if (_logGetChar) {
-            String json = accessLogger.getLogsJson();
+            String json = accessLogger.getLogsJson(-1, 0);
             _logGetChar->setValue(json.c_str());
             ESP_LOGI(BLETAG, "Logs refreshed (%d bytes): %s", json.length(), json.c_str());
             ESP_LOGI(BLETAG, "Log count: %u", accessLogger.getCount());
@@ -532,7 +532,7 @@ private:
         LogGetCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
         void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-            String json = accessLogger.getLogsJson();
+            String json = accessLogger.getLogsJson(-1, 0);
             pChar->setValue(json.c_str());
         }
     private:
@@ -734,7 +734,7 @@ private:
     public:
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             ESP_LOGI(BLETAG, "Reboot command received");
-            delay(50);
+            delay(1000);
             ESP.restart();
         }
     };

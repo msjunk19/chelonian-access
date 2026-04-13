@@ -42,6 +42,36 @@ static const char* TAG = "Main";
 
 // static bool bootLogged = false;
 
+void debugTime()
+{
+    time_t now = time(nullptr);
+
+    Serial.println("---- TIME DEBUG ----");
+    Serial.print("millis(): ");
+    Serial.println(millis());
+
+    Serial.print("time(nullptr): ");
+    Serial.println((uint32_t)now);
+
+    struct tm timeinfo;
+    if (localtime_r(&now, &timeinfo))
+    {
+        Serial.printf("Readable: %04d-%02d-%02d %02d:%02d:%02d\n",
+            timeinfo.tm_year + 1900,
+            timeinfo.tm_mon + 1,
+            timeinfo.tm_mday,
+            timeinfo.tm_hour,
+            timeinfo.tm_min,
+            timeinfo.tm_sec);
+    }
+    else
+    {
+        Serial.println("localtime failed");
+    }
+
+    Serial.println("--------------------");
+}
+
 void setup()
 {
     setupGlobalExceptionHandler();
@@ -201,6 +231,11 @@ void setup()
     accessServiceSetup();
 
     ESP_LOGI(TAG, "System boot complete");
+    
+    debugTime();
+
+
+    
 }
 
 void loop() {

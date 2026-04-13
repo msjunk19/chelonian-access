@@ -478,7 +478,9 @@ inline void handleGetLogs() {
     if (server.hasArg("level")) {
         level = (int8_t)server.arg("level").toInt();
     }
-    String json = accessLogger.getLogsJson(level);
+    // String json = accessLogger.getLogsJson(level);
+    uint32_t clientTime = server.arg("timestamp").toInt();
+    String json = accessLogger.getLogsJson(level, clientTime);
     server.send(200, "application/json", json);
 }
 
@@ -633,66 +635,66 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
         String body;
         serializeJson(resp, body);
         server.send(200, "application/json", body);
-        delay(100);
+        delay(1000);
         ESP.restart();
     });
 
-    server.on("/settime", HTTP_POST, []() {
-        if (!server.hasArg("plain")) {
-            sendJsonError(400, "Missing body");
-            return;
-        }
+    // server.on("/settime", HTTP_POST, []() {
+    //     if (!server.hasArg("plain")) {
+    //         sendJsonError(400, "Missing body");
+    //         return;
+    //     }
 
-        JsonDocument doc;
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-            sendJsonError(400, "Invalid JSON");
-            return;
-        }
+    //     JsonDocument doc;
+    //     if (deserializeJson(doc, server.arg("plain"))) {
+    //         sendJsonError(400, "Invalid JSON");
+    //         return;
+    //     }
 
-        const char* deviceId = doc["device_id"];
-        const char* token    = doc["token"];
-        uint32_t    timestamp = doc["timestamp"] | 0;
+    //     const char* deviceId = doc["device_id"];
+    //     const char* token    = doc["token"];
+    //     uint32_t    ts       = doc["timestamp"] | 0;
 
-        if (!deviceId || !token) {
-            sendJsonError(400, "Missing device_id or token");
-            return;
-        }
+    //     if (!deviceId || !token) {
+    //         sendJsonError(400, "Missing fields");
+    //         return;
+    //     }
 
-        // Validate token
-        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
-        if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
-            sendJsonError(401, "Unknown device");
-            return;
-        }
+    //     uint8_t storedToken[PHONE_SECRET_LEN] = {0};
 
-        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
-        memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+    //     if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+    //         sendJsonError(401, "Unknown device");
+    //         return;
+    //     }
 
-        uint8_t diff = 0;
-        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
-            diff |= storedToken[i] ^ incomingToken[i];
-        }
+    //     uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+    //     memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
 
-        if (diff != 0) {
-            sendJsonError(401, "Unauthorized");
-            return;
-        }
+    //     uint8_t diff = 0;
+    //     for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+    //         diff |= storedToken[i] ^ incomingToken[i];
+    //     }
 
-        // Sync time
-        uint32_t phoneTimestamp = doc["timestamp"] | 0;
-        if (phoneTimestamp > 1000000000) {
-            authManager.syncTime(phoneTimestamp);
-            accessLogger.clear();
-            ESP_LOGI(WIFIAUTHTAG, "Time synced via /settime: %lu", phoneTimestamp);
-        }
+    //     if (diff != 0) {
+    //         sendJsonError(401, "Unauthorized");
+    //         return;
+    //     }
 
-        JsonDocument resp;
-        resp["ok"] = true;
-        String body;
-        serializeJson(resp, body);
-        server.send(200, "application/json", body);
-    });
+    //     // ---------------- TIME SYNC ----------------
+    //     if (ts > 1000000000) {
+    //         authManager.syncTime(ts);
+
+    //         accessLogger.setSystemTime(ts);
+
+    //         ESP_LOGI(WIFIAUTHTAG,
+    //                 "TIME SYNC OK unix=%lu uptime=%lu",
+    //                 ts, millis()/1000);
+    //     }
+
+    //     JsonDocument resp;
+    //     resp["ok"] = true;
+    //     server.send(200, "application/json", resp.as<String>());
+    // });
 
     ESP_LOGI(WIFIAUTHTAG, "Auth endpoints registered");
 }
