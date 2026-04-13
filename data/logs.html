@@ -259,8 +259,18 @@ function updateRelativeTimes()
         const timeStr =
             `${date.getFullYear()}-${month}-${day} ${hrs}:${mins}:${secs}`;
 
-        if(mode === 1 && age < 86400)
-            el.textContent = `${timeStr} (${age}s ago)`;
+        // mode=1: always show unix timestamp + relative age
+        if(mode === 1) {
+            if(age < 60)
+                el.textContent = `${timeStr} (${age}s ago)`;
+            else if(age < 3600)
+                el.textContent = `${timeStr} (${Math.floor(age/60)}m ago)`;
+            else if(age < 86400)
+                el.textContent = `${timeStr} (${Math.floor(age/3600)}h ago)`;
+            else
+                el.textContent = timeStr;
+        }
+        // mode=0: standalone relative only
         else if(age < 60)
             el.textContent = `${age}s ago`;
         else if(age < 3600)
