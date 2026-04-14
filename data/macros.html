@@ -132,6 +132,17 @@
             document.getElementById('modal-overlay').classList.remove('active');
         }
 
+        async function getNonce() {
+            try {
+                const resp = await fetch('/api/nonce');
+                const data = await resp.json();
+                return data.nonce;
+            } catch (e) {
+                console.error('Failed to get nonce:', e);
+                return null;
+            }
+        }
+
         async function pairNow() {
             document.getElementById('pairStatus').style.display = 'block';
             document.getElementById('pairStatus').innerText = 'Pairing...';
@@ -341,16 +352,24 @@
             const btn = document.querySelector('.mini-save-btn');
             btn.classList.add('btn-pressed');
 
-            const payload = {
-                device_id: pairing.id,
-                token: pairing.token,
-                timestamp: Math.floor(Date.now() / 1000),
-                macro_count: macros.length,
-                tag_macro: parseInt(document.getElementById('tagMacro').value),
-                macros: macros
-            };
-
             try {
+                const nonce = await getNonce();
+                if (!nonce) {
+                    showError('Failed to get nonce');
+                    btn.classList.remove('btn-pressed');
+                    return;
+                }
+
+                const payload = {
+                    device_id: pairing.id,
+                    token: pairing.token,
+                    timestamp: Math.floor(Date.now() / 1000),
+                    nonce: nonce,
+                    macro_count: macros.length,
+                    tag_macro: parseInt(document.getElementById('tagMacro').value),
+                    macros: macros
+                };
+
                 const resp = await fetch('/api/macros', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -360,7 +379,13 @@
                 if (data.ok) {
                     document.getElementById('saveModal').classList.add('active');
                 } else {
-                    showError(data.error || 'Failed to save');
+                    if (data.error === 'Nonce already used (replay attack)') {
+                        showError('Replay attack detected - please try again');
+                    } else if (resp.status === 401) {
+                        showPairingLostModal();
+                    } else {
+                        showError(data.error || 'Failed to save');
+                    }
                 }
             } catch(e) {
                 showError('Network error - save failed');
@@ -382,16 +407,25 @@
 
             macros.forEach(m => m.step_count = m.steps.length);
 
-            const payload = {
-                device_id: pairing.id,
-                token: pairing.token,
-                timestamp: Math.floor(Date.now() / 1000),
-                macro_count: macros.length,
-                tag_macro: parseInt(document.getElementById('tagMacro').value),
-                macros: macros
-            };
-
             try {
+                const nonce = await getNonce();
+                if (!nonce) {
+                    showError('Failed to get nonce');
+                    btn.disabled = false;
+                    btn.classList.remove('btn-pressed');
+                    return;
+                }
+
+                const payload = {
+                    device_id: pairing.id,
+                    token: pairing.token,
+                    timestamp: Math.floor(Date.now() / 1000),
+                    nonce: nonce,
+                    macro_count: macros.length,
+                    tag_macro: parseInt(document.getElementById('tagMacro').value),
+                    macros: macros
+                };
+
                 const resp = await fetch('/api/macros', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -401,7 +435,13 @@
                 if (data.ok) {
                     document.getElementById('saveModal').classList.add('active');
                 } else {
-                    showError(data.error || 'Failed to save');
+                    if (data.error === 'Nonce already used (replay attack)') {
+                        showError('Replay attack detected - please try again');
+                    } else if (resp.status === 401) {
+                        showPairingLostModal();
+                    } else {
+                        showError(data.error || 'Failed to save');
+                    }
                 }
             } catch(e) {
                 showError('Network error - save failed');

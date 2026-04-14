@@ -8,22 +8,19 @@
 #include <led_states.hpp>
 #include <access_log.hpp>
 #include <config.hpp>
+#include <replay_protection.hpp>
 
 static const char* WIFIAUTHTAG = "WIFIAUTH";
 
 static bool pairingWindowOpen = false;
 static uint32_t pairingWindowStart = 0;
-// static constexpr uint32_t PAIRING_WINDOW_MS = 60000;
 
 extern WebServer server;
 extern PhoneTokenManager phoneTokenManager;
 extern MacroConfigManager macroConfigManager;
 extern AuthManager authManager;
 extern AccessLogger accessLogger;
-
-// Max allowed clock drift between phone and device (seconds)
-// static constexpr uint32_t CMD_TIMESTAMP_WINDOW = 30;
-
+extern ReplayProtector replayProtector;
 
 // -------------------------
 // Pairing window control
@@ -33,7 +30,6 @@ inline void openPairingWindow() {
     pairingWindowStart = millis();
     ESP_LOGI(WIFIAUTHTAG, "Pairing window opened (60s)");
     LED_SET_SEQ(SYSTEM_PAIR);
-
 }
 
 inline void updatePairingWindow() {
@@ -75,8 +71,50 @@ inline String generateToken() {
 }
 
 // -------------------------
+// Helper — convert hex string to bytes
+
+inline bool hexStringToBytes(const char* hexStr, uint8_t* bytesOut, size_t bytesLen) {
+    if (!hexStr || strlen(hexStr) != bytesLen * 2) {
+        return false;
+    }
+    
+    for (size_t i = 0; i < bytesLen; i++) {
+        char byte[3] = { hexStr[i*2], hexStr[i*2+1], 0 };
+        bytesOut[i] = (uint8_t)strtol(byte, nullptr, 16);
+    }
+    
+    return true;
+}
+
+// -------------------------
+// GET /api/nonce
+// Returns fresh nonce for client to use in next command
+
+inline void handleGetNonce() {
+    uint8_t nonce[16];
+    replayProtector.generateNonce(nonce);
+    
+    // Convert to hex string
+    char nonceHex[33];
+    for (int i = 0; i < 16; i++) {
+        snprintf(nonceHex + i*2, 3, "%02x", nonce[i]);
+    }
+    nonceHex[32] = 0;
+    
+    JsonDocument resp;
+    resp["nonce"] = nonceHex;
+    resp["timestamp"] = (uint32_t)(time(nullptr));
+    
+    String body;
+    serializeJson(resp, body);
+    server.send(200, "application/json", body);
+    
+    ESP_LOGD(WIFIAUTHTAG, "Nonce generated and sent to client");
+}
+
+// -------------------------
 // POST /pair
-// Body: { "device_id": "uuid-string" }
+// Body: { "device_id": "uuid-string", "timestamp": unix_timestamp }
 // Response: { "ok": true, "token": "32-char-hex" }
 
 inline void handlePair() {
@@ -106,7 +144,7 @@ inline void handlePair() {
 
     // Sync time if phone sends timestamp
     uint32_t phoneTimestamp = doc["timestamp"] | 0;
-    if (phoneTimestamp > 1000000000) { // sanity check: must be reasonable Unix time
+    if (phoneTimestamp > 1000000000) {
         authManager.syncTime(phoneTimestamp);
         accessLogger.clear(); // Clear old logs with wrong timestamps
     }
@@ -119,7 +157,7 @@ inline void handlePair() {
     memcpy(tokenBytes, token.c_str(), min((size_t)PHONE_SECRET_LEN, token.length()));
 
     // Try to add — if already paired, update the token
-    phoneTokenManager.removePhone(deviceId); // remove old entry if exists
+    phoneTokenManager.removePhone(deviceId);
     if (!phoneTokenManager.addPhone(deviceId, tokenBytes)) {
         sendJsonError(409, "Storage full");
         return;
@@ -138,7 +176,8 @@ inline void handlePair() {
 
 // -------------------------
 // POST /cmd
-// Body: { "device_id": "uuid", "token": "32-char-hex", "command": 1, "timestamp": 1234567890 }
+// Body: { "device_id": "uuid", "token": "32-char-hex", "command": 1, 
+//         "timestamp": 1234567890, "nonce": "32-char-hex" }
 // Response: { "ok": true, "status": "unlocked" }
 
 inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
@@ -158,14 +197,10 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
     const char* token    = doc["token"];
     uint8_t     command  = doc["command"] | 0;
     uint32_t    timestamp = doc["timestamp"] | 0;
+    const char* nonceHex = doc["nonce"];
 
-    if (!deviceId || !token || command == 0) {
-        sendJsonError(400, "Missing required fields");
-        return;
-    }
-
-    if (timestamp == 0) {
-        sendJsonError(400, "Timestamp required for replay protection");
+    if (!deviceId || !token || command == 0 || !nonceHex) {
+        sendJsonError(400, "Missing required fields (device_id, token, command, nonce)");
         return;
     }
 
@@ -174,6 +209,27 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
         return;
     }
 
+    if (strlen(nonceHex) != 32) {
+        sendJsonError(400, "Invalid nonce format");
+        return;
+    }
+
+    // Convert hex nonce to bytes
+    uint8_t nonce[16];
+    if (!hexStringToBytes(nonceHex, nonce, 16)) {
+        sendJsonError(400, "Invalid nonce hex encoding");
+        return;
+    }
+
+    // ========== NONCE VALIDATION (PRIMARY PROTECTION) ==========
+    if (!replayProtector.validateAndConsumeNonce(nonce)) {
+        ESP_LOGW(WIFIAUTHTAG, "Nonce replay detected from %s", deviceId);
+        accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Replay attack detected");
+        sendJsonError(401, "Nonce already used (replay attack)");
+        return;
+    }
+    // ===========================================================
+
     // Look up stored token for this device
     uint8_t storedToken[PHONE_SECRET_LEN] = {0};
     if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
@@ -181,7 +237,7 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
         return;
     }
 
-    // Constant-time compare
+    // Constant-time compare tokens
     uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
     memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
 
@@ -192,42 +248,35 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
 
     if (diff != 0) {
         ESP_LOGW(WIFIAUTHTAG, "Invalid token for device: %s", deviceId);
-        accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId ? deviceId : "?", "Auth failed");
+        accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Auth failed");
         sendJsonError(401, "Unauthorized");
         return;
     }
 
-    // Sync time from the incoming timestamp (keeps time fresh)
+    // Soft timestamp check (non-blocking, informational)
     if (timestamp > 1000000000) {
         authManager.syncTime(timestamp);
+        
+        if (authManager.isTimeSynced()) {
+            uint32_t now = authManager.getCurrentTime();
+            int32_t drift = (int32_t)timestamp - (int32_t)now;
+            if (drift > 60 || drift < -60) {
+                ESP_LOGW(WIFIAUTHTAG, "Large clock drift detected: %ld seconds", drift);
+                // Log but don't reject - nonce is primary protection
+            }
+        }
     }
-
-    // Validate timestamp to prevent replay attacks
-    // COMMENTED OUT
-    // if (authManager.isTimeSynced()) {
-    //     uint32_t now = authManager.getCurrentTime();
-    //     int32_t drift = (int32_t)timestamp - (int32_t)now;
-    //     if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
-    //         drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
-    //         ESP_LOGW(WIFIAUTHTAG, "Timestamp rejected — drift: %ld seconds (cmd from %s)", drift, deviceId);
-    //         accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Timestamp expired");
-    //         sendJsonError(400, "Timestamp expired");
-    //         return;
-    //     }
-    //     ESP_LOGI(WIFIAUTHTAG, "Timestamp OK — drift: %ld seconds", drift);
-    // }
 
     // Dispatch command
     PhoneCommand cmd = static_cast<PhoneCommand>(command);
     onCommand(cmd);
 
-    // Log successful command
     const char* cmdName = "unknown";
     switch (cmd) {
         case PhoneCommand::UNLOCK: cmdName = "Unlock"; break;
         case PhoneCommand::LOCK:   cmdName = "Lock";   break;
         case PhoneCommand::TRUNK:  cmdName = "Trunk";  break;
-        case PhoneCommand::PANIC:  cmdName = "Panic";   break;
+        case PhoneCommand::PANIC:  cmdName = "Panic";  break;
         default: break;
     }
     accessLogger.logAccess(LogSource::WIFI, LogResult::SUCCESS, deviceId, cmdName);
@@ -308,6 +357,7 @@ inline void handleUnpair() {
 
 // GET /api/macros
 // Returns full macro config as JSON
+
 inline void handleGetMacros() {
     // [AUTO-SYNC] Sync time if phone sends timestamp in query string
     uint32_t phoneTimestamp = server.arg("timestamp").toInt();
@@ -342,7 +392,8 @@ inline void handleGetMacros() {
 }
 
 // POST /api/macros
-// Body: same structure as GET response
+// Body: same structure as GET response + auth fields + nonce
+
 inline void handleSetMacros() {
     if (!server.hasArg("plain")) {
         sendJsonError(400, "Missing body");
@@ -359,52 +410,57 @@ inline void handleSetMacros() {
     const char* deviceId = doc["device_id"];
     const char* token    = doc["token"];
     uint32_t    timestamp = doc["timestamp"] | 0;
+    const char* nonceHex = doc["nonce"];
 
-    // COMMENTED OUT AUTH
-    // if (!deviceId || !token) {
-    //     sendJsonError(400, "Missing device_id or token");
-    //     return;
-    // }
+    if (!deviceId || !token || !nonceHex) {
+        sendJsonError(400, "Missing required fields");
+        return;
+    }
 
-    // if (strlen(token) != 32) {
-    //     sendJsonError(400, "Invalid token length");
-    //     return;
-    // }
+    if (strlen(token) != 32) {
+        sendJsonError(400, "Invalid token length");
+        return;
+    }
 
-    // // Look up stored token
-    // uint8_t storedToken[PHONE_SECRET_LEN] = {0};
-    // if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
-    //     sendJsonError(401, "Unknown device");
-    //     return;
-    // }
+    if (strlen(nonceHex) != 32) {
+        sendJsonError(400, "Invalid nonce format");
+        return;
+    }
 
-    // // Constant-time compare
-    // uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
-    // memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+    // Convert hex nonce to bytes
+    uint8_t nonce[16];
+    if (!hexStringToBytes(nonceHex, nonce, 16)) {
+        sendJsonError(400, "Invalid nonce hex encoding");
+        return;
+    }
 
-    // uint8_t diff = 0;
-    // for (int i = 0; i < PHONE_SECRET_LEN; i++) {
-    //     diff |= storedToken[i] ^ incomingToken[i];
-    // }
+    // ========== NONCE VALIDATION ==========
+    if (!replayProtector.validateAndConsumeNonce(nonce)) {
+        ESP_LOGW(WIFIAUTHTAG, "Nonce replay detected in macro save from %s", deviceId);
+        sendJsonError(401, "Nonce already used (replay attack)");
+        return;
+    }
+    // =====================================
 
-    // if (diff != 0) {
-    //     sendJsonError(401, "Unauthorized");
-    //     return;
-    // }
+    // Verify token
+    uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+    if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+        sendJsonError(401, "Unknown device");
+        return;
+    }
 
-    // Validate timestamp (skip if time not yet synced)
-    // COMMENTED OUT TIMESTAMP
-    // if (authManager.isTimeSynced() && timestamp > 0) {
-    //     uint32_t now = authManager.getCurrentTime();
-    //     int32_t drift = (int32_t)timestamp - (int32_t)now;
-    //     if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
-    //         drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
-    //         sendJsonError(401, "Timestamp expired");
-    //         return;
-    //     }
-    // }
+    uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+    memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
 
-    // Check for required fields (minimal check only)
+    uint8_t diff = 0;
+    for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+        diff |= storedToken[i] ^ incomingToken[i];
+    }
+
+    if (diff != 0) {
+        sendJsonError(401, "Unauthorized");
+        return;
+    }
 
     uint8_t count = doc["macro_count"] | 0;
     if (count == 0 || count > MAX_MACROS) {
@@ -467,6 +523,7 @@ inline void handleSetMacros() {
 }
 
 // GET /api/logs
+
 inline void handleGetLogs() {
     // [AUTO-SYNC] Sync time if phone sends timestamp in query string
     uint32_t phoneTimestamp = server.arg("timestamp").toInt();
@@ -478,13 +535,14 @@ inline void handleGetLogs() {
     if (server.hasArg("level")) {
         level = (int8_t)server.arg("level").toInt();
     }
-    // String json = accessLogger.getLogsJson(level);
+    
     uint32_t clientTime = server.arg("timestamp").toInt();
     String json = accessLogger.getLogsJson(level, clientTime);
     server.send(200, "application/json", json);
 }
 
 // POST /api/logs/clear
+
 inline void handleClearLogs() {
     if (!server.hasArg("plain")) {
         sendJsonError(400, "Missing body");
@@ -540,104 +598,117 @@ inline void handleClearLogs() {
     server.send(200, "application/json", body);
 }
 
+// POST /api/reboot
+
+inline void handleReboot() {
+    if (!server.hasArg("plain")) {
+        sendJsonError(400, "Missing body");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    if (err) {
+        sendJsonError(400, "Invalid JSON");
+        return;
+    }
+
+    const char* deviceId = doc["device_id"];
+    const char* token    = doc["token"];
+    uint32_t    timestamp = doc["timestamp"] | 0;
+    const char* nonceHex = doc["nonce"];
+
+    if (!deviceId || !token || !nonceHex) {
+        sendJsonError(400, "Missing required fields");
+        return;
+    }
+
+    if (timestamp == 0) {
+        sendJsonError(400, "Timestamp required for replay protection");
+        return;
+    }
+
+    if (strlen(token) != 32) {
+        sendJsonError(400, "Invalid token length");
+        return;
+    }
+
+    if (strlen(nonceHex) != 32) {
+        sendJsonError(400, "Invalid nonce format");
+        return;
+    }
+
+    // Convert hex nonce to bytes
+    uint8_t nonce[16];
+    if (!hexStringToBytes(nonceHex, nonce, 16)) {
+        sendJsonError(400, "Invalid nonce hex encoding");
+        return;
+    }
+
+    // ========== NONCE VALIDATION ==========
+    if (!replayProtector.validateAndConsumeNonce(nonce)) {
+        ESP_LOGW(WIFIAUTHTAG, "Nonce replay detected in reboot from %s", deviceId);
+        sendJsonError(401, "Nonce already used (replay attack)");
+        return;
+    }
+    // =====================================
+
+    uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+    if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
+        sendJsonError(401, "Unknown device");
+        return;
+    }
+
+    uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+    memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+    uint8_t diff = 0;
+    for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+        diff |= storedToken[i] ^ incomingToken[i];
+    }
+
+    if (diff != 0) {
+        ESP_LOGW(WIFIAUTHTAG, "Invalid token for device: %s", deviceId);
+        sendJsonError(401, "Unauthorized");
+        return;
+    }
+
+    ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API by %s", deviceId);
+    accessLogger.logSystem(LogSource::WIFI, LogResult::SUCCESS, deviceId, "Reboot requested");
+    
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    JsonDocument resp;
+    resp["ok"] = true;
+    String body;
+    serializeJson(resp, body);
+    server.send(200, "application/json", body);
+    
+    delay(1000);
+    ESP.restart();
+}
 
 // -------------------------
 // Register endpoints
 
 inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
+    server.on("/api/nonce", HTTP_GET, handleGetNonce);
     server.on("/pair", HTTP_POST, handlePair);
-
     server.on("/cmd", HTTP_POST, [onCommand]() {
         handleCommand(onCommand);
     });
-
     server.on("/unpair", HTTP_POST, handleUnpair);
-
     server.on("/api/macros", HTTP_GET,  handleGetMacros);
     server.on("/api/macros", HTTP_POST, handleSetMacros);
     server.on("/api/logs", HTTP_GET, handleGetLogs);
     server.on("/api/logs/clear", HTTP_POST, handleClearLogs);
-
+    
     server.on("/api/reboot", HTTP_OPTIONS, []() {
         server.sendHeader("Access-Control-Allow-Origin", "*");
         server.sendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
         server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
         server.send(204);
     });
-    server.on("/api/reboot", HTTP_POST, []() {
-        if (!server.hasArg("plain")) {
-            sendJsonError(400, "Missing body");
-            return;
-        }
+    server.on("/api/reboot", HTTP_POST, handleReboot);
 
-        JsonDocument doc;
-        DeserializationError err = deserializeJson(doc, server.arg("plain"));
-        if (err) {
-            sendJsonError(400, "Invalid JSON");
-            return;
-        }
-
-        const char* deviceId = doc["device_id"];
-        const char* token    = doc["token"];
-        uint32_t    timestamp = doc["timestamp"] | 0;
-
-        if (!deviceId || !token) {
-            sendJsonError(400, "Missing required fields");
-            return;
-        }
-
-        if (timestamp == 0) {
-            sendJsonError(400, "Timestamp required for replay protection");
-            return;
-        }
-
-        if (strlen(token) != 32) {
-            sendJsonError(400, "Invalid token length");
-            return;
-        }
-
-        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
-        if (!phoneTokenManager.getSecret(deviceId, storedToken)) {
-            sendJsonError(401, "Unknown device");
-            return;
-        }
-
-        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
-        memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
-
-        uint8_t diff = 0;
-        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
-            diff |= storedToken[i] ^ incomingToken[i];
-        }
-
-        if (diff != 0) {
-            ESP_LOGW(WIFIAUTHTAG, "Invalid token for device: %s", deviceId);
-            sendJsonError(401, "Unauthorized");
-            return;
-        }
-
-        // if (authManager.isTimeSynced()) {
-        //     uint32_t now = authManager.getCurrentTime();
-        //     int32_t drift = (int32_t)timestamp - (int32_t)now;
-        //     if (drift > (int32_t)CMD_TIMESTAMP_WINDOW || 
-        //         drift < -(int32_t)CMD_TIMESTAMP_WINDOW) {
-        //         ESP_LOGW(WIFIAUTHTAG, "Reboot timestamp rejected — drift: %ld seconds", drift);
-        //         sendJsonError(400, "Timestamp expired");
-        //         return;
-        //     }
-        //     ESP_LOGI(WIFIAUTHTAG, "Reboot timestamp OK — drift: %ld seconds", drift);
-        // }
-
-        ESP_LOGI(WIFIAUTHTAG, "Reboot requested via API by %s", deviceId);
-        server.sendHeader("Access-Control-Allow-Origin", "*");
-        JsonDocument resp;
-        resp["ok"] = true;
-        String body;
-        serializeJson(resp, body);
-        server.send(200, "application/json", body);
-        delay(1000);
-        ESP.restart();
-    });
-
-    ESP_LOGI(WIFIAUTHTAG, "Auth endpoints registered");
+    ESP_LOGI(WIFIAUTHTAG, "Auth endpoints registered with nonce replay protection");
 }
