@@ -40,7 +40,7 @@ void accessServiceSetup() {
     markUserActivity(state);
     LED_SET_SEQ(SYSTEM_READY);
     // At start of accessServiceSetup()
-    accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
+    // accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
 }
 
 void fireMacro(uint8_t macroIndex) {

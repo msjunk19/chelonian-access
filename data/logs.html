@@ -16,6 +16,7 @@
 
         .log-source { font-weight: bold; }
         .log-source.rfid { color: var(--accent-blue); }
+        .log-source.system { color: var(--accent-red); }
         .log-source.wifi { color: var(--accent-green); }
         .log-source.ble  { color: var(--accent-purple); }
 
@@ -136,7 +137,7 @@ function getStoredPairing() {
     return (id && token) ? { id, token } : null;
 }
 
-const sourceNames = ['RFID','WiFi','BLE'];
+const sourceNames = ['RFID','WiFi','BLE','SYSTEM'];
 const resultNames = ['Unknown','Success','Fail'];
 
 let currentFilter = 'all';

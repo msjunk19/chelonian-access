@@ -16,7 +16,7 @@ static int totalLogCalls = 0;
 #define LOG_MAX_ENTRIES   50
 
 enum class LogLevel  : uint8_t { ACCESS = 0, SYSTEM = 1, DEBUG = 2 };
-enum class LogSource : uint8_t { RFID = 0, WIFI = 1, BLE = 2 };
+enum class LogSource : uint8_t { RFID = 0, WIFI = 1, BLE = 2, SYSTEM = 3};
 enum class LogResult : uint8_t { FAIL = 0, SUCCESS = 1 };
 
 // ======================================================

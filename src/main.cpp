@@ -16,6 +16,7 @@
 #include <access_log.hpp>
 
 #include "esp_system.h"
+#include <boot_logger.hpp>
 
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
@@ -78,8 +79,7 @@ void setup()
     delay(500);
 
     accessLogger.begin();
-    Serial.print("Log count after begin: ");
-    Serial.println(accessLogger.getCount());
+    logBootReason();  // ← One line
 
     setupGlobalExceptionHandler();
 
