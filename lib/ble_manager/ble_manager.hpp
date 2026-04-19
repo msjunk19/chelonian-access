@@ -29,6 +29,7 @@ extern PhoneTokenManager phoneTokenManager;
 extern AuthManager authManager;
 extern MacroConfigManager macroConfigManager;
 extern AccessLogger accessLogger;
+// extern EncryptedTokenStorage encryptedStorage;
 
 class BLEManager {
 public:
@@ -332,116 +333,66 @@ private:
     public:
         CommandCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-            std::string raw = pChar->getValue();
-            while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r' || raw.back() == ' ')) {
-                raw.pop_back();
-            }
-            ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
+            void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+                if (!_mgr->_pairingWindowOpen) {
+                    ESP_LOGW(BLETAG, "Pairing attempt outside window");
+                    pChar->setValue("error:window_closed");
+                    return;
+                }
 
-            String payload = String(raw.c_str());
-            
-            // New format: deviceId|token|command|timestamp
-            // Legacy format: deviceId|token|command (no timestamp)
-            int sep1 = payload.indexOf('|');
-            int sep2 = payload.indexOf('|', sep1 + 1);
-            int sep3 = payload.lastIndexOf('|');
+                std::string raw = pChar->getValue();
+                String deviceId = String(raw.c_str());
+                deviceId.trim();
 
-            if (sep1 < 0 || sep2 < 0 || sep1 == sep2) {
-                ESP_LOGW(BLETAG, "Invalid command format");
-                _mgr->notifyStatus("error:bad_format");
-                return;
-            }
+                if (deviceId.length() == 0 ||
+                    deviceId.length() > PHONE_ID_MAX_LEN) {
+                    pChar->setValue("error:bad_id");
+                    return;
+                }
 
-            String deviceId = payload.substring(0, sep1);
-            String token    = payload.substring(sep1 + 1, sep2);
-            uint8_t command = (uint8_t)payload.substring(sep2 + 1, sep3 > sep2 ? sep3 : payload.length()).toInt();
-            uint32_t timestamp = 0;
-            
-            // Parse timestamp if present (sep3 > sep2)
-            if (sep3 > sep2) {
-                timestamp = (uint32_t)payload.substring(sep3 + 1).toInt();
-            }
+                // Generate random token (32 bytes)
+                uint8_t tokenBytes[PHONE_SECRET_LEN] = {0};
+                esp_fill_random(tokenBytes, sizeof(tokenBytes));
 
-            if (timestamp == 0) {
-                ESP_LOGW(BLETAG, "Timestamp required for replay protection");
-                _mgr->notifyStatus("error:timestamp_required");
-                return;
-            }
+                // Encrypt token to 60 bytes (12 IV + 32 ciphertext + 16 tag)
+                uint8_t encryptedToken[60] = {0};
+                if (!encryptedStorage.encryptToken(tokenBytes, encryptedToken)) {
+                    ESP_LOGE(BLETAG, "Token encryption failed");
+                    pChar->setValue("error:encryption_failed");
+                    return;
+                }
 
-            if (deviceId.length() == 0 || token.length() != 32 || command == 0) {
-                ESP_LOGW(BLETAG, "Invalid command fields");
-                _mgr->notifyStatus("error:bad_fields");
-                return;
-            }
+                // Store encrypted token
+                phoneTokenManager.removePhone(deviceId.c_str());
+                if (!phoneTokenManager.addPhoneEncrypted(deviceId.c_str(), encryptedToken)) {
+                    pChar->setValue("error:storage_full");
+                    return;
+                }
 
-            uint8_t storedToken[PHONE_SECRET_LEN] = {0};
-            if (!phoneTokenManager.getSecret(deviceId.c_str(), storedToken)) {
-                ESP_LOGW(BLETAG, "Unknown device: %s", deviceId.c_str());
-                _mgr->notifyStatus("error:unknown_device");
-                return;
+                _mgr->_pairingWindowOpen = false;
+                ESP_LOGI(BLETAG, "BLE paired: %s", deviceId.c_str());
+                
+                // Return plain token hex to client (for their records)
+                char tokenHex[65];
+                for (int i = 0; i < 32; i++) {
+                    snprintf(tokenHex + i * 2, 3, "%02x", tokenBytes[i]);
+                }
+                tokenHex[64] = 0;
+                pChar->setValue((uint8_t*)tokenHex, 64);
             }
 
-            uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
-            memcpy(incomingToken, token.c_str(),
-                   min((size_t)PHONE_SECRET_LEN, token.length()));
+        private:
+            BLEManager* _mgr;
+        };
 
-            uint8_t diff = 0;
-            for (int i = 0; i < PHONE_SECRET_LEN; i++) {
-                diff |= storedToken[i] ^ incomingToken[i];
-            }
+        // -------------------------
+        // Pairing characteristic callbacks
 
-            if (diff != 0) {
-                ESP_LOGW(BLETAG, "Invalid token for: %s", deviceId.c_str());
-                _mgr->notifyStatus("error:unauthorized");
-                return;
-            }
+        class PairingCallbacks : public NimBLECharacteristicCallbacks {
+        public:
+            PairingCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-            // Sync time from the incoming timestamp (keeps time fresh)
-            if (timestamp > 1000000000) {
-                authManager.syncTime(timestamp);
-            }
-
-            // Validate timestamp (replay attack protection - epoch-based)
-            // COMMENTED OUT
-            // if (timestamp > 0 && authManager.isTimeSynced()) {
-            //     uint32_t now = authManager.getCurrentTime();
-            //     int32_t drift = (int32_t)timestamp - (int32_t)now;
-            //     if (drift > 30 || drift < -30) {
-            //         ESP_LOGW(BLETAG, "Timestamp rejected — drift: %ld seconds", drift);
-            //         _mgr->notifyStatus("error:timestamp_expired");
-            //         return;
-            //     }
-            //     ESP_LOGI(BLETAG, "Timestamp OK — drift: %ld seconds", drift);
-            // }
-
-            PhoneCommand cmd = static_cast<PhoneCommand>(command);
-            _mgr->_onCommand(cmd);
-
-            const char* statusStr = "unknown";
-            switch (cmd) {
-                case PhoneCommand::UNLOCK: statusStr = "unlocked"; break;
-                case PhoneCommand::LOCK:   statusStr = "locked";   break;
-                case PhoneCommand::STATUS: statusStr = "ok";       break;
-                default: break;
-            }
-
-            ESP_LOGI(BLETAG, "BLE command OK: %s", statusStr);
-            _mgr->notifyStatus(statusStr);
-        }
-
-    private:
-        BLEManager* _mgr;
-    };
-
-    // -------------------------
-    // Pairing characteristic callbacks
-
-    class PairingCallbacks : public NimBLECharacteristicCallbacks {
-    public:
-        PairingCallbacks(BLEManager* mgr) : _mgr(mgr) {}
-
-        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             if (!_mgr->_pairingWindowOpen) {
                 ESP_LOGW(BLETAG, "Pairing attempt outside window");
                 pChar->setValue("error:window_closed");
@@ -458,26 +409,35 @@ private:
                 return;
             }
 
+            // Generate random token (32 bytes)
             uint8_t tokenBytes[PHONE_SECRET_LEN] = {0};
-            uint8_t randBytes[16];
-            esp_fill_random(randBytes, sizeof(randBytes));
+            esp_fill_random(tokenBytes, sizeof(tokenBytes));
 
-            char tokenHex[33];
-            for (int i = 0; i < 16; i++) {
-                snprintf(tokenHex + i * 2, 3, "%02x", randBytes[i]);
+            // Encrypt token to 60 bytes (12 IV + 32 ciphertext + 16 tag)
+            uint8_t encryptedToken[60] = {0};
+            if (!encryptedStorage.encryptToken(tokenBytes, encryptedToken)) {
+                ESP_LOGE(BLETAG, "Token encryption failed");
+                pChar->setValue("error:encryption_failed");
+                return;
             }
-            tokenHex[32] = 0;
-            memcpy(tokenBytes, tokenHex, 32);
 
+            // Store encrypted token
             phoneTokenManager.removePhone(deviceId.c_str());
-            if (!phoneTokenManager.addPhone(deviceId.c_str(), tokenBytes)) {
+            if (!phoneTokenManager.addPhoneEncrypted(deviceId.c_str(), encryptedToken)) {
                 pChar->setValue("error:storage_full");
                 return;
             }
 
             _mgr->_pairingWindowOpen = false;
             ESP_LOGI(BLETAG, "BLE paired: %s", deviceId.c_str());
-            pChar->setValue((uint8_t*)tokenHex, 32);
+            
+            // Return plain token hex to client (for their records)
+            char tokenHex[65];
+            for (int i = 0; i < 32; i++) {
+                snprintf(tokenHex + i * 2, 3, "%02x", tokenBytes[i]);
+            }
+            tokenHex[64] = 0;
+            pChar->setValue((uint8_t*)tokenHex, 64);
         }
 
     private:

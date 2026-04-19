@@ -43,7 +43,7 @@
                 </svg>
                 About
             </h2>
-            <p class="status-text">Access Controller v1.0</p>
+            <p class="status-text">Access Controller v2.0</p>
         </div>
 
         <div class="card">
@@ -192,17 +192,6 @@
             }
         }
 
-        async function getNonce() {
-            try {
-                const resp = await fetch('/api/nonce');
-                const data = await resp.json();
-                return data.nonce;
-            } catch (e) {
-                console.error('Failed to get nonce:', e);
-                return null;
-            }
-        }
-
         async function rebootDevice() {
             const pairing = getStoredPairing();
             if (!pairing) {
@@ -215,21 +204,13 @@
             btn.innerText = 'Rebooting...';
             
             try {
-                const nonce = await getNonce();
-                if (!nonce) {
-                    btn.innerText = 'Failed to get nonce';
-                    setTimeout(() => { btn.disabled = false; btn.innerText = 'Reboot Device'; }, 2000);
-                    return;
-                }
-
                 const resp = await fetch('/api/reboot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         device_id: pairing.id,
                         token: pairing.token,
-                        timestamp: Math.floor(Date.now() / 1000),
-                        nonce: nonce
+                        timestamp: Math.floor(Date.now() / 1000)
                     })
                 });
 
@@ -245,15 +226,6 @@
 
                 if (data.error === 'Timestamp expired') {
                     setPairStatus('Reboot failed - Time not synced, pair first or wait for another device', false);
-                    btn.disabled = false;
-                    btn.innerText = 'Reboot Device';
-                    return;
-                }
-
-                if (data.error === 'Nonce already used (replay attack)') {
-                    setPairStatus('Reboot failed - Replay attack detected', false);
-                    btn.disabled = false;
-                    btn.innerText = 'Reboot Device';
                     return;
                 }
 

@@ -5,7 +5,8 @@
 #include <DNSServer.h>
 #include <LittleFS.h>
 #include "config.hpp"
-#include <wifi_auth_endpoints.hpp>
+// #include <wifi_auth_endpoints.hpp>
+#include <wifi_auth_endpoints_hardened.hpp>
 
 static const char* WIFICFG_TAG    = "WIFICFG";
 static const char* WIFICFG_NVS_NS = "wifi_cfg";

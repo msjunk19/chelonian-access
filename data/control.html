@@ -155,17 +155,6 @@
             }
         }
 
-        async function getNonce() {
-            try {
-                const resp = await fetch('/api/nonce');
-                const data = await resp.json();
-                return data.nonce;
-            } catch (e) {
-                console.error('Failed to get nonce:', e);
-                return null;
-            }
-        }
-
         async function sendCommand(command) {
             const pairing = getStoredPairing();
             if (!pairing) {
@@ -174,36 +163,37 @@
             }
 
             const statusEl = document.getElementById('status');
+            statusEl.innerText = 'Sending...';
 
             try {
-                // Fetch fresh nonce before sending command
-                const nonce = await getNonce();
-                if (!nonce) {
-                    statusEl.innerText = 'Error: Could not get nonce for replay protection';
+                // Step 1: Get nonce
+                const nonceResp = await fetch('/api/nonce?timestamp=' + Math.floor(Date.now() / 1000));
+                const nonceData = await nonceResp.json();
+
+                if (!nonceData.ok || !nonceData.nonce) {
+                    statusEl.innerText = 'Error: Failed to get nonce';
                     return;
                 }
 
+                const nonce = nonceData.nonce;
+
+                // Step 2: Send command with nonce
                 const resp = await fetch('/cmd', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         device_id: pairing.id,
                         token:     pairing.token,
+                        nonce:     nonce,
                         command:   command,
-                        timestamp: Math.floor(Date.now() / 1000),
-                        nonce:     nonce
+                        timestamp: Math.floor(Date.now() / 1000)
                     })
                 });
 
                 const data = await resp.json();
 
                 if (data.error === 'Timestamp expired') {
-                    statusEl.innerText = 'Error: Time not synced - pair first or wait for another device to sync time';
-                    return;
-                }
-
-                if (data.error === 'Nonce already used (replay attack)') {
-                    statusEl.innerText = 'Error: Replay attack detected - command rejected';
+                    statusEl.innerText = 'Error: Time not synced - pair first';
                     return;
                 }
 
@@ -216,7 +206,7 @@
                 statusEl.innerText = data.ok ? `Status: ${data.status}` : `Error: ${data.error}`;
 
             } catch(e) {
-                statusEl.innerText = 'Command failed';
+                statusEl.innerText = 'Command failed: ' + e.message;
             }
         }
 
@@ -228,9 +218,6 @@
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-                const nonce = await getNonce();
-                if (!nonce) return;
-
                 const resp = await fetch('/cmd', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -238,8 +225,7 @@
                         device_id: pairing.id,
                         token: pairing.token,
                         command: 0,
-                        timestamp: Math.floor(Date.now() / 1000),
-                        nonce: nonce
+                        timestamp: Math.floor(Date.now() / 1000)
                     }),
                     signal: controller.signal
                 });

@@ -2,7 +2,9 @@
 #include <Arduino.h>
 #include <esp_log.h>
 #include <led_states.hpp>
-#include <wifi_auth_endpoints.hpp>
+// #include <wifi_auth_endpoints.hpp>
+#include <wifi_auth_endpoints_hardened.hpp>
+
 #include <config.hpp>
 #include <pin_mapping.hpp>
 

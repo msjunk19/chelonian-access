@@ -5,25 +5,33 @@
 #include <globals.hpp>
 #include <config.hpp>
 #include <eeprom_utils.hpp>
-// #include <setup_ap.h>
 #include <wifi_manager.hpp>
-// #include <webserver_manager.h>
+#include "wifi_auth_endpoints_hardened.hpp"
+
 #include <pairing_button.hpp>
 #include <auth_manager.hpp>
 #include <ble_manager.hpp>
 #include <factory_reset.hpp>
 #include <macro_config.hpp>
 #include <access_log.hpp>
-
 #include "esp_system.h"
 #include <boot_logger.hpp>
+
+#include "rate_limiter.hpp"
+#include "encrypted_token_storage.hpp"
+#include "nonce_manager.hpp"
 
 // LED Selection, only use one. 
 // LEDController led(PN_LED); //Single Color LED on pin 8
 LEDController led(0, true, PN_NEOPIXEL);  // definition lives here
 
+// Global security instances
+RateLimiter rateLimiter;
+NonceManager nonceManager;
+EncryptedTokenStorage encryptedStorage;
+
 // Instances — defined once here, extern'd everywhere else
-MasterUIDManager masterUidManager; //global updated
+MasterUIDManager masterUidManager;
 UserUIDManager userUidManager; 
 
 PhoneTokenManager phoneTokenManager;
@@ -40,8 +48,6 @@ MacroConfigManager macroConfigManager;
 AccessLogger accessLogger;
 
 static const char* TAG = "Main";
-
-// static bool bootLogged = false;
 
 void debugTime()
 {
@@ -78,24 +84,29 @@ void setup()
     Serial.begin(115200);
     delay(500);
 
+    /* NEW: Initialize encrypted storage */
+    if (!encryptedStorage.begin()) {
+        ESP_LOGE("MAIN", "Failed to initialize encrypted storage!");
+        delay(1000);
+        ESP.restart();
+    }
+
+    /* NEW: Initialize nonce manager */
+    nonceManager.clear();  // Optional: start fresh
+
+    ESP_LOGI("MAIN", "Nonce manager initialized");
+
+    /* NEW: Initialize rate limiter */
+    ESP_LOGI("MAIN", "Rate limiter initialized");
+
     accessLogger.begin();
-    logBootReason();  // ← One line
+    logBootReason();
 
     setupGlobalExceptionHandler();
-
-
 
     ESP_LOGI(TAG, "Chelonian Access Service starting");
 
     ESP_LOGI("BOOT", "Reset reason: %d", esp_reset_reason());
-
-    static int setup_calls = 0;
-    setup_calls++;
-    Serial.print("setup() #");
-    Serial.println(setup_calls);
-    Serial.println(millis());
-    delay(10);  // ensure serial flush
-
 
     /* ---------------- LOAD STORED DATA ---------------- */
 
@@ -118,7 +129,7 @@ void setup()
         }
     );
 
-    /* ---------------- WEB SERVER ---------------- */
+    /* ---------------- WEB SERVER & AUTH ENDPOINTS ---------------- */
 
     setupWebServer([](PhoneCommand cmd)
     {
@@ -217,70 +228,18 @@ void setup()
         }
     });
 
-    /* ---------------- LOGGING ---------------- */
-
-
-
     /* ---------------- ACCESS SERVICE ---------------- */
 
     accessServiceSetup();
 
-    
-    debugTime();
-
-
-
-    // /* Log boot exactly once */
-    // static bool bootLogged = false;
-
-    // if (!bootLogged) {
-    //     bootLogged = true;
-
-    //     char msg[64];
-    //     snprintf(msg, sizeof(msg),
-    //         "Device boot (reason=%d)",
-    //         esp_reset_reason());
-
-    //     accessLogger.logSystem(
-    //         LogSource::RFID,
-    //         LogResult::SUCCESS,
-    //         "System",
-    //         msg
-    //     );
-    // }
-    for (int i = 0; i < accessLogger.getCount(); i++) {
-        LogEntry e;
-        accessLogger.getEntry(i, e);
-        Serial.print("Entry ");
-        Serial.print(i);
-        Serial.print(": ts=");
-        Serial.print(e.timestamp);
-        Serial.print(" mode=");
-        Serial.print(e.timeMode);
-        Serial.print(" id=");
-        Serial.print(e.identifier);
-        Serial.print(" msg=");
-        Serial.println(e.message);
-    }
-
     ESP_LOGI(TAG, "System boot complete");
-
-    
 }
 
 void loop() {
-    // Call the main service loop
     accessServiceLoop();
     pairingButton.update();
 
     handleClient();
     bleManager.update();
     bleManager.updatePairingWindow();
-    static int loop_calls = 0;
-loop_calls++;
-if (loop_calls <= 5) {
-    Serial.print("loop() #");
-    Serial.println(loop_calls);
-}
-
 }
