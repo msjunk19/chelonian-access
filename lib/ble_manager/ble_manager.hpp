@@ -29,6 +29,7 @@ extern PhoneTokenManager phoneTokenManager;
 extern AuthManager authManager;
 extern MacroConfigManager macroConfigManager;
 extern AccessLogger accessLogger;
+extern EncryptedTokenStorage encryptedStorage;
 // extern EncryptedTokenStorage encryptedStorage;
 
 class BLEManager {
@@ -333,57 +334,92 @@ private:
     public:
         CommandCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-            void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-                if (!_mgr->_pairingWindowOpen) {
-                    ESP_LOGW(BLETAG, "Pairing attempt outside window");
-                    pChar->setValue("error:window_closed");
-                    return;
-                }
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            std::string raw = pChar->getValue();
+            while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r' || raw.back() == ' ')) {
+                raw.pop_back();
+            }
+            ESP_LOGI(BLETAG, "CMD received (%d bytes): %s", raw.length(), raw.c_str());
 
-                std::string raw = pChar->getValue();
-                String deviceId = String(raw.c_str());
-                deviceId.trim();
+            String payload = String(raw.c_str());
 
-                if (deviceId.length() == 0 ||
-                    deviceId.length() > PHONE_ID_MAX_LEN) {
-                    pChar->setValue("error:bad_id");
-                    return;
-                }
+            int sep1 = payload.indexOf('|');
+            int sep2 = payload.indexOf('|', sep1 + 1);
+            int sep3 = payload.lastIndexOf('|');
 
-                // Generate random token (32 bytes)
-                uint8_t tokenBytes[PHONE_SECRET_LEN] = {0};
-                esp_fill_random(tokenBytes, sizeof(tokenBytes));
-
-                // Encrypt token to 60 bytes (12 IV + 32 ciphertext + 16 tag)
-                uint8_t encryptedToken[60] = {0};
-                if (!encryptedStorage.encryptToken(tokenBytes, encryptedToken)) {
-                    ESP_LOGE(BLETAG, "Token encryption failed");
-                    pChar->setValue("error:encryption_failed");
-                    return;
-                }
-
-                // Store encrypted token
-                phoneTokenManager.removePhone(deviceId.c_str());
-                if (!phoneTokenManager.addPhoneEncrypted(deviceId.c_str(), encryptedToken)) {
-                    pChar->setValue("error:storage_full");
-                    return;
-                }
-
-                _mgr->_pairingWindowOpen = false;
-                ESP_LOGI(BLETAG, "BLE paired: %s", deviceId.c_str());
-                
-                // Return plain token hex to client (for their records)
-                char tokenHex[65];
-                for (int i = 0; i < 32; i++) {
-                    snprintf(tokenHex + i * 2, 3, "%02x", tokenBytes[i]);
-                }
-                tokenHex[64] = 0;
-                pChar->setValue((uint8_t*)tokenHex, 64);
+            if (sep1 < 0 || sep2 < 0 || sep1 == sep2) {
+                ESP_LOGW(BLETAG, "Invalid command format");
+                _mgr->notifyStatus("error:bad_format");
+                return;
             }
 
-        private:
-            BLEManager* _mgr;
-        };
+            String deviceId = payload.substring(0, sep1);
+            String token    = payload.substring(sep1 + 1, sep2);
+            uint8_t command = (uint8_t)payload.substring(sep2 + 1, sep3 > sep2 ? sep3 : payload.length()).toInt();
+            uint32_t timestamp = 0;
+
+            if (sep3 > sep2) {
+                timestamp = (uint32_t)payload.substring(sep3 + 1).toInt();
+            }
+
+            if (timestamp == 0) {
+                ESP_LOGW(BLETAG, "Timestamp required for replay protection");
+                _mgr->notifyStatus("error:timestamp_required");
+                return;
+            }
+
+            if (deviceId.length() == 0 || token.length() != 64 || command == 0) {
+                ESP_LOGW(BLETAG, "Invalid command fields");
+                _mgr->notifyStatus("error:bad_fields");
+                return;
+            }
+
+            uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+            if (!phoneTokenManager.getSecret(deviceId.c_str(), storedToken)) {
+                ESP_LOGW(BLETAG, "Unknown device: %s", deviceId.c_str());
+                _mgr->notifyStatus("error:unknown_device");
+                return;
+            }
+
+            uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+            for (int i = 0; i < PHONE_SECRET_LEN && i * 2 < (int)token.length(); i++) {
+                char byte[3] = { token.c_str()[i*2], token.c_str()[i*2+1], 0 };
+                incomingToken[i] = (uint8_t)strtol(byte, nullptr, 16);
+            }
+
+            uint8_t diff = 0;
+            for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+                diff |= storedToken[i] ^ incomingToken[i];
+            }
+
+            if (diff != 0) {
+                ESP_LOGW(BLETAG, "Invalid token for: %s", deviceId.c_str());
+                _mgr->notifyStatus("error:unauthorized");
+                return;
+            }
+
+            if (timestamp > 1000000000) {
+                authManager.syncTime(timestamp);
+            }
+
+            PhoneCommand cmd = static_cast<PhoneCommand>(command);
+            _mgr->_onCommand(cmd);
+
+            const char* statusStr = "unknown";
+            switch (cmd) {
+                case PhoneCommand::UNLOCK: statusStr = "unlocked"; break;
+                case PhoneCommand::LOCK:   statusStr = "locked";   break;
+                case PhoneCommand::STATUS: statusStr = "ok";       break;
+                default: break;
+            }
+
+            ESP_LOGI(BLETAG, "BLE command OK: %s", statusStr);
+            _mgr->notifyStatus(statusStr);
+        }
+
+    private:
+        BLEManager* _mgr;
+    };
 
         // -------------------------
         // Pairing characteristic callbacks
@@ -511,11 +547,14 @@ private:
             ESP_LOGI(BLETAG, "Macro config write received (%d bytes)", raw.length());
 
             String payload = String(raw.c_str());
-            
-            // Format: deviceId|token|timestamp|macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
-            // Example: "uuid|token|1234567890|5|0|Unlock|1|1|1000|0|Lock|1|2|1000|0"
-            
-            // Skip auth - just pass entire payload to parser
+            int sep1 = payload.indexOf('|');
+            int sep2 = payload.indexOf('|', sep1 + 1);
+            int sep3 = payload.indexOf('|', sep2 + 1);
+
+            if (sep1 >= 0 && sep2 >= 0 && sep3 >= 0) {
+                payload = payload.substring(sep3 + 1);
+            }
+
             _parseAndSaveMacroConfig(payload);
             return;
             
@@ -579,7 +618,7 @@ private:
         
         if (sep1 < 0 || sep2 < 0) {
             ESP_LOGW(BLETAG, "Invalid macro format - sep1=%d, sep2=%d", sep1, sep2);
-            _mgr->notifyStatus("error:macro_format");
+            _mgr->notifyStatus("error:parse_failed");
             return;
         }
 
@@ -589,6 +628,7 @@ private:
 
         if (macroCount == 0 || macroCount > MAX_MACROS) {
             ESP_LOGW(BLETAG, "Invalid macro count: %d", macroCount);
+            _mgr->notifyStatus("error:invalid_count");
             return;
         }
 

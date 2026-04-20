@@ -21,8 +21,11 @@ void accessServiceSetup() {
     macroConfigManager.load();
     led.begin();
     // LED_SET_SEQ(SYSTEM_READY);
+    delay(1000);
+
     rfid.begin();
     rfid.printFirmwareVersion();
+    
     relays.begin();
     if (audio.begin()) {
         audio.setVolume(AUDIO_DEFAULT_VOLUME);

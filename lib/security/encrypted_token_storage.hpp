@@ -167,27 +167,27 @@ private:
      * This should use secure storage in production
      */
     bool deriveDeviceKey() {
-        uint8_t seed[48];
+        uint8_t seed[32];
         uint8_t pos = 0;
 
-        // Get chip ID
+        // Get chip ID (deterministic, from eFuse)
         uint32_t chipId = ESP.getEfuseMac();
         memcpy(seed + pos, &chipId, 4);
         pos += 4;
 
-        // Get MAC address
+        // Get BLE MAC address (deterministic)
         uint8_t mac[6];
-        esp_read_mac(mac, ESP_MAC_WIFI_STA);
+        esp_read_mac(mac, ESP_MAC_BT);
         memcpy(seed + pos, mac, 6);
         pos += 6;
 
-        // Get some random data to add entropy
-        esp_fill_random(seed + pos, 48 - pos);
+        // Use a fixed salt string
+        const char* salt = "ChelonianAccess2024";
+        memcpy(seed + pos, salt, strlen(salt));
+        pos += strlen(salt);
 
-        // Derive key using SHA256
-        // For now, use a simpler approach: hash the seed
-        mbedtls_sha256((const unsigned char*)seed, sizeof(seed), masterKey, 0);
-        // 0 = SHA-256, 1 = SHA-224
+        // Derive key using SHA256 (deterministic - same result every boot)
+        mbedtls_sha256((const unsigned char*)seed, 26, masterKey, 0);
         return true;
     }
 };

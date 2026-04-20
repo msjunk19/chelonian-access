@@ -115,7 +115,7 @@ void setup()
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
     
-    phoneTokenManager.clearAll();
+    // phoneTokenManager.clearAll();
 
 
     /* ---------------- PAIRING BUTTON ---------------- */

@@ -671,6 +671,12 @@ Future<String?> _fetchNonce() async {
   }
 
   Future<bool> writeMacros(int macroCount, int tagMacro, List<Map<String, dynamic>> macros) async {
+      debugPrint("writeMacros called, _macroSetChar is ${_macroSetChar != null}");
+        if (_macroSetChar == null) {
+            debugPrint("ERROR: _macroSetChar is null - characteristic not found!");
+            return false;
+        }
+
     if (_macroSetChar == null) return false;
     if (_deviceId == null || _token == null) return false;
     try {
