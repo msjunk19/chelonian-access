@@ -102,6 +102,7 @@ void setup()
     accessLogger.begin();
     logBootReason();
 
+
     setupGlobalExceptionHandler();
 
     ESP_LOGI(TAG, "Chelonian Access Service starting");
@@ -113,6 +114,9 @@ void setup()
     masterUidManager.readUIDs();
     userUidManager.readUIDs();
     phoneTokenManager.readPhones();
+    
+    phoneTokenManager.clearAll();
+
 
     /* ---------------- PAIRING BUTTON ---------------- */
 
@@ -130,6 +134,11 @@ void setup()
     );
 
     /* ---------------- WEB SERVER & AUTH ENDPOINTS ---------------- */
+
+    // Mount LittleFS BEFORE setting up routes
+    if (!safeLittleFSBegin()) {
+        ESP_LOGE(TAG, "LittleFS mount failed! HTML pages will not be available.");
+    }
 
     setupWebServer([](PhoneCommand cmd)
     {

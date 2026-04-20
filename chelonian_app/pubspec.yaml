@@ -13,7 +13,9 @@ dependencies:
   uuid: ^4.0.0
   flutter_beacon: ^0.5.1
   permission_handler: ^11.0.0
-
+  crypto: ^3.0.0          # For token hashing (optional)
+  pointycastle: ^3.7.0    # For AES-256-GCM (recommended for production)
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter

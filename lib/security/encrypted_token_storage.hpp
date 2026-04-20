@@ -31,15 +31,17 @@ public:
      * Derives key from device ID or uses stored key
      */
     bool begin() {
-        // In production, derive key from:
-        // 1. Device hardware ID (eFuses)
-        // 2. Or securely stored key in encrypted NVS
-        
-        // For now, use a key derived from device MAC + chip ID
         if (!deriveDeviceKey()) {
             ESP_LOGE(CRYPTO_TAG, "Failed to derive device key");
             return false;
         }
+
+        // DEBUG: Log derived key
+        ESP_LOGI(CRYPTO_TAG, "Derived master key: ");
+        for (int i = 0; i < 32; i++) {
+            printf("%02x", masterKey[i]);
+        }
+        printf("\n");
 
         keyInitialized = true;
         ESP_LOGI(CRYPTO_TAG, "Encrypted token storage initialized");

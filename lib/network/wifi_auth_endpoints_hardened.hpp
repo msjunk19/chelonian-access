@@ -46,6 +46,28 @@ String getClientIP() {
     return server.client().remoteIP().toString();
 }
 
+
+// -------------------------
+// Helper: Convert hex string to binary
+// -------------------------
+bool hexStringToBytes(const char* hexStr, uint8_t* bytesOut, size_t bytesLen) {
+    if (!hexStr || strlen(hexStr) != bytesLen * 2) {
+        return false;
+    }
+    
+    for (size_t i = 0; i < bytesLen; i++) {
+        char byte[3] = { hexStr[i*2], hexStr[i*2+1], 0 };
+        char* endptr = nullptr;
+        long val = strtol(byte, &endptr, 16);
+        if (endptr != &byte[2] || val < 0 || val > 255) {
+            return false;
+        }
+        bytesOut[i] = (uint8_t)val;
+    }
+    
+    return true;
+}
+
 // -------------------------
 // Helper: Send JSON error with rate limit info
 // -------------------------
@@ -305,7 +327,7 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
     String clientIP = getClientIP();
 
     // Rate limiting on command endpoint (1 per second, max 30 per minute)
-    if (!rateLimiter.checkRateLimit(clientIP, 30, 1000)) {
+    if (!rateLimiter.checkRateLimit(clientIP, 30, 100)) {
         sendJsonError(429, "Rate limit exceeded", clientIP);
         return;
     }
@@ -333,8 +355,15 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
         return;
     }
 
+    // Convert hex nonce string to binary
+    uint8_t nonceBytes[16];
+    if (!hexStringToBytes(nonce, nonceBytes, 16)) {
+        sendJsonError(400, "Invalid nonce format", clientIP);
+        return;
+    }
+
     // CRITICAL FIX #3: Validate nonce first (prevents command execution)
-    if (!nonceManager.validateAndConsume((const uint8_t*)nonce)) {
+    if (!nonceManager.validateAndConsume(nonceBytes)) {
         sendJsonError(401, "Invalid or expired nonce", clientIP);
         accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Invalid nonce");
         return;
@@ -463,7 +492,7 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
 inline void handleUnpair() {
     String clientIP = getClientIP();
 
-    if (!rateLimiter.checkRateLimit(clientIP, 5, 1000)) {
+    if (!rateLimiter.checkRateLimit(clientIP, 5, 200)) {
         sendJsonError(429, "Rate limit exceeded", clientIP);
         return;
     }
@@ -526,6 +555,27 @@ inline void handleUnpair() {
     server.send(200, "application/json", body);
 }
 
+// // -------------------------
+// // Helper: Convert hex string to binary
+// // -------------------------
+// bool hexStringToBytes(const char* hexStr, uint8_t* bytesOut, size_t bytesLen) {
+//     if (!hexStr || strlen(hexStr) != bytesLen * 2) {
+//         return false;
+//     }
+    
+//     for (size_t i = 0; i < bytesLen; i++) {
+//         char byte[3] = { hexStr[i*2], hexStr[i*2+1], 0 };
+//         char* endptr = nullptr;
+//         long val = strtol(byte, &endptr, 16);
+//         if (endptr != &byte[2] || val < 0 || val > 255) {
+//             return false;
+//         }
+//         bytesOut[i] = (uint8_t)val;
+//     }
+    
+//     return true;
+// }
+
 // -------------------------
 // Register all endpoints
 // -------------------------
@@ -546,5 +596,225 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
 
     // TODO: Implement similar hardening for macro and log endpoints
 
+    // -------------------------
+    // GET /api/macros - Fetch macro configuration
+    // -------------------------
+    server.on("/api/macros", HTTP_GET, []() {
+        // Auto-sync time from query param
+        uint32_t phoneTimestamp = server.arg("timestamp").toInt();
+        if (phoneTimestamp > 1000000000) {
+            authManager.syncTime(phoneTimestamp);
+        }
+
+        JsonDocument doc;
+        doc["macro_count"] = macroConfigManager.config.macro_count;
+        doc["tag_macro"]   = macroConfigManager.config.tag_macro;
+
+        JsonArray macros = doc["macros"].to<JsonArray>();
+        for (uint8_t i = 0; i < macroConfigManager.config.macro_count; i++) {
+            Macro& m = macroConfigManager.config.macros[i];
+            JsonObject macro = macros.add<JsonObject>();
+            macro["name"]       = m.name;
+            macro["icon"]       = m.icon;
+            macro["step_count"] = m.step_count;
+
+            JsonArray steps = macro["steps"].to<JsonArray>();
+            for (uint8_t s = 0; s < m.step_count; s++) {
+                JsonObject step = steps.add<JsonObject>();
+                step["relay_mask"] = m.steps[s].relay_mask;
+                step["duration"]   = m.steps[s].duration;
+                step["gap"]        = m.steps[s].gap;
+            }
+        }
+
+        String body;
+        serializeJson(doc, body);
+        server.send(200, "application/json", body);
+    });
+
+    // -------------------------
+    // POST /api/macros - Save macro configuration
+    // -------------------------
+    server.on("/api/macros", HTTP_POST, []() {
+        String clientIP = getClientIP();
+
+        // Rate limiting on macro endpoint
+        if (!rateLimiter.checkRateLimit(clientIP, 10, 1000)) {
+            sendJsonError(429, "Rate limit exceeded", clientIP);
+            return;
+        }
+
+        if (!server.hasArg("plain")) {
+            sendJsonError(400, "Missing body", clientIP);
+            return;
+        }
+
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, server.arg("plain"));
+        if (err) {
+            sendJsonError(400, "Invalid JSON", clientIP);
+            return;
+        }
+
+        const char* deviceId = doc["device_id"];
+        const char* token = doc["token"];
+        uint32_t timestamp = doc["timestamp"] | 0;
+        const char* nonceStr = doc["nonce"];
+
+        if (!deviceId || !token || !nonceStr) {
+            sendJsonError(400, "Missing required fields", clientIP);
+            return;
+        }
+
+        // Convert hex nonce string to binary
+        uint8_t nonceBytes[16];
+        if (!hexStringToBytes(nonceStr, nonceBytes, 16)) {
+            sendJsonError(400, "Invalid nonce format", clientIP);
+            return;
+        }
+
+        // Validate nonce
+        if (!nonceManager.validateAndConsume(nonceBytes)) {
+            sendJsonError(401, "Invalid or expired nonce", clientIP);
+            accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Invalid nonce");
+            return;
+        }
+
+        // Validate timestamp
+        if (timestamp == 0) {
+            sendJsonError(400, "Timestamp required", clientIP);
+            return;
+        }
+
+        if (authManager.isTimeSynced()) {
+            uint32_t now = authManager.getCurrentTime();
+            int32_t drift = (int32_t)timestamp - (int32_t)now;
+
+            if (abs(drift) > AUTH_TIMESTAMP_WINDOW) {
+                sendJsonError(401, "Timestamp out of window", clientIP);
+                return;
+            }
+        }
+
+        // Validate token
+        if (strlen(token) != 32) {
+            sendJsonError(400, "Invalid token length", clientIP);
+            return;
+        }
+
+        uint8_t storedTokenEncrypted[EncryptedTokenStorage::IV_SIZE + PHONE_SECRET_LEN + EncryptedTokenStorage::TAG_SIZE];
+        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+
+        if (!phoneTokenManager.getPhoneEncrypted(deviceId, storedTokenEncrypted)) {
+            sendJsonError(401, "Unknown device", clientIP);
+            return;
+        }
+
+        if (!encryptedStorage.decryptToken(storedTokenEncrypted, storedToken)) {
+            sendJsonError(500, "Token decryption failed", clientIP);
+            return;
+        }
+
+        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+        memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+        uint8_t diff = 0;
+        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+            diff |= storedToken[i] ^ incomingToken[i];
+        }
+
+        if (diff != 0) {
+            sendJsonError(401, "Unauthorized", clientIP);
+            accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Auth failed");
+            return;
+        }
+
+        // Parse macro configuration
+        uint8_t count = doc["macro_count"] | 0;
+        if (count == 0 || count > MAX_MACROS) {
+            sendJsonError(400, "Invalid macro_count", clientIP);
+            return;
+        }
+
+        uint8_t tag_macro = doc["tag_macro"] | 0;
+        if (tag_macro >= count) {
+            sendJsonError(400, "tag_macro out of range", clientIP);
+            return;
+        }
+
+        macroConfigManager.config.macro_count = count;
+        macroConfigManager.config.tag_macro = tag_macro;
+
+        uint32_t now = millis();
+        JsonArray macros = doc["macros"].as<JsonArray>();
+        for (uint8_t i = 0; i < count; i++) {
+            JsonObject m = macros[i].as<JsonObject>();
+            Macro& macro = macroConfigManager.config.macros[i];
+
+            const char* name = m["name"] | "";
+            const char* icon = m["icon"] | "";
+            strncpy(macro.name, name, sizeof(macro.name) - 1);
+            macro.name[sizeof(macro.name) - 1] = '\0';
+            strncpy(macro.icon, icon, sizeof(macro.icon) - 1);
+            macro.icon[sizeof(macro.icon) - 1] = '\0';
+            macro.magic = MACRO_MAGIC;
+            macro.updated_at = now;
+
+            uint8_t step_count = m["step_count"] | 0;
+            if (step_count > MAX_STEPS) step_count = MAX_STEPS;
+            macro.step_count = step_count;
+
+            // Clear unused steps
+            for (uint8_t s = step_count; s < MAX_STEPS; s++) {
+                macro.steps[s].relay_mask = 0;
+                macro.steps[s].duration = 0;
+                macro.steps[s].gap = 0;
+            }
+
+            JsonArray steps = m["steps"].as<JsonArray>();
+            for (uint8_t s = 0; s < step_count; s++) {
+                JsonObject step = steps[s].as<JsonObject>();
+                macro.steps[s].relay_mask = step["relay_mask"] | 0;
+                macro.steps[s].duration = step["duration"] | 500;
+                macro.steps[s].gap = step["gap"] | 0;
+            }
+        }
+
+        macroConfigManager.saveAll();
+        macroConfigManager.printConfig();
+
+        accessLogger.logSystem(LogSource::WIFI, LogResult::SUCCESS, deviceId, "Macros saved");
+
+        JsonDocument resp;
+        resp["ok"] = true;
+        String body;
+        serializeJson(resp, body);
+        server.send(200, "application/json", body);
+
+        ESP_LOGI(WIFIAUTHTAG, "Macros saved by %s: %d macros, tag=%d", deviceId, count, tag_macro);
+    });
+    
+    // -------------------------
+    // GET /api/logs - Fetch access logs
+    // -------------------------
+    server.on("/api/logs", HTTP_GET, []() {
+        // Auto-sync time from query param
+        uint32_t phoneTimestamp = server.arg("timestamp").toInt();
+        if (phoneTimestamp > 1000000000) {
+            authManager.syncTime(phoneTimestamp);
+        }
+
+        int8_t level = -1;
+        if (server.hasArg("level")) {
+            level = (int8_t)server.arg("level").toInt();
+        }
+        
+        uint32_t clientTime = server.arg("timestamp").toInt();
+        String json = accessLogger.getLogsJson(level, clientTime);
+        server.send(200, "application/json", json);
+    });
+
     ESP_LOGI(WIFIAUTHTAG, "Hardened auth endpoints registered");
+
+    // ESP_LOGI(WIFIAUTHTAG, "Hardened auth endpoints registered");
 }
