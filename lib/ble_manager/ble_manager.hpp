@@ -36,6 +36,8 @@ class BLEManager {
 public:
     void begin(std::function<void(PhoneCommand)> onCommand) {
         _onCommand = onCommand;
+        ESP_LOGI(BLETAG, "BLEManager::begin() called - starting initialization");
+
 
         NimBLEDevice::init("Chelonian");
         NimBLEDevice::setMTU(128);
@@ -101,6 +103,8 @@ public:
             NIMBLE_PROPERTY::WRITE
         );
         _macroSetChar->setCallbacks(new MacroCallbacks(this));
+        ESP_LOGI(BLETAG, "Created _macroSetChar at UUID %s with WRITE permission", BLE_MACRO_SET_UUID);
+_macroSetChar->setCallbacks(new TestWriteCallback());
 
         // Initialize macro config characteristic with current values
         refreshMacroChar();
@@ -542,89 +546,132 @@ private:
     public:
         MacroCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
-        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-            std::string raw = pChar->getValue();
-            ESP_LOGI(BLETAG, "Macro config write received (%d bytes)", raw.length());
-
-            String payload = String(raw.c_str());
-            int sep1 = payload.indexOf('|');
-            int sep2 = payload.indexOf('|', sep1 + 1);
-            int sep3 = payload.indexOf('|', sep2 + 1);
-
-            if (sep1 >= 0 && sep2 >= 0 && sep3 >= 0) {
-                payload = payload.substring(sep3 + 1);
-            }
-
-            _parseAndSaveMacroConfig(payload);
+    void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        std::string raw = pChar->getValue();
+        ESP_LOGI(BLETAG, "MacroCallbacks::onWrite called! Received %d bytes", raw.length());
+        ESP_LOGI(BLETAG, "First 100 chars: %.100s", raw.c_str());
+        
+        if (raw.length() == 0) {
+            ESP_LOGW(BLETAG, "Empty payload received");
+            _mgr->notifyStatus("error:empty_payload");
             return;
-            
-            // Validate token
-            // COMMENTED OUT
-            // uint8_t storedToken[PHONE_SECRET_LEN] = {0};
-            // if (!phoneTokenManager.getSecret(deviceId.c_str(), storedToken)) {
-            //     ESP_LOGW(BLETAG, "Unknown device: %s", deviceId.c_str());
-            //     _mgr->notifyStatus("error:unknown_device");
-            //     return;
-            // }
-
-            // uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
-            // memcpy(incomingToken, token.c_str(),
-            //        min((size_t)PHONE_SECRET_LEN, token.length()));
-
-            // uint8_t diff = 0;
-            // for (int i = 0; i < PHONE_SECRET_LEN; i++) {
-            //     diff |= storedToken[i] ^ incomingToken[i];
-            // }
-
-            // if (diff != 0) {
-            //     ESP_LOGW(BLETAG, "Invalid token for: %s", deviceId.c_str());
-            //     _mgr->notifyStatus("error:unauthorized");
-            //     return;
-            // }
-            
-            // Sync time
-            // COMMENTED OUT
-            // if (timestamp > 1000000000) {
-            //     authManager.syncTime(timestamp);
-            // }
-            
-            // Validate timestamp
-            // COMMENTED OUT
-            // if (authManager.isTimeSynced()) {
-            //     uint32_t now = authManager.getCurrentTime();
-            //     int32_t drift = (int32_t)timestamp - (int32_t)now;
-            //     if (drift > 30 || drift < -30) {
-            //         ESP_LOGW(BLETAG, "Timestamp rejected — drift: %ld seconds", drift);
-            //         _mgr->notifyStatus("error:timestamp_expired");
-            //         return;
-            //     }
-            // }
-            
-            // Parse macro data - pass full payload
-            _parseAndSaveMacroConfig(payload);
         }
+        
+        String payload = String(raw.c_str());
+        ESP_LOGI(BLETAG, "Starting macro parse...");
+        
+        // Parse macro data - pass full payload
+        _parseAndSaveMacroConfig(payload);
+        return;
+    }
 
     private:
         BLEManager* _mgr;
 
+// REPLACEMENT CODE for _parseAndSaveMacroConfig function
+// This goes INSIDE the MacroCallbacks class in ble_manager.hpp
+// Replace the entire _parseAndSaveMacroConfig function with this
+
     void _parseAndSaveMacroConfig(const String& payload) {
-        ESP_LOGI(BLETAG, "Parsing macro config payload: %s", payload.c_str());
+        ESP_LOGI(BLETAG, "Parsing macro config payload (%d bytes)", payload.length());
         
-        // Simple pipe-separated format
-        // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
+        // Format: deviceId|token|timestamp|macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
         
-        int sep1 = payload.indexOf('|');
-        int sep2 = payload.indexOf('|', sep1 + 1);
+        // Extract first 3 fields: deviceId, token, timestamp
+        int delim = 0;
+        int prevDelim = 0;
         
-        if (sep1 < 0 || sep2 < 0) {
-            ESP_LOGW(BLETAG, "Invalid macro format - sep1=%d, sep2=%d", sep1, sep2);
-            _mgr->notifyStatus("error:parse_failed");
+        // Field 1: deviceId
+        delim = payload.indexOf('|', prevDelim);
+        if (delim < 0) {
+            ESP_LOGW(BLETAG, "Invalid macro format - missing deviceId");
+            _mgr->notifyStatus("error:macro_format");
             return;
         }
-
-        uint8_t macroCount = payload.substring(0, sep1).toInt();
-        uint8_t tagMacro = payload.substring(sep1 + 1, sep2).toInt();
-        ESP_LOGI(BLETAG, "Parsed: macroCount=%d, tagMacro=%d", macroCount, tagMacro);
+        String deviceId = payload.substring(prevDelim, delim);
+        prevDelim = delim + 1;
+        
+        // Field 2: token
+        delim = payload.indexOf('|', prevDelim);
+        if (delim < 0) {
+            ESP_LOGW(BLETAG, "Invalid macro format - missing token");
+            _mgr->notifyStatus("error:macro_format");
+            return;
+        }
+        String token = payload.substring(prevDelim, delim);
+        prevDelim = delim + 1;
+        
+        // Field 3: timestamp
+        delim = payload.indexOf('|', prevDelim);
+        if (delim < 0) {
+            ESP_LOGW(BLETAG, "Invalid macro format - missing timestamp");
+            _mgr->notifyStatus("error:macro_format");
+            return;
+        }
+        uint32_t timestamp = payload.substring(prevDelim, delim).toInt();
+        prevDelim = delim + 1;
+        
+        ESP_LOGI(BLETAG, "Extracted: deviceId=%s, timestamp=%lu", deviceId.c_str(), timestamp);
+        
+        // Validate token
+        uint8_t storedTokenEncrypted[EncryptedTokenStorage::IV_SIZE + PHONE_SECRET_LEN + EncryptedTokenStorage::TAG_SIZE];
+        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+        
+        if (!phoneTokenManager.getPhoneEncrypted(deviceId.c_str(), storedTokenEncrypted)) {
+            ESP_LOGW(BLETAG, "Unknown device: %s", deviceId.c_str());
+            _mgr->notifyStatus("error:unknown_device");
+            return;
+        }
+        
+        if (!encryptedStorage.decryptToken(storedTokenEncrypted, storedToken)) {
+            ESP_LOGE(BLETAG, "Token decryption failed");
+            _mgr->notifyStatus("error:decrypt_failed");
+            return;
+        }
+        
+        // Constant-time compare
+        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+        memcpy(incomingToken, token.c_str(), min((size_t)PHONE_SECRET_LEN, token.length()));
+        
+        uint8_t diff = 0;
+        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+            diff |= storedToken[i] ^ incomingToken[i];
+        }
+        
+        if (diff != 0) {
+            ESP_LOGW(BLETAG, "Invalid token for device: %s", deviceId.c_str());
+            _mgr->notifyStatus("error:unauthorized");
+            return;
+        }
+        
+        // Sync time if provided
+        if (timestamp > 1000000000) {
+            authManager.syncTime(timestamp);
+        }
+        
+        // Now parse macro data from remaining payload
+        // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
+        String macroPayload = payload.substring(prevDelim);
+        
+        delim = macroPayload.indexOf('|');
+        if (delim < 0) {
+            ESP_LOGW(BLETAG, "Invalid macro format - missing macro_count");
+            _mgr->notifyStatus("error:macro_format");
+            return;
+        }
+        
+        uint8_t macroCount = macroPayload.substring(0, delim).toInt();
+        prevDelim = delim + 1;
+        
+        delim = macroPayload.indexOf('|', prevDelim);
+        if (delim < 0) {
+            ESP_LOGW(BLETAG, "Invalid macro format - missing tag_macro");
+            _mgr->notifyStatus("error:macro_format");
+            return;
+        }
+        uint8_t tagMacro = macroPayload.substring(prevDelim, delim).toInt();
+        
+        ESP_LOGI(BLETAG, "Auth OK - parsing %u macros, tag=%u", macroCount, tagMacro);
 
         if (macroCount == 0 || macroCount > MAX_MACROS) {
             ESP_LOGW(BLETAG, "Invalid macro count: %d", macroCount);
@@ -636,14 +683,17 @@ private:
         macroConfigManager.config.tag_macro = tagMacro;
 
         // Parse remaining macros
-        String remaining = payload.substring(sep2 + 1);
+        String remaining = macroPayload.substring(delim + 1);
         for (uint8_t i = 0; i < macroCount; i++) {
             if (remaining.length() == 0) break;
             
-            int delim = remaining.indexOf('|');
-            if (delim < 0) delim = remaining.length();
+            int nameDelim = remaining.indexOf('|');
+            if (nameDelim < 0) {
+                ESP_LOGW(BLETAG, "Invalid format - missing macro name for index %u", i);
+                break;
+            }
             
-            String name = remaining.substring(0, delim);
+            String name = remaining.substring(0, nameDelim);
             name.trim();
             strncpy(macroConfigManager.config.macros[i].name, name.c_str(), sizeof(macroConfigManager.config.macros[i].name) - 1);
             macroConfigManager.config.macros[i].name[sizeof(macroConfigManager.config.macros[i].name) - 1] = '\0';
@@ -653,14 +703,17 @@ private:
             macroConfigManager.config.macros[i].magic = MACRO_MAGIC;
             macroConfigManager.config.macros[i].updated_at = millis();
             
-            ESP_LOGI(BLETAG, "Macro %d: name='%s', magic=0x%08X", i, name.c_str(), MACRO_MAGIC);
+            ESP_LOGI(BLETAG, "Macro %d: name='%s'", i, name.c_str());
             
-            remaining = remaining.substring(delim + 1);
+            remaining = remaining.substring(nameDelim + 1);
             if (remaining.length() == 0) break;
 
-            delim = remaining.indexOf('|');
-            if (delim < 0) delim = remaining.length();
-            uint8_t stepCount = remaining.substring(0, delim).toInt();
+            int stepDelim = remaining.indexOf('|');
+            if (stepDelim < 0) {
+                ESP_LOGW(BLETAG, "Invalid format - missing step count for macro %u", i);
+                break;
+            }
+            uint8_t stepCount = remaining.substring(0, stepDelim).toInt();
             if (stepCount > MAX_STEPS) stepCount = MAX_STEPS;
             macroConfigManager.config.macros[i].step_count = stepCount;
             
@@ -671,32 +724,40 @@ private:
                 macroConfigManager.config.macros[i].steps[s].gap = 0;
             }
             
-            ESP_LOGI(BLETAG, "Macro %d: stepCount=%d", i, stepCount);
+            ESP_LOGI(BLETAG, "  stepCount=%d", stepCount);
             
-            remaining = remaining.substring(delim + 1);
+            remaining = remaining.substring(stepDelim + 1);
 
             for (uint8_t s = 0; s < stepCount; s++) {
                 if (remaining.length() == 0) break;
                 
-                delim = remaining.indexOf('|');
-                if (delim < 0) delim = remaining.length();
-                uint16_t relayMask = remaining.substring(0, delim).toInt();
+                // Parse relay_mask
+                int relayDelim = remaining.indexOf('|');
+                if (relayDelim < 0) break;
+                uint16_t relayMask = remaining.substring(0, relayDelim).toInt();
                 macroConfigManager.config.macros[i].steps[s].relay_mask = relayMask;
-                remaining = remaining.substring(delim + 1);
+                remaining = remaining.substring(relayDelim + 1);
 
-                delim = remaining.indexOf('|');
-                if (delim < 0) delim = remaining.length();
-                uint16_t duration = remaining.substring(0, delim).toInt();
+                // Parse duration
+                int durationDelim = remaining.indexOf('|');
+                if (durationDelim < 0) break;
+                uint16_t duration = remaining.substring(0, durationDelim).toInt();
                 macroConfigManager.config.macros[i].steps[s].duration = duration;
-                remaining = remaining.substring(delim + 1);
+                remaining = remaining.substring(durationDelim + 1);
 
-                delim = remaining.indexOf('|');
-                if (delim < 0) delim = remaining.length();
-                uint16_t gap = remaining.substring(0, delim).toInt();
+                // Parse gap
+                int gapDelim = remaining.indexOf('|');
+                uint16_t gap = 0;
+                if (gapDelim < 0) {
+                    gap = remaining.toInt();
+                    remaining = "";
+                } else {
+                    gap = remaining.substring(0, gapDelim).toInt();
+                    remaining = remaining.substring(gapDelim + 1);
+                }
                 macroConfigManager.config.macros[i].steps[s].gap = gap;
-                remaining = remaining.substring(delim + 1);
                 
-                ESP_LOGI(BLETAG, "  Step %d: relay=%d, duration=%d, gap=%d", s, relayMask, duration, gap);
+                ESP_LOGI(BLETAG, "    Step %d: relay=0x%02X, duration=%u, gap=%u", s, relayMask, duration, gap);
             }
         }
         
@@ -706,11 +767,19 @@ private:
         macroConfigManager.saveAll();
         ESP_LOGI(BLETAG, "Macro config saved: %d macros, tag=%d", macroCount, tagMacro);
         
-        ESP_LOGI(BLETAG, "Calling refreshMacroChar() after save");
         _mgr->refreshMacroChar();
         _mgr->notifyStatus("ok:macros_saved");
     }
     };
+
+    // TEST: Simple write callback to see if ANY writes are detected
+    class TestWriteCallback : public NimBLECharacteristicCallbacks {
+    public:
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            ESP_LOGI(BLETAG, "TEST CALLBACK: Got a write!");
+        }
+    };
+
 
     // Log clear callbacks
     class LogClearCallbacks : public NimBLECharacteristicCallbacks {
