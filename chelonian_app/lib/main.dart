@@ -6989,28 +6989,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<bool> writeMacros(int macroCount, int tagMacro, List<Map<String, dynamic>> macros) async {
-    if (_macroSetChar == null) return false;
-    try {
-      // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
-      final buffer = StringBuffer();
-      buffer.write('$macroCount|$tagMacro|');
-      for (final macro in macros) {
-        buffer.write('${macro['name']}|');
-        final steps = macro['steps'] as List;
-        buffer.write('${steps.length}|');
-        for (final step in steps) {
-          buffer.write('${step['relay_mask']}|');
-          buffer.write('${step['duration']}|');
-          buffer.write('${step['gap']}|');
-        }
+  // final logger = DebugLogger();
+  
+  // if (_macroSetChar == null) {
+  //   logger.log("ERROR: _macroSetChar is null!");
+  //   return false;
+  // }
+
+  try {
+    // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
+    final buffer = StringBuffer();
+    buffer.write('$macroCount|$tagMacro|');
+    
+    for (final macro in macros) {
+      buffer.write('${macro['name']}|');
+      final steps = macro['steps'] as List;
+      buffer.write('${steps.length}|');
+      for (final step in steps) {
+        buffer.write('${step['relay_mask']}|');
+        buffer.write('${step['duration']}|');
+        buffer.write('${step['gap']}|');
       }
-      await _macroSetChar!.write(utf8.encode(buffer.toString()), withoutResponse: false);
-      return true;
-    } catch (e) {
-      debugPrint("Failed to write macros: $e");
-      return false;
     }
+    
+    final payload = buffer.toString();
+    // logger.log("Sending macro payload: $payload");
+    await _macroSetChar!.write(utf8.encode(payload), withoutResponse: false);
+    // logger.log("Macro write successful!");
+    return true;
+  } catch (e) {
+    // logger.log("Write failed: $e");
+    return false;
   }
+}
 
   // ── Logs ──────────────────────────────────────────────────────────────
 
