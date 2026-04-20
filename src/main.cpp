@@ -238,10 +238,10 @@ void setup()
     });
 
     /* ---------------- ACCESS SERVICE ---------------- */
-
+    delay(2000);
     accessServiceSetup();
 
-    ESP_LOGI(TAG, "System boot complete");
+    // ESP_LOGI(TAG, "System boot complete");
 }
 
 void loop() {

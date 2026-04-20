@@ -41,7 +41,7 @@ void accessServiceSetup() {
     }
     ESP_LOGI(TAG, "Waiting for an ISO14443A card");
     markUserActivity(state);
-    LED_SET_SEQ(SYSTEM_READY);
+    // LED_SET_SEQ(SYSTEM_READY);
     // At start of accessServiceSetup()
     // accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
 }

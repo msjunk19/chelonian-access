@@ -4230,6 +4230,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
 import 'security_manager.dart';
+import 'debug_overlay.dart';
 
 const String SERVICE_UUID     = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const String CMD_UUID         = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
@@ -4373,8 +4374,16 @@ class SignalStrengthIcon extends StatelessWidget {
 // ─────────────────────────────────────────────
 // App entry
 // ─────────────────────────────────────────────
+// void main() {
+//   runApp(const ChelonianApp());
+// }
+
 void main() {
-  runApp(const ChelonianApp());
+  runApp(
+    const DebugOverlay(
+      child: ChelonianApp(),
+    ),
+  );
 }
 
 class ChelonianApp extends StatelessWidget {
@@ -5806,6 +5815,18 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
 
   Future<void> _saveMacros() async {
     setState(() => _saving = true);
+    
+    // DEBUG: Print what we're about to save
+    debugPrint("=== SAVING MACROS ===");
+    debugPrint("Macro count: ${_macros.length}");
+    debugPrint("Tag macro: $_tagMacro");
+    for (var i = 0; i < _macros.length; i++) {
+      debugPrint("Macro $i: ${jsonEncode(_macros[i])}");
+    }
+    
+    // final success = await widget.onWriteMacros(_macros.length, _tagMacro, _macros);
+    // debugPrint("Save result: $success");
+
     final success = await widget.onWriteMacros(_macros.length, _tagMacro, _macros);
     if (mounted) {
       setState(() => _saving = false);
