@@ -363,7 +363,8 @@ private:
 
             int sep1 = payload.indexOf('|');
             int sep2 = payload.indexOf('|', sep1 + 1);
-            int sep3 = payload.lastIndexOf('|');
+            int sep3 = payload.indexOf('|', sep2 + 1);
+            int sep4 = payload.lastIndexOf('|');
 
             if (sep1 < 0 || sep2 < 0 || sep1 == sep2) {
                 ESP_LOGW(BLETAG, "Invalid command format");
@@ -375,9 +376,15 @@ private:
             String token    = payload.substring(sep1 + 1, sep2);
             uint8_t command = (uint8_t)payload.substring(sep2 + 1, sep3 > sep2 ? sep3 : payload.length()).toInt();
             uint32_t timestamp = 0;
+            String source = "M";
 
             if (sep3 > sep2) {
-                timestamp = (uint32_t)payload.substring(sep3 + 1).toInt();
+                timestamp = (uint32_t)payload.substring(sep3 + 1, sep4 > sep3 ? sep4 : payload.length()).toInt();
+            }
+            if (sep4 > sep3) {
+                source = payload.substring(sep4 + 1);
+            } else {
+                source = "M";
             }
 
             if (timestamp == 0) {
@@ -431,7 +438,12 @@ private:
                 default: break;
             }
 
-            ESP_LOGI(BLETAG, "BLE command OK: %s", statusStr);
+            // Log command with source (P = Proximity, M = Manual)
+            LogSource logSrc = (source == "P") ? LogSource::PROXIMITY : LogSource::BLE;
+            const char* cmdMsg = (command == 1) ? "Unlock" : (command == 2) ? "Lock" : "Command";
+            accessLogger.logAccess(logSrc, LogResult::SUCCESS, deviceId.c_str(), cmdMsg);
+
+            ESP_LOGI(BLETAG, "BLE command OK: %s (source: %s)", statusStr, source.c_str());
             _mgr->notifyStatus(statusStr);
         }
 
