@@ -284,25 +284,33 @@ public:
         return getLogsJsonChunk(exactLevel, 0, maxLen);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIXED: getLogsJsonChunk - Now properly handles offset and maxCount
+    // ═══════════════════════════════════════════════════════════════════════
     String getLogsJsonChunk(int8_t exactLevel, size_t offset, size_t maxCount) const
     {
         String json = "[";
         bool first = true;
-        size_t sent = 0;
+        size_t skipped = 0;      // Count entries we've skipped
+        size_t added = 0;         // Count entries we've actually added
 
         // Iterate from newest to oldest
-        for (int i = 0; i < _count && (maxCount == 0 || sent < maxCount); i++)
+        for (int i = 0; i < _count; i++)
         {
-            if (offset > 0 && sent < offset) {
-                sent++;
-                continue;
-            }
-
             LogEntry e;
             if (!getEntry(i, e)) continue;
             if (exactLevel >= 0 && e.level != exactLevel) continue;
 
-            sent++;
+            // Skip first 'offset' entries
+            if (skipped < offset) {
+                skipped++;
+                continue;
+            }
+
+            // Stop after 'maxCount' entries (if maxCount > 0)
+            if (maxCount > 0 && added >= maxCount) {
+                break;
+            }
 
             uint32_t ts = resolveTime(e);
 
@@ -317,6 +325,8 @@ public:
             json += ",\"id\":\"" + String(e.identifier) + "\"";
             json += ",\"msg\":\"" + String(e.message) + "\"";
             json += "}";
+
+            added++;
         }
 
         json += "]";
@@ -453,8 +463,7 @@ private:
 };
 
 extern AccessLogger accessLogger;
-
-// Working Logger, circular logging not working
+//previous working version
 // #pragma once
 
 // #include <Preferences.h>
@@ -480,26 +489,25 @@ extern AccessLogger accessLogger;
 // // ENTRY
 // // ======================================================
 
-//     struct LogEntry {
-//         uint32_t timestamp;
-//         uint8_t  timeMode;
-//         uint8_t  level;
-//         uint8_t  source;
-//         uint8_t  result;
-//         char identifier[32];
-//         char message[64];
+// struct LogEntry {
+//     uint32_t timestamp;
+//     uint8_t  timeMode;
+//     uint8_t  level;
+//     uint8_t  source;
+//     uint8_t  result;
+//     char identifier[32];
+//     char message[64];
 
-//         LogEntry() {
-//             Serial.println("LogEntry constructed");  // Add this
-//             timestamp = 0;
-//             timeMode = 0;
-//             level = 0;
-//             source = 0;
-//             result = 0;
-//             identifier[0] = '\0';
-//             message[0] = '\0';
-//         }
-//     };
+//     LogEntry() {
+//         timestamp = 0;
+//         timeMode = 0;
+//         level = 0;
+//         source = 0;
+//         result = 0;
+//         identifier[0] = '\0';
+//         message[0] = '\0';
+//     }
+// };
 
 // // ======================================================
 // // SETTINGS
@@ -568,15 +576,16 @@ extern AccessLogger accessLogger;
 //     {
 //         for (uint8_t i = 0; i < _count; i++)
 //         {
-//             if (_entries[i].timeMode == 0)
+//             LogEntry& e = getEntryAtIndex(i);
+//             if (e.timeMode == 0)
 //             {
-//                 uint32_t uptimeAtLog = _entries[i].timestamp;
-//                 _entries[i].timestamp = _syncUnix + (uptimeAtLog - _syncUptime);
-//                 _entries[i].timeMode = 1;
+//                 uint32_t uptimeAtLog = e.timestamp;
+//                 e.timestamp = _syncUnix + (uptimeAtLog - _syncUptime);
+//                 e.timeMode = 1;
 //                 Serial.print("Backfilled log entry ");
 //                 Serial.print(i);
 //                 Serial.print(": ");
-//                 Serial.println(_entries[i].timestamp);
+//                 Serial.println(e.timestamp);
 //             }
 //         }
 //         saveAllEntries();
@@ -589,11 +598,6 @@ extern AccessLogger accessLogger;
 //     void begin()
 //     {
 //         Preferences prefs;
-//             // Clear NVS on each boot to start fresh
-//         // Preferences prefs;
-//         // prefs.begin(LOG_NAMESPACE, false);
-//         // prefs.clear();
-//         // prefs.end();
     
 //         // First ensure namespace exists with defaults
 //         prefs.begin(LOG_SETTINGS_NS, false);
@@ -643,22 +647,21 @@ extern AccessLogger accessLogger;
 //              const char* message,
 //              int32_t externalTimestamp = -1)
 //     {
-//     totalLogCalls++;
-//     Serial.print("log() call #");
-//     Serial.println(totalLogCalls);
+//         totalLogCalls++;
+//         Serial.print("log() call #");
+//         Serial.println(totalLogCalls);
 
-//     Serial.print("[");
-//     Serial.print(millis());
-//     Serial.print("] LOG: id=");
-//     Serial.print(identifier);
-//     Serial.print(" msg=");
-//     Serial.println(message);
-//     Serial.print("  backtrace:");
-//     Serial.println(esp_get_free_heap_size());
+//         Serial.print("[");
+//         Serial.print(millis());
+//         Serial.print("] LOG: id=");
+//         Serial.print(identifier);
+//         Serial.print(" msg=");
+//         Serial.println(message);
 
 //         if (!shouldLog(level))
 //             return;
 
+//         // Get reference to the entry at _head (overwrites oldest when full)
 //         LogEntry& e = _entries[_head];
 
 //         uint32_t uptime = millis() / 1000;
@@ -698,7 +701,10 @@ extern AccessLogger accessLogger;
 //         strncpy(e.message, message, sizeof(e.message) - 1);
 //         e.message[63] = '\0';
 
+//         // Advance head pointer
 //         _head = (_head + 1) % LOG_MAX_ENTRIES;
+        
+//         // Increment count only until we reach max capacity
 //         if (_count < LOG_MAX_ENTRIES)
 //             _count++;
 
@@ -717,17 +723,6 @@ extern AccessLogger accessLogger;
 
 //     void logDebug(LogSource s, LogResult r, const char* id, const char* msg)
 //         { log(LogLevel::DEBUG, s, r, id, msg); }
-
-//     // void logBoot()
-//     // {
-//     //     if (_bootLogged) return;
-//     //     _bootLogged = true;
-
-//     //     logSystem(LogSource::RFID,
-//     //               LogResult::SUCCESS,
-//     //               "System",
-//     //               "Device boot");
-//     // }
 
 //     // ======================================================
 //     // TIME RESOLVE (FIXED DISPLAY LOGIC)
@@ -752,22 +747,35 @@ extern AccessLogger accessLogger;
 //                        uint32_t /*clientUnixTime*/,
 //                        size_t maxLen = 0) const
 //     {
+//         return getLogsJsonChunk(exactLevel, 0, maxLen);
+//     }
+
+//     String getLogsJsonChunk(int8_t exactLevel, size_t offset, size_t maxCount) const
+//     {
 //         String json = "[";
 //         bool first = true;
+//         size_t sent = 0;
 
-//         for (int i = _count - 1; i >= 0; i--)
+//         // Iterate from newest to oldest
+//         for (int i = 0; i < _count && (maxCount == 0 || sent < maxCount); i++)
 //         {
+//             if (offset > 0 && sent < offset) {
+//                 sent++;
+//                 continue;
+//             }
+
 //             LogEntry e;
 //             if (!getEntry(i, e)) continue;
 //             if (exactLevel >= 0 && e.level != exactLevel) continue;
+
+//             sent++;
 
 //             uint32_t ts = resolveTime(e);
 
 //             if (!first) json += ",";
 //             first = false;
 
-//             json += "{";
-//             json += "\"ts\":" + String(ts);
+//             json += "{\"ts\":" + String(ts);
 //             json += ",\"mode\":" + String(e.timeMode);
 //             json += ",\"level\":" + String(e.level);
 //             json += ",\"source\":" + String(e.source);
@@ -800,17 +808,26 @@ extern AccessLogger accessLogger;
 
 //     const LoggingSettings& getSettings() const { return _settings; }
 //     uint16_t getCount() const { return _count; }
-//     uint8_t getHead() const { return _head; }  // Add this line
+//     uint8_t getHead() const { return _head; }
 
-//     bool getEntry(uint8_t index, LogEntry& out) const
+//     bool getEntry(int8_t index, LogEntry& out) const
 //     {
-//         if (index >= _count) return false;
+//         if (index < 0 || index >= _count) return false;
 
-//         uint8_t actual =
-//             (_head + LOG_MAX_ENTRIES - _count + index) % LOG_MAX_ENTRIES;
+//         // Calculate actual position in circular buffer
+//         // index 0 = newest (most recent)
+//         // index _count-1 = oldest
+//         uint8_t actual = (_head + LOG_MAX_ENTRIES - _count + index) % LOG_MAX_ENTRIES;
 
 //         out = _entries[actual];
 //         return true;
+//     }
+
+//     // Direct access to entry by circular position (for internal use)
+//     LogEntry& getEntryAtIndex(uint8_t logicalIndex)
+//     {
+//         uint8_t actual = (_head + LOG_MAX_ENTRIES - _count + logicalIndex) % LOG_MAX_ENTRIES;
+//         return _entries[actual];
 //     }
 
 //     // ======================================================
@@ -823,10 +840,17 @@ extern AccessLogger accessLogger;
 //         _count = 0;
 //         _bootLogged = false;
 
+//         // Clear entries from memory
+//         for (uint8_t i = 0; i < LOG_MAX_ENTRIES; i++) {
+//             _entries[i] = LogEntry();
+//         }
+
 //         Preferences prefs;
 //         prefs.begin(LOG_NAMESPACE, false);
 //         prefs.clear();
 //         prefs.end();
+
+//         Serial.println("Logs cleared");
 //     }
 
 // private:
@@ -845,45 +869,51 @@ extern AccessLogger accessLogger;
 
 //     void loadEntries()
 //     {
-        
 //         Preferences prefs;
 //         prefs.begin(LOG_NAMESPACE, true);
 
+//         // Load circular buffer state
+//         _head = prefs.getUChar("head", 0);
 //         _count = prefs.getUChar("count", 0);
-//         Serial.print("LOAD: _count from NVS=");
+        
+//         Serial.print("LOAD: _head=");
+//         Serial.print(_head);
+//         Serial.print(" _count=");
 //         Serial.println(_count);
         
-//         for (uint8_t i = 0; i < _count; i++)
+//         // Load all entries from storage (full array)
+//         for (uint8_t i = 0; i < LOG_MAX_ENTRIES; i++)
 //         {
 //             char key[8];
 //             snprintf(key, sizeof(key), "log_%u", i);
 //             prefs.getBytes(key, &_entries[i], sizeof(LogEntry));
-//             Serial.print("LOAD entry ");
-//             Serial.print(i);
-//             Serial.print(": ts=");
-//             Serial.println(_entries[i].timestamp);
 //         }
 
-//         _head = _count % LOG_MAX_ENTRIES;
 //         prefs.end();
 //     }
 
 //     void saveAllEntries()
 //     {
-//         Serial.print("SAVE: _count=");
+//         Serial.print("SAVE: _head=");
+//         Serial.print(_head);
+//         Serial.print(" _count=");
 //         Serial.println(_count);
 
 //         Preferences prefs;
 //         prefs.begin(LOG_NAMESPACE, false);
 
-//         for (uint8_t i = 0; i < _count; i++)
+//         // Save circular buffer state
+//         prefs.putUChar("head", _head);
+//         prefs.putUChar("count", _count);
+
+//         // Save all entries (full array)
+//         for (uint8_t i = 0; i < LOG_MAX_ENTRIES; i++)
 //         {
 //             char key[8];
 //             snprintf(key, sizeof(key), "log_%u", i);
 //             prefs.putBytes(key, &_entries[i], sizeof(LogEntry));
 //         }
 
-//         prefs.putUChar("count", _count);
 //         prefs.end();
 //     }
 // };

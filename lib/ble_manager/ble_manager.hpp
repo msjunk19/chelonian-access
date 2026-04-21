@@ -544,24 +544,61 @@ private:
             if (_offset > 1000) _offset = 0; // Reset on overflow
         }
 
-        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        // ═══════════════════════════════════════════════════════════════════════════
+// ADD THIS DEBUG CODE TO ble_manager.hpp - onWrite() function
+// This will help identify exactly where getLogsJsonChunk is broken
+// ═══════════════════════════════════════════════════════════════════════════
+
+void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
     int offset = atoi(pChar->getValue().c_str());
     
-    // DEBUG: Get ALL logs to count them
+    ESP_LOGI(BLETAG, "\n=== LOG CHUNK DEBUG ===");
+    ESP_LOGI(BLETAG, "Requested offset: %d", offset);
+    
+    // Get total count
     String allLogs = accessLogger.getLogsJson(-1, 0);
     int totalLogs = 0;
     for (int i = 0; i < allLogs.length(); i++) {
         if (allLogs[i] == '{') totalLogs++;
     }
+    ESP_LOGI(BLETAG, "Total logs in system: %d", totalLogs);
+    ESP_LOGI(BLETAG, "All logs JSON length: %d bytes", allLogs.length());
     
-    String chunk = accessLogger.getLogsJsonChunk(-1, offset, 5);
+    // Try getLogsJsonChunk with different parameters
+    String chunk5 = accessLogger.getLogsJsonChunk(-1, offset, 5);
+    ESP_LOGI(BLETAG, "getLogsJsonChunk(-1, %d, 5): %d bytes", offset, chunk5.length());
     
-    ESP_LOGI(BLETAG, "DEBUG offset=%d, total_logs=%d, chunk_len=%d", 
-             offset, totalLogs, chunk.length());
-    ESP_LOGI(BLETAG, "First 200 chars of chunk: %.200s", chunk.c_str());
+    if (chunk5.length() > 0) {
+        ESP_LOGI(BLETAG, "Content: %.300s", chunk5.c_str());
+    } else {
+        ESP_LOGI(BLETAG, "EMPTY RESULT!");
+        
+        // Try debugging - manually get logs and slice
+        ESP_LOGI(BLETAG, "\n--- Debugging why it's empty ---");
+        
+        // Check if getLogsJson itself works
+        String testLogs = accessLogger.getLogsJson(-1, 0);
+        ESP_LOGI(BLETAG, "getLogsJson(-1, 0) = %d bytes", testLogs.length());
+        
+        // Check different offsets
+        String chunk0 = accessLogger.getLogsJsonChunk(-1, 0, 5);
+        ESP_LOGI(BLETAG, "getLogsJsonChunk(-1, 0, 5) = %d bytes", chunk0.length());
+        
+        String chunk10 = accessLogger.getLogsJsonChunk(-1, 10, 5);
+        ESP_LOGI(BLETAG, "getLogsJsonChunk(-1, 10, 5) = %d bytes", chunk10.length());
+        
+        String chunk1 = accessLogger.getLogsJsonChunk(-1, 1, 5);
+        ESP_LOGI(BLETAG, "getLogsJsonChunk(-1, 1, 5) = %d bytes", chunk1.length());
+        
+        // Check if it's a modulo issue
+        if (offset % 5 == 0) {
+            ESP_LOGI(BLETAG, "Offset is multiple of 5 (might be the issue!)");
+        }
+    }
     
-    pChar->setValue(chunk.c_str());
+    pChar->setValue(chunk5.c_str());
     pChar->notify();
+    ESP_LOGI(BLETAG, "=== END DEBUG ===\n");
 }
 
         // void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
