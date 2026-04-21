@@ -545,11 +545,31 @@ private:
         }
 
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-            std::string raw = pChar->getValue();
-            _offset = atoi(raw.c_str());
-            ESP_LOGI(BLETAG, "Log offset set to: %d", _offset);
-            _notifyLogs(pChar, _offset);
-        }
+    int offset = atoi(pChar->getValue().c_str());
+    
+    // DEBUG: Get ALL logs to count them
+    String allLogs = accessLogger.getLogsJson(-1, 0);
+    int totalLogs = 0;
+    for (int i = 0; i < allLogs.length(); i++) {
+        if (allLogs[i] == '{') totalLogs++;
+    }
+    
+    String chunk = accessLogger.getLogsJsonChunk(-1, offset, 5);
+    
+    ESP_LOGI(BLETAG, "DEBUG offset=%d, total_logs=%d, chunk_len=%d", 
+             offset, totalLogs, chunk.length());
+    ESP_LOGI(BLETAG, "First 200 chars of chunk: %.200s", chunk.c_str());
+    
+    pChar->setValue(chunk.c_str());
+    pChar->notify();
+}
+
+        // void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        //     std::string raw = pChar->getValue();
+        //     _offset = atoi(raw.c_str());
+        //     ESP_LOGI(BLETAG, "Log offset set to: %d", _offset);
+        //     _notifyLogs(pChar, _offset);
+        // }
 
     private:
         int _offset;
