@@ -808,10 +808,157 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
         if (server.hasArg("level")) {
             level = (int8_t)server.arg("level").toInt();
         }
-        
+
         uint32_t clientTime = server.arg("timestamp").toInt();
         String json = accessLogger.getLogsJson(level, clientTime);
         server.send(200, "application/json", json);
+    });
+
+    // -------------------------
+    // POST /api/logs/clear - Clear access logs
+    // -------------------------
+    server.on("/api/logs/clear", HTTP_POST, []() {
+        String clientIP = getClientIP();
+
+        if (!server.hasArg("plain")) {
+            sendJsonError(400, "Missing body", clientIP);
+            return;
+        }
+
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, server.arg("plain"));
+        if (err) {
+            sendJsonError(400, "Invalid JSON", clientIP);
+            return;
+        }
+
+        const char* deviceId = doc["device_id"];
+        const char* token = doc["token"];
+
+        if (!deviceId || !token) {
+            sendJsonError(400, "Missing required fields", clientIP);
+            return;
+        }
+
+        if (strlen(token) != 32) {
+            sendJsonError(400, "Invalid token length", clientIP);
+            return;
+        }
+
+        uint8_t storedTokenEncrypted[EncryptedTokenStorage::IV_SIZE + PHONE_SECRET_LEN + EncryptedTokenStorage::TAG_SIZE];
+        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+
+        if (!phoneTokenManager.getPhoneEncrypted(deviceId, storedTokenEncrypted)) {
+            sendJsonError(401, "Unknown device", clientIP);
+            return;
+        }
+
+        if (!encryptedStorage.decryptToken(storedTokenEncrypted, storedToken)) {
+            sendJsonError(500, "Token decryption failed", clientIP);
+            return;
+        }
+
+        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+        memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+        uint8_t diff = 0;
+        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+            diff |= storedToken[i] ^ incomingToken[i];
+        }
+
+        if (diff != 0) {
+            sendJsonError(401, "Unauthorized", clientIP);
+            accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Auth failed");
+            return;
+        }
+
+        accessLogger.clear();
+        accessLogger.logSystem(LogSource::WIFI, LogResult::SUCCESS, deviceId, "Logs cleared");
+
+        JsonDocument resp;
+        resp["ok"] = true;
+        String body;
+        serializeJson(resp, body);
+        server.send(200, "application/json", body);
+
+        ESP_LOGI(WIFIAUTHTAG, "Logs cleared by %s", deviceId);
+    });
+
+    // -------------------------
+    // POST /api/reboot - Reboot device
+    // -------------------------
+    server.on("/api/reboot", HTTP_OPTIONS, []() {
+        server.sendHeader("Access-Control-Allow-Origin", "*");
+        server.sendHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+        server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+        server.send(204);
+    });
+
+    server.on("/api/reboot", HTTP_POST, []() {
+        String clientIP = getClientIP();
+
+        if (!server.hasArg("plain")) {
+            sendJsonError(400, "Missing body", clientIP);
+            return;
+        }
+
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, server.arg("plain"));
+        if (err) {
+            sendJsonError(400, "Invalid JSON", clientIP);
+            return;
+        }
+
+        const char* deviceId = doc["device_id"];
+        const char* token = doc["token"];
+
+        if (!deviceId || !token) {
+            sendJsonError(400, "Missing required fields", clientIP);
+            return;
+        }
+
+        if (strlen(token) != 32) {
+            sendJsonError(400, "Invalid token length", clientIP);
+            return;
+        }
+
+        uint8_t storedTokenEncrypted[EncryptedTokenStorage::IV_SIZE + PHONE_SECRET_LEN + EncryptedTokenStorage::TAG_SIZE];
+        uint8_t storedToken[PHONE_SECRET_LEN] = {0};
+
+        if (!phoneTokenManager.getPhoneEncrypted(deviceId, storedTokenEncrypted)) {
+            sendJsonError(401, "Unknown device", clientIP);
+            return;
+        }
+
+        if (!encryptedStorage.decryptToken(storedTokenEncrypted, storedToken)) {
+            sendJsonError(500, "Token decryption failed", clientIP);
+            return;
+        }
+
+        uint8_t incomingToken[PHONE_SECRET_LEN] = {0};
+        memcpy(incomingToken, token, min((size_t)PHONE_SECRET_LEN, strlen(token)));
+
+        uint8_t diff = 0;
+        for (int i = 0; i < PHONE_SECRET_LEN; i++) {
+            diff |= storedToken[i] ^ incomingToken[i];
+        }
+
+        if (diff != 0) {
+            sendJsonError(401, "Unauthorized", clientIP);
+            accessLogger.logAccess(LogSource::WIFI, LogResult::FAIL, deviceId, "Auth failed");
+            return;
+        }
+
+        JsonDocument resp;
+        resp["ok"] = true;
+        String body;
+        serializeJson(resp, body);
+        server.send(200, "application/json", body);
+
+        ESP_LOGI(WIFIAUTHTAG, "Reboot requested by %s", deviceId);
+        accessLogger.logSystem(LogSource::WIFI, LogResult::SUCCESS, deviceId, "Reboot requested");
+        delay(100);
+        ESP.restart();
     });
 
     ESP_LOGI(WIFIAUTHTAG, "Hardened auth endpoints registered");

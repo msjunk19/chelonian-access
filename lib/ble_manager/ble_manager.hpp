@@ -549,10 +549,15 @@ private:
         void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             ESP_LOGI(BLETAG, "Log onRead: sending chunk at offset %d", _offset);
             String json = accessLogger.getLogsJsonChunk(-1, _offset, 5);
-            pChar->setValue(json.c_str());
-            // Increment for next read (stateful, simpler)
-            _offset += 5;
-            if (_offset > 1000) _offset = 0; // Reset on overflow
+            if (json.isEmpty() || json == "[]") {
+                ESP_LOGI(BLETAG, "No more logs at offset %d, resetting", _offset);
+                _offset = 0;
+            } else {
+                pChar->setValue(json.c_str());
+                // Increment for next read (only if logs exist)
+                _offset += 5;
+                if (_offset > LOG_MAX_ENTRIES) _offset = 0;
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -824,8 +829,8 @@ void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             std::string raw = pChar->getValue();
             ESP_LOGI(BLETAG, "Log clear command received");
-            accessLogger.logSystem(LogSource::BLE, LogResult::SUCCESS, "System", "Logs cleared");
             accessLogger.clear();
+            accessLogger.logSystem(LogSource::BLE, LogResult::SUCCESS, "System", "Logs cleared");
             _mgr->notifyStatus("ok:logs_cleared");
         }
 
