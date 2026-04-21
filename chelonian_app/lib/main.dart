@@ -1644,24 +1644,24 @@ onTap: () {
                       );
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.history),
-                    title: const Text("Access Logs"),
-                    subtitle: const Text("View RFID and command history"),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => LogsPage(
-                            onReadLogs: onReadLogs,
-                            onClearLogs: onClearLogs,
-                            onSyncTime: onSyncTime,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  // ListTile(
+                  //   leading: const Icon(Icons.history),
+                  //   title: const Text("Access Logs"),
+                  //   subtitle: const Text("View RFID and command history"),
+                  //   trailing: const Icon(Icons.chevron_right),
+                  //   onTap: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(
+                  //         builder: (context) => LogsPage(
+                  //           onReadLogs: onReadLogs,
+                  //           onClearLogs: onClearLogs,
+                  //           onSyncTime: onSyncTime,
+                  //         ),
+                  //       ),
+                  //     );
+                  //   },
+                  // ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     child: OutlinedButton.icon(
