@@ -1712,7 +1712,7 @@ class _LogsPageState extends State<LogsPage> {
     final logs = await widget.onReadLogs();
     if (mounted) {
       setState(() {
-        _logs = logs ?? [];
+        _logs = (logs ?? []).reversed.toList();
         _loading = false;
       });
     }
@@ -1765,7 +1765,7 @@ class _LogsPageState extends State<LogsPage> {
   Widget build(BuildContext context) {
     final filteredLogs = _filter == 0
         ? _logs
-        : _logs.where((l) => l['level'] == _filter - 1).toList();
+        : _logs.where((l) => (l['level'] ?? l['source'] ?? 0) == _filter - 1).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -1804,7 +1804,7 @@ class _LogsPageState extends State<LogsPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         itemCount: filteredLogs.length,
                         itemBuilder: (context, index) {
-                          final log = filteredLogs[filteredLogs.length - 1 - index];
+                          final log = filteredLogs[index];
                           final level = log['level'] as int;
                           final source = log['source'] as int;
                           final result = log['result'] as int;
