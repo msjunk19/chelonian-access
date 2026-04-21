@@ -737,11 +737,18 @@ Future<List<Map<String, dynamic>>?> readLogs() async {
     int iterations = 0;
     const int MAX_ITERATIONS = 100;
     const int CHUNK_SIZE = 5;
+    const int MAX_LOG_ENTRIES = 50;
 
     debugPrint("📋 Starting chunk retrieval loop...");
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
+
+      if (allLogs.length >= MAX_LOG_ENTRIES) {
+        debugPrint("ℹ️ Reached max log entries ($MAX_LOG_ENTRIES)");
+        break;
+      }
+
       debugPrint(
         "📤 [Iteration $iterations] Requesting logs at offset=$offset"
       );
@@ -2122,11 +2129,15 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
-  String _formatTime(int secondsAgo) {
+  String _formatTime(int ts) {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final secondsAgo = now - ts;
+    if (secondsAgo < 0) return 'Future';
     if (secondsAgo < 60) return 'Just now';
     if (secondsAgo < 3600) return '${(secondsAgo / 60).floor()}m ago';
     if (secondsAgo < 86400) return '${(secondsAgo / 3600).floor()}h ago';
-    return '${(secondsAgo / 86400).floor()}d ago';
+    final date = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
+    return '${date.month}-${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   @override
