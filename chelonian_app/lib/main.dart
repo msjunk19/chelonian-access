@@ -693,22 +693,36 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       bool hasMore = true;
 
       while (hasMore) {
-        // Collect notification - set up listener BEFORE requesting
-        final List<String> chunks = [];
-        debugPrint("Setting up listener for offset $offset...");
+        // Request chunk at this offset
+        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
+
+        // Subscribe to notification one time 
+        bool received = false;
         final sub = _logGetChar!.onValueReceived.listen((value) {
           final chunk = utf8.decode(value).trim();
-          debugPrint("Flutter received: ${chunk.length} bytes");
+          debugPrint("Flutter notification: ${chunk.length} bytes");
           if (chunk.isNotEmpty && chunk != "[]") {
             chunks.add(chunk);
+            received = true;
           }
         });
 
-        // Request chunk at this offset
-        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-        await Future.delayed(const Duration(milliseconds: 150));
-
+        await Future.delayed(const Duration(milliseconds: 200));
         sub.cancel();
+
+        // If notification wasn't received, try direct read
+        if (!received) {
+          try {
+            final value = await _logGetChar!.read();
+            final chunk = utf8.decode(value).trim();
+            debugPrint("Flutter fallback read: ${chunk.length} bytes");
+            if (chunk.isNotEmpty && chunk != "[]") {
+              chunks.add(chunk);
+            }
+          } catch(e) {
+            debugPrint("Fallback read error: $e");
+          }
+        }
 
         if (chunks.isEmpty) {
           hasMore = false;
