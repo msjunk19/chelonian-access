@@ -530,24 +530,29 @@ private:
     // -------------------------
     // Log GET callbacks - reads from NVS with chunked support
 
+    // Change LogGetCallbacks to support both onRead and onWrite
     class LogGetCallbacks : public NimBLECharacteristicCallbacks {
     public:
-        LogGetCallbacks(BLEManager* mgr) : _mgr(mgr) {}
+        LogGetCallbacks(BLEManager* mgr) : _mgr(mgr), _offset(0) {}
 
         void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-            ESP_LOGI(BLETAG, "Log onRead called");
-            _notifyLogs(pChar, 0);
+            ESP_LOGI(BLETAG, "Log onRead: sending chunk at offset %d", _offset);
+            String json = accessLogger.getLogsJsonChunk(-1, _offset, 5);
+            pChar->setValue(json.c_str());
+            // Increment for next read (stateful, simpler)
+            _offset += 5;
+            if (_offset > 1000) _offset = 0; // Reset on overflow
         }
 
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             std::string raw = pChar->getValue();
-            ESP_LOGI(BLETAG, "Log onWrite called: raw='%s'", raw.c_str());
-            int offset = atoi(raw.c_str());
-            ESP_LOGI(BLETAG, "Log read request: offset=%d", offset);
-            _notifyLogs(pChar, offset);
+            _offset = atoi(raw.c_str());
+            ESP_LOGI(BLETAG, "Log offset set to: %d", _offset);
+            _notifyLogs(pChar, _offset);
         }
 
     private:
+        int _offset;
         void _notifyLogs(NimBLECharacteristic* pChar, size_t offset) {
             // Send 5 logs at a time (~250 bytes, fits in 512 MTU)
             const size_t CHUNK = 5;

@@ -672,46 +672,40 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 // ── Logs ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>?> readLogs() async {
-    debugPrint("readLogs called, _logGetChar is ${_logGetChar != null}");
     if (_logGetChar == null) return null;
 
     try {
       final List<Map<String, dynamic>> allLogs = [];
       int offset = 0;
-      const CHUNK_SIZE = 5;
       bool hasMore = true;
 
       while (hasMore) {
-        // Write offset to request this chunk
+        // Write desired offset
         await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-
-        // Wait for ESP32 to prepare the data
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        // Read the chunk directly
+        
+        // Give device time to prepare response
+        await Future.delayed(const Duration(milliseconds: 200));
+        
+        // NOW read the prepared value
         try {
           final value = await _logGetChar!.read();
           final str = utf8.decode(value).trim();
-          debugPrint("Flutter read: offset=$offset, len=${str.length}");
-
+          
           if (str.isEmpty || str == "[]") {
             hasMore = false;
             continue;
           }
 
           final parsed = jsonDecode(str);
-          if (parsed is List) {
-            final entries = List<Map<String, dynamic>>.from(parsed);
-            if (entries.isEmpty) {
+          if (parsed is List && parsed.isNotEmpty) {
+            allLogs.addAll(List<Map<String, dynamic>>.from(parsed));
+            offset += parsed.length;
+            
+            if (parsed.length < 5) {
               hasMore = false;
-            } else {
-              allLogs.addAll(entries);
-              offset += entries.length;
-              debugPrint("Got ${entries.length} logs, total ${allLogs.length}");
-              if (entries.length < CHUNK_SIZE) {
-                hasMore = false;
-              }
             }
+          } else {
+            hasMore = false;
           }
         } catch(e) {
           debugPrint("Read error: $e");
@@ -720,14 +714,70 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       }
 
       debugPrint("Total logs loaded: ${allLogs.length}");
-      return allLogs;
+      return allLogs.isEmpty ? null : allLogs;
     } catch (e) {
       debugPrint("Failed to read logs: $e");
     }
     return null;
-}
+  }
 
-Future<bool> clearLogs() async {
+  // Future<List<Map<String, dynamic>>?> readLogs() async {
+  //   debugPrint("readLogs called, _logGetChar is ${_logGetChar != null}");
+  //   if (_logGetChar == null) return null;
+
+  //   try {
+  //     final List<Map<String, dynamic>> allLogs = [];
+  //     int offset = 0;
+  //     const CHUNK_SIZE = 5;
+  //     bool hasMore = true;
+
+  //     while (hasMore) {
+  //       // Write offset to request this chunk
+  //       await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
+
+  //       // Wait for ESP32 to prepare the data
+  //       await Future.delayed(const Duration(milliseconds: 100));
+
+  //       // Read the chunk directly
+  //       try {
+  //         final value = await _logGetChar!.read();
+  //         final str = utf8.decode(value).trim();
+  //         debugPrint("Flutter read: offset=$offset, len=${str.length}");
+
+  //         if (str.isEmpty || str == "[]") {
+  //           hasMore = false;
+  //           continue;
+  //         }
+
+  //         final parsed = jsonDecode(str);
+  //         if (parsed is List) {
+  //           final entries = List<Map<String, dynamic>>.from(parsed);
+  //           if (entries.isEmpty) {
+  //             hasMore = false;
+  //           } else {
+  //             allLogs.addAll(entries);
+  //             offset += entries.length;
+  //             debugPrint("Got ${entries.length} logs, total ${allLogs.length}");
+  //             if (entries.length < CHUNK_SIZE) {
+  //               hasMore = false;
+  //             }
+  //           }
+  //         }
+  //       } catch(e) {
+  //         debugPrint("Read error: $e");
+  //         hasMore = false;
+  //       }
+  //     }
+
+  //     debugPrint("Total logs loaded: ${allLogs.length}");
+  //     return allLogs;
+  //   } catch (e) {
+  //     debugPrint("Failed to read logs: $e");
+  //   }
+  //   return null;
+  // }
+
+  Future<bool> clearLogs() async {
     if (_logClearChar == null) return false;
     try {
       await _logClearChar!.write(utf8.encode("clear"), withoutResponse: false);
