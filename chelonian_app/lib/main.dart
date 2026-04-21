@@ -37,17 +37,20 @@ class AppStateNotifier extends ChangeNotifier {
   bool   connected        = false;
   bool   scanning         = false;
   bool   paired           = false;
+  bool   autoReconnect    = true;
   String status           = "Disconnected";
 
   void update({
     bool?   connected,
     bool?   scanning,
     bool?   paired,
+    bool?   autoReconnect,
     String? status,
   }) {
-    if (connected != null) this.connected = connected;
-    if (scanning  != null) this.scanning  = scanning;
-    if (paired    != null) this.paired    = paired;
+    if (connected    != null) this.connected    = connected;
+    if (scanning   != null) this.scanning   = scanning;
+    if (paired     != null) this.paired     = paired;
+    if (autoReconnect != null) this.autoReconnect = autoReconnect;
     if (status    != null) this.status    = status;
     notifyListeners();
   }
@@ -1625,6 +1628,8 @@ onTap: () {
                         context,
                         MaterialPageRoute(
                           builder: (context) => MacroConfigPage(
+                            appState: appState,
+                            onScanAndConnect: onScanAndConnect,
                             onReadMacros: onReadMacros,
                             onWriteMacros: onWriteMacros,
                             onSyncTime: onSyncTime,
@@ -1643,6 +1648,8 @@ onTap: () {
                         context,
                         MaterialPageRoute(
                           builder: (context) => LogsPage(
+                            appState: appState,
+                            onScanAndConnect: onScanAndConnect,
                             onReadLogs: onReadLogs,
                             onClearLogs: onClearLogs,
                             onSyncTime: onSyncTime,
@@ -1717,6 +1724,36 @@ onTap: () {
                         ? (v) => v ? onStartProximity() : onStopProximity()
                         : null,
                   ),
+                  if (proximityEnabled)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                      child: Row(
+                        children: [
+                          SwitchListTile(
+                            secondary: const Icon(Icons.bluetooth_searching),
+                            title: const Text("Auto-reconnect on page open"),
+                            subtitle: const Text("Auto-connect when opening pages"),
+                            value: appState.autoReconnect,
+                            onChanged: (v) => appState.update(autoReconnect: v),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (!proximityEnabled)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                      child: Row(
+                        children: [
+                          SwitchListTile(
+                            secondary: const Icon(Icons.bluetooth_searching),
+                            title: const Text("Auto-reconnect on page open"),
+                            subtitle: const Text("Auto-connect when opening pages"),
+                            value: appState.autoReconnect,
+                            onChanged: (v) => appState.update(autoReconnect: v),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (proximityEnabled)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -1863,12 +1900,16 @@ class _DebugTile extends StatelessWidget {
 // Macro Configuration Page
 // ─────────────────────────────────────────────
 class MacroConfigPage extends StatefulWidget {
+  final AppStateNotifier? appState;
+  final VoidCallback? onScanAndConnect;
   final Future<Map<String, dynamic>?> Function() onReadMacros;
   final Future<bool> Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
   final Future<bool> Function() onSyncTime;
 
   const MacroConfigPage({
     super.key,
+    this.appState,
+    this.onScanAndConnect,
     required this.onReadMacros,
     required this.onWriteMacros,
     required this.onSyncTime,
@@ -1888,7 +1929,17 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
   @override
   void initState() {
     super.initState();
+    _autoConnect();
     _loadMacros();
+  }
+
+  Future<void> _autoConnect() async {
+    if (widget.appState != null && widget.onScanAndConnect != null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted && !widget.appState!.connected && widget.appState!.autoReconnect) {
+        widget.onScanAndConnect!();
+      }
+    }
   }
 
   void _onTagChanged(int? value) {
@@ -2053,12 +2104,16 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
 // Logs Page
 // ─────────────────────────────────────────────
 class LogsPage extends StatefulWidget {
+  final AppStateNotifier? appState;
+  final VoidCallback? onScanAndConnect;
   final Future<List<Map<String, dynamic>>?> Function() onReadLogs;
   final Future<bool> Function() onClearLogs;
   final Future<bool> Function() onSyncTime;
 
   const LogsPage({
     super.key,
+    this.appState,
+    this.onScanAndConnect,
     required this.onReadLogs,
     required this.onClearLogs,
     required this.onSyncTime,
@@ -2076,13 +2131,64 @@ class _LogsPageState extends State<LogsPage> {
   @override
   void initState() {
     super.initState();
+    _autoConnect();
     _loadLogs();
+    _startAutoRefresh();
+  }
+
+  Future<void> _autoConnect() async {
+    if (widget.appState != null && widget.onScanAndConnect != null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted && !widget.appState!.connected && widget.appState!.autoReconnect) {
+        widget.onScanAndConnect!();
+      }
+    }
+  }
+
+  void _startAutoRefresh() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) _refreshLogs();
+    });
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) _updateTimestamps();
+    });
+  }
+
+  Future<void> _updateTimestamps() async {
+    if (!mounted) return;
+    setState(() {});
+    if (mounted) {
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) _updateTimestamps();
+      });
+    }
+  }
+
+  Future<void> _refreshLogs() async {
+    final oldCount = _logs.length;
+    final newLogs = await widget.onReadLogs();
+    if (mounted && newLogs != null) {
+      final combined = <Map<String, dynamic>>[..._logs];
+      for (final log in newLogs.reversed) {
+        final ts = log['ts'] as int;
+        if (!combined.any((l) => l['ts'] == ts && l['msg'] == log['msg'])) {
+          combined.insert(0, log);
+        }
+      }
+      setState(() {
+        _logs = combined;
+      });
+    }
+    if (mounted && _loading) {
+      setState(() => _loading = false);
+    }
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _refreshLogs();
+    });
   }
 
   Future<void> _loadLogs() async {
-    // Sync time first
     await widget.onSyncTime();
-
     setState(() => _loading = true);
     final logs = await widget.onReadLogs();
     if (mounted) {
