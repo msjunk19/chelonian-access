@@ -281,15 +281,28 @@ public:
                        uint32_t /*clientUnixTime*/,
                        size_t maxLen = 0) const
     {
+        return getLogsJsonChunk(exactLevel, 0, maxLen);
+    }
+
+    String getLogsJsonChunk(int8_t exactLevel, size_t offset, size_t maxCount) const
+    {
         String json = "[";
         bool first = true;
+        size_t sent = 0;
 
         // Iterate from newest to oldest
-        for (int i = 0; i < _count; i++)
+        for (int i = 0; i < _count && (maxCount == 0 || sent < maxCount); i++)
         {
+            if (offset > 0 && sent < offset) {
+                sent++;
+                continue;
+            }
+
             LogEntry e;
             if (!getEntry(i, e)) continue;
             if (exactLevel >= 0 && e.level != exactLevel) continue;
+
+            sent++;
 
             uint32_t ts = resolveTime(e);
 

@@ -112,10 +112,10 @@ public:
         // Initialize macro config characteristic with current values
         refreshMacroChar();
 
-        // Log - read
+        // Log - read (with notify for chunked reading)
         _logGetChar = service->createCharacteristic(
             BLE_LOG_GET_UUID,
-            NIMBLE_PROPERTY::READ
+            NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY
         );
         _logGetChar->setCallbacks(new LogGetCallbacks(this));
 
@@ -528,17 +528,33 @@ private:
     };
 
     // -------------------------
-    // Log GET callbacks - reads from NVS
+    // Log GET callbacks - reads from NVS with chunked support
 
     class LogGetCallbacks : public NimBLECharacteristicCallbacks {
     public:
         LogGetCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
         void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
-            String json = accessLogger.getLogsJson(-1, 0);
-            pChar->setValue(json.c_str());
+            _notifyLogs(pChar, 0);
         }
+
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            std::string raw = pChar->getValue();
+            int offset = atoi(raw.c_str());
+            ESP_LOGI(BLETAG, "Log read request: offset=%d", offset);
+            _notifyLogs(pChar, offset);
+        }
+
     private:
+        void _notifyLogs(NimBLECharacteristic* pChar, size_t offset) {
+            // Send 5 logs at a time (~250 bytes, fits in 512 MTU)
+            const size_t CHUNK = 5;
+            String json = accessLogger.getLogsJsonChunk(-1, offset, CHUNK);
+            pChar->setValue(json.c_str());
+            pChar->notify();
+            ESP_LOGI(BLETAG, "Log chunk sent: offset=%d, len=%d", offset, json.length());
+        }
+
         BLEManager* _mgr;
     };
 

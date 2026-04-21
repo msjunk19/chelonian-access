@@ -674,19 +674,70 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Future<List<Map<String, dynamic>>?> readLogs() async {
     debugPrint("readLogs called, _logGetChar is ${_logGetChar != null}");
     if (_logGetChar == null) return null;
+
     try {
-      final value = await _logGetChar!.read();
-      debugPrint("Logs read returned ${value.length} bytes");
-      if (value.isNotEmpty) {
-        final jsonStr = utf8.decode(value).trim();
-        debugPrint("Logs read: $jsonStr");
-        final parsed = jsonDecode(jsonStr);
-        if (parsed is List) {
-          return List<Map<String, dynamic>>.from(parsed);
-        }
-      } else {
-        debugPrint("Logs read returned empty");
+      // Request larger MTU
+      try {
+        await _device!.requestMtu(512);
+        debugPrint("MTU requested to 512");
+      } catch (e) {
+        debugPrint("MTU request failed: $e");
       }
+
+      // Enable notifications for chunked reading
+      await _logGetChar!.setNotifyValue(true);
+
+      final List<Map<String, dynamic>> allLogs = [];
+      int offset = 0;
+      const CHUNK_SIZE = 5;
+      bool hasMore = true;
+
+      while (hasMore) {
+        // Request chunk at this offset
+        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: true);
+        await Future.delayed(const Duration(milliseconds: 150));
+
+        // Collect notification
+        final List<String> chunks = [];
+        final sub = _logGetChar!.onValueReceived.listen((value) {
+          final chunk = utf8.decode(value).trim();
+          if (chunk.isNotEmpty && chunk != "[]") {
+            chunks.add(chunk);
+          }
+        });
+
+        await Future.delayed(const Duration(milliseconds: 100));
+        sub.cancel();
+
+        if (chunks.isEmpty) {
+          hasMore = false;
+          break;
+        }
+
+        // Parse this chunk
+        for (final chunk in chunks) {
+          try {
+            final parsed = jsonDecode(chunk);
+            if (parsed is List) {
+              final entries = List<Map<String, dynamic>>.from(parsed);
+              if (entries.isEmpty) {
+                hasMore = false;
+              } else {
+                allLogs.addAll(entries);
+                offset += entries.length;
+                if (entries.length < CHUNK_SIZE) {
+                  hasMore = false;
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint("Parse chunk error: $e");
+          }
+        }
+      }
+
+      debugPrint("Total logs loaded: ${allLogs.length}");
+      return allLogs;
     } catch (e) {
       debugPrint("Failed to read logs: $e");
     }
