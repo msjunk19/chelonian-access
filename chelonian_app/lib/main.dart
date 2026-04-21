@@ -694,7 +694,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
       while (hasMore) {
         // Request chunk at this offset
-        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: true);
+        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
         await Future.delayed(const Duration(milliseconds: 150));
 
         // Collect notification

@@ -535,11 +535,13 @@ private:
         LogGetCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
         void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            ESP_LOGI(BLETAG, "Log onRead called");
             _notifyLogs(pChar, 0);
         }
 
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             std::string raw = pChar->getValue();
+            ESP_LOGI(BLETAG, "Log onWrite called: raw='%s'", raw.c_str());
             int offset = atoi(raw.c_str());
             ESP_LOGI(BLETAG, "Log read request: offset=%d", offset);
             _notifyLogs(pChar, offset);
@@ -550,6 +552,7 @@ private:
             // Send 5 logs at a time (~250 bytes, fits in 512 MTU)
             const size_t CHUNK = 5;
             String json = accessLogger.getLogsJsonChunk(-1, offset, CHUNK);
+            ESP_LOGI(BLETAG, "_notifyLogs: offset=%d, json='%s'", offset, json.c_str());
             pChar->setValue(json.c_str());
             pChar->notify();
             ESP_LOGI(BLETAG, "Log chunk sent: offset=%d, len=%d", offset, json.length());
