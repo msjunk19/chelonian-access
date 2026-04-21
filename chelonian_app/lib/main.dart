@@ -693,20 +693,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       bool hasMore = true;
 
       while (hasMore) {
-        // Request chunk at this offset
-        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-        await Future.delayed(const Duration(milliseconds: 150));
-
-        // Collect notification
+        // Collect notification - set up listener BEFORE requesting
         final List<String> chunks = [];
+        debugPrint("Setting up listener for offset $offset...");
         final sub = _logGetChar!.onValueReceived.listen((value) {
           final chunk = utf8.decode(value).trim();
+          debugPrint("Flutter received: ${chunk.length} bytes");
           if (chunk.isNotEmpty && chunk != "[]") {
             chunks.add(chunk);
           }
         });
 
-        await Future.delayed(const Duration(milliseconds: 100));
+        // Request chunk at this offset
+        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
+        await Future.delayed(const Duration(milliseconds: 150));
+
         sub.cancel();
 
         if (chunks.isEmpty) {

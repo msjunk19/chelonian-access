@@ -309,8 +309,7 @@ public:
             if (!first) json += ",";
             first = false;
 
-            json += "{";
-            json += "\"ts\":" + String(ts);
+            json += "{\"ts\":" + String(ts);
             json += ",\"mode\":" + String(e.timeMode);
             json += ",\"level\":" + String(e.level);
             json += ",\"source\":" + String(e.source);
