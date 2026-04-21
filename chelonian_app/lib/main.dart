@@ -583,7 +583,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // ── Commands ──────────────────────────────────────────────────────────
 
-  Future<void> _sendCommand(int command) async {
+  Future<void> _sendCommand(int command, {bool isProximity = false}) async {
     if (!_connected || _cmdChar == null) {
       await _scanAndConnect();
       if (!_connected) { setState(() { _status = "Could not connect"; }); return; }
@@ -599,7 +599,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     HapticFeedback.mediumImpact();
 
     final timestamp = (DateTime.now().millisecondsSinceEpoch / 1000).floor();
-    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command|$timestamp".trim();
+    final src = isProximity ? "P" : "M";
+    final payload = "${_deviceId!.trim()}|${_token!.trim()}|$command|$timestamp|$src".trim();
     try {
       await _cmdChar!.write(utf8.encode(payload), withoutResponse: false);
       setState(() {
@@ -1096,13 +1097,13 @@ Future<List<Map<String, dynamic>>?> readLogsMinimal() async {
           
           // Auto-unlock: only if we left and returned to close proximity
           if (isNearProximity && !_isUnlocked && _wasOutOfProximity) {
-            _sendCommand(1);
+            _sendCommand(1, isProximity: true);
             _wasOutOfProximity = false;  // reset after triggering
           }
-          
+
           // Auto-lock: if out of proximity (but still in BLE range)
           if (!isInProximity && _isUnlocked) {
-            _sendCommand(2);
+            _sendCommand(2, isProximity: true);
             // Don't reset _wasOutOfProximity here - user still needs to leave fully
           }
         } else {
@@ -2269,6 +2270,8 @@ class _LogsPageState extends State<LogsPage> {
                             case 0: sourceName = 'RFID'; break;
                             case 1: sourceName = 'WiFi'; break;
                             case 2: sourceName = 'BLE'; break;
+                            case 3: sourceName = 'System'; break;
+                            case 4: sourceName = 'Proximity'; break;
                             default: sourceName = 'Unknown'; break;
                           }
 

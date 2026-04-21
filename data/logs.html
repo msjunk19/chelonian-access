@@ -19,6 +19,7 @@
         .log-source.system { color: var(--accent-red); }
         .log-source.wifi { color: var(--accent-green); }
         .log-source.ble  { color: var(--accent-purple); }
+        .log-source.proximity { color: var(--accent-orange); }
 
         .log-result.success { color: var(--accent-green); }
         .log-result.fail    { color: var(--accent-red); }
@@ -137,7 +138,7 @@ function getStoredPairing() {
     return (id && token) ? { id, token } : null;
 }
 
-const sourceNames = ['RFID','WiFi','BLE','SYSTEM'];
+const sourceNames = ['RFID','WiFi','BLE','SYSTEM','PROXIMITY'];
 const resultNames = ['Unknown','Success','Fail'];
 
 let currentFilter = 'all';
