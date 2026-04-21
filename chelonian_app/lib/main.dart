@@ -688,11 +688,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       await _logGetChar!.setNotifyValue(true);
 
       final List<Map<String, dynamic>> allLogs = [];
+      final List<String> chunks = [];
       int offset = 0;
       const CHUNK_SIZE = 5;
       bool hasMore = true;
 
       while (hasMore) {
+
         // Request chunk at this offset
         await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
 
