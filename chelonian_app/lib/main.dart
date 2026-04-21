@@ -671,55 +671,253 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
 // ── Logs ──────────────────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>?> readLogs() async {
-    if (_logGetChar == null) return null;
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUCTION FIX: readLogs() - Complete Replacement for main.dart
+// NO EXTERNAL DEPENDENCIES - All errors fixed
+// ═══════════════════════════════════════════════════════════════════════════
 
-    try {
-      final List<Map<String, dynamic>> allLogs = [];
-      int offset = 0;
-      bool hasMore = true;
-
-      while (hasMore) {
-        // Write desired offset
-        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-        
-        // Give device time to prepare response
-        await Future.delayed(const Duration(milliseconds: 200));
-        
-        // NOW read the prepared value
-        try {
-          final value = await _logGetChar!.read();
-          final str = utf8.decode(value).trim();
-          
-          if (str.isEmpty || str == "[]") {
-            hasMore = false;
-            continue;
-          }
-
-          final parsed = jsonDecode(str);
-          if (parsed is List && parsed.isNotEmpty) {
-            allLogs.addAll(List<Map<String, dynamic>>.from(parsed));
-            offset += parsed.length;
-            
-            if (parsed.length < 5) {
-              hasMore = false;
-            }
-          } else {
-            hasMore = false;
-          }
-        } catch(e) {
-          debugPrint("Read error: $e");
-          hasMore = false;
-        }
-      }
-
-      debugPrint("Total logs loaded: ${allLogs.length}");
-      return allLogs.isEmpty ? null : allLogs;
-    } catch (e) {
-      debugPrint("Failed to read logs: $e");
-    }
+Future<List<Map<String, dynamic>>?> readLogs() async {
+  debugPrint("🔍 readLogs: starting log retrieval...");
+  if (_logGetChar == null) {
+    debugPrint("❌ readLogs: _logGetChar is null!");
     return null;
   }
+
+  try {
+    final List<Map<String, dynamic>> allLogs = [];
+    int offset = 0;
+    int iterations = 0;
+    const int MAX_ITERATIONS = 100;  // Safety: max 500 logs
+    const int CHUNK_SIZE = 5;
+    int consecutiveEmpty = 0;
+
+    debugPrint("📋 Starting chunk retrieval loop...");
+
+    while (iterations < MAX_ITERATIONS) {
+      iterations++;
+      debugPrint(
+        "📤 [Iteration $iterations] Requesting logs at offset=$offset"
+      );
+
+      try {
+        // Step 1: Send offset request to device
+        final request = utf8.encode("$offset");
+        debugPrint(
+          "   Sending: '$offset' (${request.length} bytes)"
+        );
+        await _logGetChar!.write(
+          request,
+          withoutResponse: false,
+        );
+
+        // Step 2: Wait for device to prepare response
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Step 3: Read the response from characteristic
+        final value = await _logGetChar!.read();
+        final responseStr = utf8.decode(value).trim();
+
+        debugPrint(
+          "   📥 Response: ${responseStr.length} bytes, "
+          "empty=${responseStr.isEmpty}, "
+          "isEmptyArray=${responseStr == '[]'}"
+        );
+
+        // Step 4: Check for end-of-data markers
+        if (responseStr.isEmpty || responseStr == "[]") {
+          consecutiveEmpty++;
+          debugPrint(
+            "   ⚠️ Empty response #$consecutiveEmpty"
+          );
+
+          // If we get 2 empty responses in a row, we're definitely done
+          if (consecutiveEmpty >= 2) {
+            debugPrint(
+              "✅ Got consecutive empty responses, log retrieval complete"
+            );
+            break;
+          }
+
+          // Move to next offset and try again
+          offset += CHUNK_SIZE;
+          continue;
+        }
+
+        // Step 5: Reset empty counter on successful read
+        consecutiveEmpty = 0;
+
+        // Step 6: Parse JSON response
+        try {
+          final parsed = jsonDecode(responseStr);
+
+          if (parsed is! List) {
+            debugPrint(
+              "❌ Response was not a list! Type: ${parsed.runtimeType}"
+            );
+            // Show first 500 chars without using min()
+            final preview = responseStr.length > 500 
+              ? responseStr.substring(0, 500)
+              : responseStr;
+            debugPrint("   Content: $preview");
+            break;
+          }
+
+          final entriesList = List<Map<String, dynamic>>.from(parsed);
+
+          if (entriesList.isEmpty) {
+            debugPrint("   ℹ️ Empty list received");
+            break;
+          }
+
+          // Step 7: Add entries to our collection
+          allLogs.addAll(entriesList);
+          debugPrint(
+            "   ✓ Added ${entriesList.length} entries "
+            "(total now: ${allLogs.length})"
+          );
+
+          // Step 8: Check if we got a partial chunk (less than CHUNK_SIZE)
+          if (entriesList.length < CHUNK_SIZE) {
+            debugPrint(
+              "✅ Got partial chunk (${entriesList.length} < $CHUNK_SIZE), "
+              "log retrieval complete"
+            );
+            break;
+          }
+
+          // Step 9: Move to next chunk
+          offset += CHUNK_SIZE;
+          debugPrint(
+            "   → Next offset will be: $offset"
+          );
+
+        } catch (parseError) {
+          debugPrint(
+            "❌ JSON parse error: $parseError"
+          );
+          // Show first 300 chars without using min()
+          final preview = responseStr.length > 300
+            ? responseStr.substring(0, 300)
+            : responseStr;
+          debugPrint("   Response was: $preview");
+          break;
+        }
+
+      } catch (readError) {
+        debugPrint("❌ Read error on iteration $iterations: $readError");
+
+        // Try a recovery read
+        debugPrint("   Attempting recovery read...");
+        try {
+          await Future.delayed(const Duration(milliseconds: 500));
+          final retryValue = await _logGetChar!.read();
+          final retryStr = utf8.decode(retryValue).trim();
+
+          if (retryStr.isEmpty || retryStr == "[]") {
+            debugPrint("   ℹ️ Recovery read got empty, stopping");
+            break;
+          }
+
+          debugPrint("   ✓ Recovery read succeeded, continuing");
+          offset += CHUNK_SIZE;
+        } catch (retryError) {
+          debugPrint("   ❌ Recovery read also failed: $retryError");
+          break;
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TIMESTAMP FIX: Convert milliseconds to seconds if needed
+    // ─────────────────────────────────────────────────────────────────────
+    debugPrint("🔧 Fixing timestamps...");
+    int msConversions = 0;
+
+    for (var log in allLogs) {
+      if (log['ts'] != null) {
+        int ts = log['ts'] as int;
+
+        // Unix time in seconds is around 1.7 billion (as of 2024)
+        // If timestamp is > 10 billion, it's likely in milliseconds
+        if (ts > 10000000000) {
+          log['ts'] = (ts / 1000).round();
+          msConversions++;
+        }
+      }
+    }
+
+    if (msConversions > 0) {
+      debugPrint(
+        "ℹ️ Converted $msConversions timestamps from ms to seconds"
+      );
+    }
+
+    debugPrint(
+      "✨ Log retrieval complete: ${allLogs.length} total entries loaded"
+    );
+    debugPrint(
+      "   Iterations used: $iterations / $MAX_ITERATIONS"
+    );
+
+    return allLogs.isEmpty ? null : allLogs;
+
+  } catch (e) {
+    debugPrint("❌ FATAL: readLogs() failed: $e");
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MINIMAL DEBUG VERSION - Use this to inspect actual log format
+// ═══════════════════════════════════════════════════════════════════════════
+
+Future<List<Map<String, dynamic>>?> readLogsMinimal() async {
+  if (_logGetChar == null) return null;
+
+  try {
+    final allLogs = <Map<String, dynamic>>[];
+
+    // Just fetch first 3 chunks and inspect
+    for (int chunkNum = 0; chunkNum < 3; chunkNum++) {
+      final offset = chunkNum * 5;
+      debugPrint("\n📤 ═══════════════════════════════════════════");
+      debugPrint("CHUNK $chunkNum (offset=$offset)");
+      debugPrint("═══════════════════════════════════════════");
+
+      await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final value = await _logGetChar!.read();
+      final str = utf8.decode(value).trim();
+
+      debugPrint("Response length: ${str.length} bytes");
+      debugPrint("Response: $str\n");
+
+      if (str.isEmpty || str == "[]") {
+        debugPrint("🛑 Empty response, stopping");
+        break;
+      }
+
+      try {
+        final parsed = jsonDecode(str);
+        if (parsed is List && parsed.isNotEmpty) {
+          debugPrint("✓ Parsed ${parsed.length} entries");
+          debugPrint("First entry: ${parsed[0]}");
+          debugPrint("Keys in entry: ${(parsed[0] as Map).keys.toList()}");
+
+          allLogs.addAll(List<Map<String, dynamic>>.from(parsed));
+        }
+      } catch (e) {
+        debugPrint("❌ Parse error: $e");
+      }
+    }
+
+    return allLogs.isEmpty ? null : allLogs;
+  } catch (e) {
+    debugPrint("Error: $e");
+    return null;
+  }
+}
 
   // Future<List<Map<String, dynamic>>?> readLogs() async {
   //   debugPrint("readLogs called, _logGetChar is ${_logGetChar != null}");
