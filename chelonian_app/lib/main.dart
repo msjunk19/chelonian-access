@@ -1229,10 +1229,9 @@ Future<List<Map<String, dynamic>>?> readLogsMinimal() async {
                         color: _connected
                             ? Colors.green.shade700
                             : Colors.grey.shade600,
-                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ]),
               ),
             ),
 
@@ -1547,9 +1546,10 @@ class SettingsPage extends StatelessWidget {
                     child: Text(
                       status,
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                    ),
+),
                   ),
-                  Padding(
+                  if (proximityEnabled)
+                    Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                     child: connected
                         ? OutlinedButton.icon(
@@ -1571,6 +1571,13 @@ class SettingsPage extends StatelessWidget {
                               foregroundColor: Colors.white,
                             ),
                           ),
+                  ),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.bluetooth_searching),
+                    title: const Text("Auto-reconnect on page open"),
+                    subtitle: const Text("Auto-connect when opening Log/Macro pages"),
+                    value: appState.autoReconnect,
+                    onChanged: (v) => appState.update(autoReconnect: v),
                   ),
                 ],
               ),
@@ -1703,63 +1710,16 @@ onTap: () {
                       },
                       icon: const Icon(Icons.refresh, color: Colors.orange),
                       label: const Text("Reboot Device", style: TextStyle(color: Colors.orange)),
-                      style: OutlinedButton.styleFrom(
+style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.orange),
                       ),
                     ),
                   ),
-                ],
-              ),
-
-              // ── Proximity ─────────────────────────────────────────────
-              _SettingsSection(
-                title: "Proximity Unlock",
-                children: [
-                  SwitchListTile(
-                    secondary: const Icon(Icons.sensors),
-                    title: const Text("Auto-unlock when nearby"),
-                    subtitle: Text(proximityStatus),
-                    value: proximityEnabled,
-                    onChanged: paired
-                        ? (v) => v ? onStartProximity() : onStopProximity()
-                        : null,
-                  ),
                   if (proximityEnabled)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                       child: Row(
                         children: [
-                          SwitchListTile(
-                            secondary: const Icon(Icons.bluetooth_searching),
-                            title: const Text("Auto-reconnect on page open"),
-                            subtitle: const Text("Auto-connect when opening pages"),
-                            value: appState.autoReconnect,
-                            onChanged: (v) => appState.update(autoReconnect: v),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (!proximityEnabled)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                      child: Row(
-                        children: [
-                          SwitchListTile(
-                            secondary: const Icon(Icons.bluetooth_searching),
-                            title: const Text("Auto-reconnect on page open"),
-                            subtitle: const Text("Auto-connect when opening pages"),
-                            value: appState.autoReconnect,
-                            onChanged: (v) => appState.update(autoReconnect: v),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (proximityEnabled)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                      child: Row(
-                        children: [
-                          SignalStrengthIcon(rssi: lastRSSI, active: true, size: 40),
                           const SizedBox(width: 16),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
