@@ -164,7 +164,7 @@ async function loadLogs()
             url += '&level=' + currentFilter;
 
         const resp = await fetch(url);
-        const logs = await resp.json();
+        const logs = (await resp.json()).reverse();
 
         document.getElementById('logCount').innerText =
             `${logs.length} log entries`;

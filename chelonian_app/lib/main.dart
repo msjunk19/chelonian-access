@@ -17,11 +17,11 @@ const String STATUS_UUID      = "beb5483f-36e1-4688-b7f5-ea07361b26a8";
 const String PAIR_UUID        = "beb54840-36e1-4688-b7f5-ea07361b26a8";
 const String BEACON_UUID_CHAR = "beb54841-36e1-4688-b7f5-ea07361b26a8";
 const String MAC_UUID_CHAR    = "beb54842-36e1-4688-b7f5-ea07361b26a8";
-const String MACRO_GET_UUID  = "beb54844-36e1-4688-b7f5-ea07361b26a8";
-const String MACRO_SET_UUID  = "beb54845-36e1-4688-b7f5-ea07361b26a8";
-const String LOG_GET_UUID   = "beb54846-36e1-4688-b7f5-ea07361b26a8";
-const String LOG_CLEAR_UUID = "beb54847-36e1-4688-b7f5-ea07361b26a8";
-const String REBOOT_UUID   = "beb54848-36e1-4688-b7f5-ea07361b26a8";
+const String MACRO_GET_UUID   = "beb54844-36e1-4688-b7f5-ea07361b26a8";
+const String MACRO_SET_UUID   = "beb54845-36e1-4688-b7f5-ea07361b26a8";
+const String LOG_GET_UUID     = "beb54846-36e1-4688-b7f5-ea07361b26a8";
+const String LOG_CLEAR_UUID   = "beb54847-36e1-4688-b7f5-ea07361b26a8";
+const String REBOOT_UUID      = "beb54848-36e1-4688-b7f5-ea07361b26a8";
 
 const int RSSI_UNLOCK_THRESHOLD = -70;  // auto-unlock when close
 const int RSSI_LOCK_THRESHOLD   = -85;    // auto-lock when nearby
