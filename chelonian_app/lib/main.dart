@@ -725,87 +725,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       debugPrint("Failed to read logs: $e");
     }
     return null;
-  }
+}
 
-      // Enable notifications for chunked reading
-      await _logGetChar!.setNotifyValue(true);
-
-      final List<Map<String, dynamic>> allLogs = [];
-      final List<String> chunks = [];
-      int offset = 0;
-      const CHUNK_SIZE = 5;
-      bool hasMore = true;
-
-      while (hasMore) {
-
-        // Request chunk at this offset
-        await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-
-        // Subscribe to notification one time 
-        bool received = false;
-        final sub = _logGetChar!.onValueReceived.listen((value) {
-          final chunk = utf8.decode(value).trim();
-          debugPrint("Flutter notification: ${chunk.length} bytes");
-          if (chunk.isNotEmpty && chunk != "[]") {
-            chunks.add(chunk);
-            received = true;
-          }
-        });
-
-        await Future.delayed(const Duration(milliseconds: 200));
-        sub.cancel();
-
-        // If notification wasn't received, try direct read
-        if (!received) {
-          try {
-            final value = await _logGetChar!.read();
-            final chunk = utf8.decode(value).trim();
-            debugPrint("Flutter fallback read: ${chunk.length} bytes");
-            if (chunk.isNotEmpty && chunk != "[]") {
-              chunks.add(chunk);
-            }
-          } catch(e) {
-            debugPrint("Fallback read error: $e");
-          }
-        }
-
-        if (chunks.isEmpty) {
-          hasMore = false;
-          break;
-        }
-
-        // Parse this chunk
-        for (final chunk in chunks) {
-          try {
-            final parsed = jsonDecode(chunk);
-            if (parsed is List) {
-              final entries = List<Map<String, dynamic>>.from(parsed);
-              if (entries.isEmpty) {
-                hasMore = false;
-              } else {
-                allLogs.addAll(entries);
-                offset += entries.length;
-                if (entries.length < CHUNK_SIZE) {
-                  hasMore = false;
-                }
-              }
-            }
-          } catch (e) {
-            debugPrint("Parse chunk error: $e");
-          }
-        }
-        chunks.clear();
-      }
-
-      debugPrint("Total logs loaded: ${allLogs.length}");
-      return allLogs;
-    } catch (e) {
-      debugPrint("Failed to read logs: $e");
-    }
-    return null;
-  }
-
-  Future<bool> clearLogs() async {
+Future<bool> clearLogs() async {
     if (_logClearChar == null) return false;
     try {
       await _logClearChar!.write(utf8.encode("clear"), withoutResponse: false);
