@@ -22,6 +22,7 @@ const String MACRO_SET_UUID   = "beb54845-36e1-4688-b7f5-ea07361b26a8";
 const String LOG_GET_UUID     = "beb54846-36e1-4688-b7f5-ea07361b26a8";
 const String LOG_CLEAR_UUID   = "beb54847-36e1-4688-b7f5-ea07361b26a8";
 const String REBOOT_UUID      = "beb54848-36e1-4688-b7f5-ea07361b26a8";
+const String TIME_SYNC_UUID   = "beb54849-36e1-4688-b7f5-ea07361b26a8";
 
 const int RSSI_UNLOCK_THRESHOLD = -70;  // auto-unlock when close
 const int RSSI_LOCK_THRESHOLD   = -85;    // auto-lock when nearby
@@ -197,6 +198,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   BluetoothCharacteristic? _logGetChar;
   BluetoothCharacteristic? _logClearChar;
   BluetoothCharacteristic? _rebootChar;
+  BluetoothCharacteristic? _timeSyncChar;
 
   bool _connected = false;
   bool _scanning  = false; //not used rn
@@ -244,6 +246,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _pressController.dispose();
     super.dispose();
   }
+
 
   // ── Storage ──────────────────────────────────────────────────────────
 
@@ -362,6 +365,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             if (u == LOG_GET_UUID)     _logGetChar               = c;
             if (u == LOG_CLEAR_UUID)   _logClearChar             = c;
             if (u == REBOOT_UUID)      _rebootChar               = c;
+
+            if (u == TIME_SYNC_UUID) {
+              _timeSyncChar = c;
+              debugPrint("✅ Found TIME_SYNC characteristic");
+            }
+
           }
         }
       }
@@ -394,6 +403,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       //   _scanning  = false;
       //   _status    = "Connected";
       // });
+
+      // Sync time immediately
+      await _syncTime();
 
       setState(() { _connected = true; _scanning = false; _status = "Connected"; });
       _appState.update(connected: true, scanning: false, status: "Connected");
@@ -447,6 +459,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       await _savePairing(deviceId, token);
       await _fetchDeviceInfo();
       // setState(() { _status = "Paired successfully!"; });
+      // Sync time after successful pairing
+      await _syncTime();
       setState(() { _status = "Paired successfully!"; });
       _appState.update(paired: true, status: "Paired successfully!");
     } catch (e) {
@@ -533,6 +547,35 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
     );
     _repairDialogShowing = false;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Helper: Sync time with device
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  Future<bool> _syncTime() async {
+    if (_timeSyncChar == null) {
+      debugPrint("⚠️ Time sync char not found");
+      return false;
+    }
+
+    try {
+      final timestamp =
+          (DateTime.now().millisecondsSinceEpoch ~/ 1000).toInt();
+
+      debugPrint("📤 Syncing time: $timestamp");
+
+      await _timeSyncChar!.write(
+        utf8.encode("$timestamp"),
+        withoutResponse: false,
+      );
+
+      debugPrint("✅ Time synced");
+      return true;
+    } catch (e) {
+      debugPrint("❌ Time sync failed: $e");
+      return false;
+    }
   }
 
   // ── Commands ──────────────────────────────────────────────────────────
@@ -983,6 +1026,9 @@ Future<List<Map<String, dynamic>>?> readLogsMinimal() async {
   // }
 
   Future<bool> clearLogs() async {
+    // Sync time first
+    await _syncTime();
+
     if (_logClearChar == null) return false;
     try {
       await _logClearChar!.write(utf8.encode("clear"), withoutResponse: false);
@@ -1093,6 +1139,7 @@ Future<List<Map<String, dynamic>>?> readLogsMinimal() async {
             onReadLogs:       readLogs,
             onClearLogs:      clearLogs,
             onReboot:         reboot,
+            onSyncTime:       _syncTime,
           ),
         ),
       );
@@ -1428,6 +1475,7 @@ class SettingsPage extends StatelessWidget {
   final Future<List<Map<String, dynamic>>?> Function() onReadLogs;
   final Future<bool> Function() onClearLogs;
   final Future<bool> Function() onReboot;
+  final Future<bool> Function() onSyncTime;
 
   const SettingsPage({
     super.key,
@@ -1449,6 +1497,7 @@ class SettingsPage extends StatelessWidget {
     required this.onReadLogs,
     required this.onClearLogs,
     required this.onReboot,
+    required this.onSyncTime,
   });
 
   @override
@@ -1564,13 +1613,14 @@ class SettingsPage extends StatelessWidget {
                     title: const Text("Relay Macros"),
                     subtitle: const Text("Configure unlock/lock/trunk/panic sequences"),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
+onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => MacroConfigPage(
                             onReadMacros: onReadMacros,
                             onWriteMacros: onWriteMacros,
+                            onSyncTime: onSyncTime,
                           ),
                         ),
                       );
@@ -1588,6 +1638,25 @@ class SettingsPage extends StatelessWidget {
                           builder: (context) => LogsPage(
                             onReadLogs: onReadLogs,
                             onClearLogs: onClearLogs,
+                            onSyncTime: onSyncTime,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.history),
+                    title: const Text("Access Logs"),
+                    subtitle: const Text("View RFID and command history"),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LogsPage(
+                            onReadLogs: onReadLogs,
+                            onClearLogs: onClearLogs,
+                            onSyncTime: onSyncTime,
                           ),
                         ),
                       );
@@ -1789,11 +1858,13 @@ class _DebugTile extends StatelessWidget {
 class MacroConfigPage extends StatefulWidget {
   final Future<Map<String, dynamic>?> Function() onReadMacros;
   final Future<bool> Function(int, int, List<Map<String, dynamic>>) onWriteMacros;
+  final Future<bool> Function() onSyncTime;
 
   const MacroConfigPage({
     super.key,
     required this.onReadMacros,
     required this.onWriteMacros,
+    required this.onSyncTime,
   });
 
   @override
@@ -1820,6 +1891,9 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
   }
 
   Future<void> _loadMacros() async {
+    // Sync time first
+    await widget.onSyncTime();
+
     setState(() => _loading = true);
     final data = await widget.onReadMacros();
     if (data != null && mounted) {
@@ -1974,11 +2048,13 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
 class LogsPage extends StatefulWidget {
   final Future<List<Map<String, dynamic>>?> Function() onReadLogs;
   final Future<bool> Function() onClearLogs;
+  final Future<bool> Function() onSyncTime;
 
   const LogsPage({
     super.key,
     required this.onReadLogs,
     required this.onClearLogs,
+    required this.onSyncTime,
   });
 
   @override
@@ -1997,6 +2073,9 @@ class _LogsPageState extends State<LogsPage> {
   }
 
   Future<void> _loadLogs() async {
+    // Sync time first
+    await widget.onSyncTime();
+
     setState(() => _loading = true);
     final logs = await widget.onReadLogs();
     if (mounted) {

@@ -22,6 +22,7 @@ static const char* BLETAG = "BLE";
 #define BLE_LOG_GET_UUID     "beb54846-36e1-4688-b7f5-ea07361b26a8" // read logs
 #define BLE_LOG_CLEAR_UUID   "beb54847-36e1-4688-b7f5-ea07361b26a8" // clear logs
 #define BLE_REBOOT_UUID      "beb54848-36e1-4688-b7f5-ea07361b26a8" // reboot
+#define BLE_TIME_SYNC_UUID   "beb54849-36e1-4688-b7f5-ea07361b26a8" //sync time
 #define BLE_CMD_UNLOCK  0x01
 #define BLE_CMD_LOCK    0x02
 #define BLE_CMD_STATUS  0x03
@@ -132,6 +133,15 @@ public:
             NIMBLE_PROPERTY::WRITE
         );
         rebootChar->setCallbacks(new RebootCallbacks());
+
+        // ✅ NEW: Time Sync characteristic
+        _timeSyncChar = service->createCharacteristic(
+            BLE_TIME_SYNC_UUID,
+            NIMBLE_PROPERTY::WRITE
+        );
+        _timeSyncChar->setCallbacks(new TimeSyncCallbacks(this));
+        ESP_LOGI(BLETAG, "Created _timeSyncChar at UUID %s", BLE_TIME_SYNC_UUID);
+    
 
         _server->start();
 
@@ -245,6 +255,7 @@ private:
     NimBLECharacteristic*  _macroSetChar   = nullptr;
     NimBLECharacteristic*  _logGetChar     = nullptr;
     NimBLECharacteristic*  _logClearChar   = nullptr;
+    NimBLECharacteristic*  _timeSyncChar   = nullptr;
 
     bool     _pairingWindowOpen  = false;
     uint32_t _pairingWindowStart = 0;
@@ -830,6 +841,41 @@ void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
             delay(1000);
             ESP.restart();
         }
+    };
+
+    class TimeSyncCallbacks : public NimBLECharacteristicCallbacks {
+    public:
+        TimeSyncCallbacks(BLEManager* mgr) : _mgr(mgr) {}
+    
+        void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            std::string raw = pChar->getValue();
+            
+            // Parse timestamp from request
+            uint32_t timestamp = (uint32_t)atoi(raw.c_str());
+            
+            if (timestamp == 0) {
+                ESP_LOGW(BLETAG, "TimeSync: Invalid timestamp");
+                pChar->setValue("error:invalid_timestamp");
+                return;
+            }
+            
+            if (timestamp <= 1000000000) {
+                ESP_LOGW(BLETAG, "TimeSync: Timestamp too old: %lu", (unsigned long)timestamp);
+                pChar->setValue("error:timestamp_too_old");
+                return;
+            }
+            
+            // ✅ SYNC THE TIME
+            ESP_LOGI(BLETAG, "TimeSync: Syncing device time to %lu", (unsigned long)timestamp);
+            authManager.syncTime(timestamp);
+            
+            // Acknowledge success
+            pChar->setValue("ok");
+            ESP_LOGI(BLETAG, "TimeSync: Complete");
+        }
+    
+    private:
+        BLEManager* _mgr;
     };
 
 }; // end BLEManager
