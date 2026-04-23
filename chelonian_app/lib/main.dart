@@ -180,11 +180,13 @@ class ChelonianApp extends StatelessWidget {
   }
 }
 
+
 // ─────────────────────────────────────────────
 // Home page
 // ─────────────────────────────────────────────
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -227,6 +229,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // UI
   String _status              = "Disconnected";
   bool   _repairDialogShowing = false;
+  bool _isDarkMode = false;
 
   // Button press animation
   late AnimationController _pressController;
@@ -254,6 +257,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _pressController.dispose();
     super.dispose();
   }
+
+Future<void> _loadDarkMode() async {
+  final prefs = await SharedPreferences.getInstance();
+  _isDarkMode = prefs.getBool('dark_mode') ?? false;
+  if (mounted) setState(() {});
+}
+
+Future<void> _toggleDarkMode() async {
+  final prefs = await SharedPreferences.getInstance();
+  _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
+  await prefs.setBool('dark_mode', _isDarkMode);
+  if (mounted) setState(() {});
+}
 
 
   // ── Storage ──────────────────────────────────────────────────────────
@@ -456,7 +472,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       if (token.startsWith("error:")) {
         // setState(() { _status = "Pairing failed: $token"; });
         setState(() { _status = "Pairing failed: $token"; });
-        _appState.update(status: "Pairing failed: $token");
+        _appState.update(status: "Pairing failed: $token"); 
         return;
       }
       await _savePairing(deviceId, token);
@@ -930,6 +946,12 @@ void _openSettings() {
           style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5),
         ),
         actions: [
+          ElevatedButton.icon(
+            onPressed: _toggleDarkMode,
+            icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nightlight_round, size: 18),
+            label: Text(_isDarkMode ? 'Light' : 'Dark'),
+          ),
+              
           // BT status dot
           Padding(
             padding: const EdgeInsets.only(right: 4),
@@ -2088,6 +2110,7 @@ Future<void> _refreshLogs() async {
     }
   }
 
+
 Future<void> _loadTimeFormat() async {
   final prefs = await SharedPreferences.getInstance();
   final use12h = prefs.getBool('time_12h') ?? false;
@@ -2182,6 +2205,16 @@ String _formatTime(int ts, {int mode = 0}) {
       appBar: AppBar(
         title: const Text('Access Logs'),
         actions: [
+          // IconButton(
+          //   icon: const Icon(Icons.delete_outline),
+          //   onPressed: _clearLogs,
+          //   tooltip: 'Clear Logs',
+          // ),
+          ElevatedButton.icon( 
+            onPressed: _clearLogs, 
+            icon: const Icon(Icons.delete_outline), 
+            label: const Text('Clear Logs'), 
+            ),
           ElevatedButton(
             onPressed: _toggleTimeFormat,
             child: Row(
@@ -2193,31 +2226,11 @@ String _formatTime(int ts, {int mode = 0}) {
               ],
             ),
           ),
-
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: _clearLogs,
-            tooltip: 'Clear Logs',
-          ),
           ElevatedButton.icon(
             onPressed: _refreshLogs,
             icon: const Icon(Icons.refresh),
             label: const Text('Refresh Logs'),
           )
-
-// ElevatedButton.icon(
-//   onPressed: () async {
-//     // Clear cache and reset device
-//     setState(() {
-//       _logs = [];
-//       _loading = true;
-//     });
-//     await widget.onResetDevice?.call();
-//     await _loadLogs();
-//   },
-//   icon: const Icon(Icons.refresh),
-//   label: const Text('Refresh Logs'),
-// )
         ],
       ),
       body: Column(
