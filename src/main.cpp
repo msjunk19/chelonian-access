@@ -198,7 +198,7 @@ void setup()
                 int8_t idx = macroConfigManager.findByName("Unlock");
                 if (idx >= 0) fireMacro(idx);
 
-                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
+                // accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Unlock command");
                 break;
             }
 
@@ -208,7 +208,7 @@ void setup()
                 int8_t idx = macroConfigManager.findByName("Lock");
                 if (idx >= 0) fireMacro(idx);
 
-                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Lock command");
+                // accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Lock command");
                 break;
             }
 
@@ -218,7 +218,7 @@ void setup()
                 int8_t idx = macroConfigManager.findByName("Trunk");
                 if (idx >= 0) fireMacro(idx);
 
-                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Trunk command");
+                // accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Trunk command");
                 break;
             }
 
@@ -228,7 +228,7 @@ void setup()
                 int8_t idx = macroConfigManager.findByName("Panic");
                 if (idx >= 0) fireMacro(idx);
 
-                accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Panic command");
+                // accessLogger.logAccess(LogSource::BLE, LogResult::SUCCESS, "BLE", "Panic command");
                 break;
             }
 

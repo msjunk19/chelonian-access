@@ -1,4 +1,4 @@
-//WORKING MACROS WITH SECURITY, needs further testing
+//LOGGING READS BROKEN
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +10,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
+
+// import 'dart:io';
+// import 'package:path_provider/path_provider.dart';
 
 const String SERVICE_UUID     = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const String CMD_UUID         = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
@@ -230,6 +233,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late Animation<double>   _pressAnim;
   final _appState = AppStateNotifier();
 
+  // String _lastRawJson = "";
+
   @override
   void initState() {
     super.initState();
@@ -401,11 +406,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         }
       });
 
-      // setState(() {
-      //   _connected = true;
-      //   _scanning  = false;
-      //   _status    = "Connected";
-      // });
 
       // Sync time immediately
       await _syncTime();
@@ -718,323 +718,74 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
 // ── Logs ──────────────────────────────────────────────────────────────
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PRODUCTION FIX: readLogs() - Complete Replacement for main.dart
-// NO EXTERNAL DEPENDENCIES - All errors fixed
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════════════
-// FIXED: readLogs() - Handles device behavior where offset > log count = empty
-// The device returns [] when offset is beyond the total log count
-// ═══════════════════════════════════════════════════════════════════════════
-
 Future<List<Map<String, dynamic>>?> readLogs() async {
-  debugPrint("🔍 readLogs: starting log retrieval...");
   if (_logGetChar == null) {
-    debugPrint("❌ readLogs: _logGetChar is null!");
     return null;
   }
 
   try {
-    final List<Map<String, dynamic>> allLogs = [];
-    int offset = 0;
+    String allLogsJson = "";
     int iterations = 0;
     const int MAX_ITERATIONS = 100;
-    const int CHUNK_SIZE = 5;
-    const int MAX_LOG_ENTRIES = 50;
-
-    debugPrint("📋 Starting chunk retrieval loop...");
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
 
-      if (allLogs.length >= MAX_LOG_ENTRIES) {
-        debugPrint("ℹ️ Reached max log entries ($MAX_LOG_ENTRIES)");
-        break;
-      }
-
-      debugPrint(
-        "📤 [Iteration $iterations] Requesting logs at offset=$offset"
-      );
-
       try {
-        // Send offset request
-        final request = utf8.encode("$offset");
         await _logGetChar!.write(
-          request,
+          utf8.encode("get"),
           withoutResponse: false,
         );
 
-        // Wait for device to prepare response
         await Future.delayed(const Duration(milliseconds: 300));
 
-        // Read the response
         final value = await _logGetChar!.read();
-        final responseStr = utf8.decode(value).trim();
+        final chunk = utf8.decode(value).trim();
 
-        debugPrint(
-          "   📥 Response: ${responseStr.length} bytes"
-        );
+        if (chunk.contains("__END__")) break;
+        if (chunk.isEmpty) break;
 
-        // Empty response means no more logs at this offset
-        if (responseStr.isEmpty || responseStr == "[]") {
-          debugPrint(
-            "✅ Got empty response - reached end of logs"
-          );
-          break;
-        }
-
-        // Parse JSON response
-        try {
-          final parsed = jsonDecode(responseStr);
-
-          if (parsed is! List) {
-            debugPrint(
-              "❌ Response was not a list! Type: ${parsed.runtimeType}"
-            );
-            break;
-          }
-
-          final entriesList = List<Map<String, dynamic>>.from(parsed);
-
-          if (entriesList.isEmpty) {
-            debugPrint("   ℹ️ Empty list received");
-            break;
-          }
-
-          // Add entries to our collection
-          allLogs.addAll(entriesList);
-          debugPrint(
-            "   ✓ Added ${entriesList.length} entries "
-            "(total now: ${allLogs.length})"
-          );
-
-          // IMPORTANT: Always increment by CHUNK_SIZE
-          // The device doesn't use the actual list length
-          offset += CHUNK_SIZE;
-          debugPrint(
-            "   → Next offset will be: $offset"
-          );
-
-        } catch (parseError) {
-          debugPrint(
-            "❌ JSON parse error: $parseError"
-          );
-          final preview = responseStr.length > 300
-            ? responseStr.substring(0, 300)
-            : responseStr;
-          debugPrint("   Response: $preview");
-          break;
-        }
+        allLogsJson += chunk;
 
       } catch (readError) {
-        debugPrint("❌ Read error on iteration $iterations: $readError");
         break;
       }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // FIX TIMESTAMPS: The device sends Unix time in seconds, but check anyway
-    // ─────────────────────────────────────────────────────────────────────
-    debugPrint("🔧 Checking timestamps...");
-    int msConversions = 0;
+    // Store raw JSON for debugging
+    // _lastRawJson = allLogsJson;
 
-    for (var log in allLogs) {
-      if (log['ts'] != null) {
-        int ts = log['ts'] as int;
+    try {
+      final parsed = jsonDecode(allLogsJson);
 
-        // If timestamp is > 10 billion, it's in milliseconds
-        if (ts > 10000000000) {
-          log['ts'] = (ts / 1000).round();
-          msConversions++;
-        }
-      }
-    }
-
-    if (msConversions > 0) {
-      debugPrint(
-        "ℹ️ Converted $msConversions timestamps from ms to seconds"
-      );
-    } else {
-      debugPrint("ℹ️ All timestamps already in correct format (seconds)");
-    }
-
-    debugPrint(
-      "✨ Log retrieval complete: ${allLogs.length} total entries loaded"
-    );
-
-    return allLogs.isEmpty ? null : allLogs;
-
-  } catch (e) {
-    debugPrint("❌ FATAL: readLogs() failed: $e");
-    return null;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// DEBUG VERSION: Shows exactly what the device sends
-// ═══════════════════════════════════════════════════════════════════════════
-
-Future<List<Map<String, dynamic>>?> readLogsDebug() async {
-  debugPrint("🔍 readLogsDebug: starting...");
-  if (_logGetChar == null) return null;
-
-  try {
-    final allLogs = <Map<String, dynamic>>[];
-
-    // Try to fetch up to 5 chunks
-    for (int chunkNum = 0; chunkNum < 5; chunkNum++) {
-      final offset = chunkNum * 5;
-      debugPrint("\n" + "═" * 60);
-      debugPrint("CHUNK #$chunkNum (offset=$offset)");
-      debugPrint("═" * 60);
-
-      await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      final value = await _logGetChar!.read();
-      final str = utf8.decode(value).trim();
-
-      debugPrint("Raw bytes: ${value.length}");
-      debugPrint("Response: $str");
-
-      if (str.isEmpty || str == "[]") {
-        debugPrint("→ Empty response, stopping");
-        break;
+      if (parsed is! List) {
+        return null;
       }
 
-      try {
-        final parsed = jsonDecode(str);
-        if (parsed is List && parsed.isNotEmpty) {
-          debugPrint("✓ Parsed ${parsed.length} entries");
-          if (parsed.isNotEmpty) {
-            debugPrint("First entry: ${parsed[0]}");
+      final allLogs = List<Map<String, dynamic>>.from(parsed);
+
+      int msConversions = 0;
+      for (var log in allLogs) {
+        if (log['ts'] != null) {
+          int ts = log['ts'] as int;
+          if (ts > 10000000000) {
+            log['ts'] = (ts / 1000).round();
+            msConversions++;
           }
-          allLogs.addAll(List<Map<String, dynamic>>.from(parsed));
         }
-      } catch (e) {
-        debugPrint("❌ Parse error: $e");
       }
+
+      return allLogs;
+
+    } catch (parseError) {
+      return null;
     }
 
-    debugPrint("\n" + "═" * 60);
-    debugPrint("SUMMARY: Got ${allLogs.length} total logs");
-    debugPrint("═" * 60 + "\n");
-
-    return allLogs.isEmpty ? null : allLogs;
   } catch (e) {
-    debugPrint("Error: $e");
     return null;
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MINIMAL DEBUG VERSION - Use this to inspect actual log format
-// ═══════════════════════════════════════════════════════════════════════════
-
-Future<List<Map<String, dynamic>>?> readLogsMinimal() async {
-  if (_logGetChar == null) return null;
-
-  try {
-    final allLogs = <Map<String, dynamic>>[];
-
-    // Just fetch first 3 chunks and inspect
-    for (int chunkNum = 0; chunkNum < 3; chunkNum++) {
-      final offset = chunkNum * 5;
-      debugPrint("\n📤 ═══════════════════════════════════════════");
-      debugPrint("CHUNK $chunkNum (offset=$offset)");
-      debugPrint("═══════════════════════════════════════════");
-
-      await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      final value = await _logGetChar!.read();
-      final str = utf8.decode(value).trim();
-
-      debugPrint("Response length: ${str.length} bytes");
-      debugPrint("Response: $str\n");
-
-      if (str.isEmpty || str == "[]") {
-        debugPrint("🛑 Empty response, stopping");
-        break;
-      }
-
-      try {
-        final parsed = jsonDecode(str);
-        if (parsed is List && parsed.isNotEmpty) {
-          debugPrint("✓ Parsed ${parsed.length} entries");
-          debugPrint("First entry: ${parsed[0]}");
-          debugPrint("Keys in entry: ${(parsed[0] as Map).keys.toList()}");
-
-          allLogs.addAll(List<Map<String, dynamic>>.from(parsed));
-        }
-      } catch (e) {
-        debugPrint("❌ Parse error: $e");
-      }
-    }
-
-    return allLogs.isEmpty ? null : allLogs;
-  } catch (e) {
-    debugPrint("Error: $e");
-    return null;
-  }
-}
-
-  // Future<List<Map<String, dynamic>>?> readLogs() async {
-  //   debugPrint("readLogs called, _logGetChar is ${_logGetChar != null}");
-  //   if (_logGetChar == null) return null;
-
-  //   try {
-  //     final List<Map<String, dynamic>> allLogs = [];
-  //     int offset = 0;
-  //     const CHUNK_SIZE = 5;
-  //     bool hasMore = true;
-
-  //     while (hasMore) {
-  //       // Write offset to request this chunk
-  //       await _logGetChar!.write(utf8.encode("$offset"), withoutResponse: false);
-
-  //       // Wait for ESP32 to prepare the data
-  //       await Future.delayed(const Duration(milliseconds: 100));
-
-  //       // Read the chunk directly
-  //       try {
-  //         final value = await _logGetChar!.read();
-  //         final str = utf8.decode(value).trim();
-  //         debugPrint("Flutter read: offset=$offset, len=${str.length}");
-
-  //         if (str.isEmpty || str == "[]") {
-  //           hasMore = false;
-  //           continue;
-  //         }
-
-  //         final parsed = jsonDecode(str);
-  //         if (parsed is List) {
-  //           final entries = List<Map<String, dynamic>>.from(parsed);
-  //           if (entries.isEmpty) {
-  //             hasMore = false;
-  //           } else {
-  //             allLogs.addAll(entries);
-  //             offset += entries.length;
-  //             debugPrint("Got ${entries.length} logs, total ${allLogs.length}");
-  //             if (entries.length < CHUNK_SIZE) {
-  //               hasMore = false;
-  //             }
-  //           }
-  //         }
-  //       } catch(e) {
-  //         debugPrint("Read error: $e");
-  //         hasMore = false;
-  //       }
-  //     }
-
-  //     debugPrint("Total logs loaded: ${allLogs.length}");
-  //     return allLogs;
-  //   } catch (e) {
-  //     debugPrint("Failed to read logs: $e");
-  //   }
-  //   return null;
-  // }
 
   Future<bool> clearLogs() async {
     // Sync time first
@@ -1127,34 +878,40 @@ Future<List<Map<String, dynamic>>?> readLogsMinimal() async {
 
   // ── Navigation ────────────────────────────────────────────────────────
 
-    void _openSettings() {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SettingsPage(
-            appState: _appState,
-            deviceId:         _deviceId,
-            savedMac:         _savedMac,
-            beaconUUID:       _beaconUUID,
-            proximityEnabled: _proximityEnabled,
-            lastRSSI:         _lastRSSI,
-            proximityStatus:  _proximityStatus,
-            onScanAndConnect: _scanAndConnect,
-            onDisconnect:     _disconnect,
-            onPair:           _pair,
-            onUnpair:         _unpair,
-            onStartProximity: _startProximityMonitoring,
-            onStopProximity:  _stopProximityMonitoring,
-            onReadMacros:     readMacros,
-            onWriteMacros:    writeMacros,
-            onReadLogs:       readLogs,
-            onClearLogs:      clearLogs,
-            onReboot:         reboot,
-            onSyncTime:       _syncTime,
-          ),
-        ),
-      );
-    }
+void _openSettings() {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SettingsPage(
+        appState: _appState,
+        deviceId:         _deviceId,
+        savedMac:         _savedMac,
+        beaconUUID:       _beaconUUID,
+        proximityEnabled: _proximityEnabled,
+        lastRSSI:         _lastRSSI,
+        proximityStatus:  _proximityStatus,
+        onScanAndConnect: _scanAndConnect,
+        onDisconnect:     _disconnect,
+        onPair:           _pair,
+        onUnpair:         _unpair,
+        onStartProximity: _startProximityMonitoring,
+        onStopProximity:  _stopProximityMonitoring,
+        onReadMacros:     readMacros,
+        onWriteMacros:    writeMacros,
+        onReadLogs:       readLogs,
+        onClearLogs:      clearLogs,
+        onReboot:         reboot,
+        onSyncTime:       _syncTime,
+        onResetDevice: () async {
+          if (_logGetChar != null) {
+            await _logGetChar!.write(utf8.encode("reset"), withoutResponse: false);
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+        },
+      ),
+    ),
+  );
+}
 
 
   // ── Build ─────────────────────────────────────────────────────────────
@@ -1486,6 +1243,7 @@ class SettingsPage extends StatelessWidget {
   final Future<bool> Function() onClearLogs;
   final Future<bool> Function() onReboot;
   final Future<bool> Function() onSyncTime;
+  final Future<void> Function()? onResetDevice;
 
   const SettingsPage({
     super.key,
@@ -1508,6 +1266,7 @@ class SettingsPage extends StatelessWidget {
     required this.onClearLogs,
     required this.onReboot,
     required this.onSyncTime,
+    this.onResetDevice,
   });
 
   @override
@@ -1646,26 +1405,27 @@ onTap: () {
                       );
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.history),
-                    title: const Text("Access Logs"),
-                    subtitle: const Text("View RFID and command history"),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => LogsPage(
-                            appState: appState,
-                            onScanAndConnect: onScanAndConnect,
-                            onReadLogs: onReadLogs,
-                            onClearLogs: onClearLogs,
-                            onSyncTime: onSyncTime,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+ListTile(
+  leading: const Icon(Icons.history),
+  title: const Text("Access Logs"),
+  subtitle: const Text("View RFID and command history"),
+  trailing: const Icon(Icons.chevron_right),
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LogsPage(
+          appState: appState,
+          onScanAndConnect: onScanAndConnect,
+          onReadLogs: onReadLogs,
+          onClearLogs: onClearLogs,
+          onSyncTime: onSyncTime,
+          onResetDevice: onResetDevice,
+        ),
+      ),
+    );
+  },
+),
                   // ListTile(
                   //   leading: const Icon(Icons.history),
                   //   title: const Text("Access Logs"),
@@ -1709,18 +1469,35 @@ onTap: () {
                           await onReboot();
                         }
                       },
-                      icon: const Icon(Icons.refresh, color: Colors.orange),
+                                            icon: const Icon(Icons.refresh, color: Colors.orange),
                       label: const Text("Reboot Device", style: TextStyle(color: Colors.orange)),
-style: OutlinedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.orange),
                       ),
                     ),
+                  ),
+                ],
+              ),
+
+              // ── Proximity ─────────────────────────────────────────────
+              _SettingsSection(
+                title: "Proximity Unlock",
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.sensors),
+                    title: const Text("Auto-unlock when nearby"),
+                    subtitle: Text(proximityStatus),
+                    value: proximityEnabled,
+                    onChanged: paired
+                        ? (v) => v ? onStartProximity() : onStopProximity()
+                        : null,
                   ),
                   if (proximityEnabled)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                       child: Row(
                         children: [
+                          SignalStrengthIcon(rssi: lastRSSI, active: true, size: 40),
                           const SizedBox(width: 16),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2070,6 +1847,7 @@ class LogsPage extends StatefulWidget {
   final Future<List<Map<String, dynamic>>?> Function() onReadLogs;
   final Future<bool> Function() onClearLogs;
   final Future<bool> Function() onSyncTime;
+  final Future<void> Function()? onResetDevice;
 
   const LogsPage({
     super.key,
@@ -2078,6 +1856,7 @@ class LogsPage extends StatefulWidget {
     required this.onReadLogs,
     required this.onClearLogs,
     required this.onSyncTime,
+    this.onResetDevice,
   });
 
   @override
@@ -2088,13 +1867,22 @@ class _LogsPageState extends State<LogsPage> {
   List<Map<String, dynamic>> _logs = [];
   bool _loading = true;
   int _filter = 0; // 0=all, 1=access, 2=system, 3=debug
+  // String _lastRawJson = "";
+  bool _use12h = true;
 
   @override
   void initState() {
     super.initState();
+    // _loadTimeFormat();
+      _loadTimeFormatAndLogs();
     _autoConnect();
     _loadLogs();
     _startAutoRefresh();
+  }
+
+  Future<void> _loadTimeFormatAndLogs() async {
+    await _loadTimeFormat();  // Wait for this to complete first
+    _loadLogs();
   }
 
   Future<void> _autoConnect() async {
@@ -2125,40 +1913,144 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
-  Future<void> _refreshLogs() async {
-    final oldCount = _logs.length;
-    final newLogs = await widget.onReadLogs();
-    if (mounted && newLogs != null) {
-      final combined = <Map<String, dynamic>>[..._logs];
-      for (final log in newLogs.reversed) {
-        final ts = log['ts'] as int;
-        if (!combined.any((l) => l['ts'] == ts && l['msg'] == log['msg'])) {
-          combined.insert(0, log);
-        }
-      }
-      setState(() {
-        _logs = combined;
-      });
-    }
-    if (mounted && _loading) {
-      setState(() => _loading = false);
-    }
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) _refreshLogs();
-    });
-  }
+// Future<void> _refreshLogs() async {
+//   final newLogs = await widget.onReadLogs();
+//   if (mounted && newLogs != null) {
+//     setState(() {
+//       _logs = newLogs.reversed.toList();
+//     });
+//   }
+//   if (mounted && _loading) {
+//     setState(() => _loading = false);
+//   }
+//   Future.delayed(const Duration(seconds: 2), () {
+//     if (mounted) _refreshLogs();
+//   });
+// }
 
-  Future<void> _loadLogs() async {
-    await widget.onSyncTime();
-    setState(() => _loading = true);
-    final logs = await widget.onReadLogs();
-    if (mounted) {
-      setState(() {
-        _logs = (logs ?? []).reversed.toList();
-        _loading = false;
-      });
-    }
+
+Future<void> _loadLogs() async {
+  // If we already have cached logs, don't reload
+  if (_logs.isNotEmpty) {
+    return;
   }
+  
+  await widget.onSyncTime();
+  setState(() => _loading = true);
+  
+  final startTime = DateTime.now();
+  final logs = await widget.onReadLogs();
+  
+  // Ensure loading shows for at least 1 second
+  final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+  if (elapsed < 1000) {
+    await Future.delayed(Duration(milliseconds: 1000 - elapsed));
+  }
+  
+  if (mounted && logs != null && logs.isNotEmpty) {
+    setState(() {
+      _logs = logs.reversed.toList();
+      _loading = false;
+    });
+  } else if (mounted) {
+    setState(() => _loading = false);
+  }
+}
+
+Future<void> _refreshLogs() async {
+  // Clear cache completely
+  setState(() {
+    _logs = [];
+    _loading = true;
+  });
+  
+  // Reset device
+  await widget.onResetDevice?.call();
+  
+  // Wait a bit for device to be ready
+  await Future.delayed(const Duration(milliseconds: 500));
+  
+  // Reload
+  await widget.onSyncTime();
+  final logs = await widget.onReadLogs();
+  
+  if (mounted && logs != null && logs.isNotEmpty) {
+    setState(() {
+      _logs = logs.reversed.toList();
+      _loading = false;
+    });
+  } else if (mounted) {
+    setState(() => _loading = false);
+  }
+}
+
+// Future<void> _loadLogs() async {
+//   // If we already have cached logs, don't reload
+//   if (_logs.isNotEmpty) {
+//     return;
+//   }
+  
+//   await widget.onSyncTime();
+//   setState(() => _loading = true);
+  
+//   final logs = await widget.onReadLogs();
+//   if (mounted && logs != null) {
+//     setState(() {
+//       _logs = logs.reversed.toList();
+//       _loading = false;
+//     });
+//   } else if (mounted) {
+//     setState(() => _loading = false);
+//   }
+// }
+
+// Future<void> _loadLogs() async {
+//   await widget.onSyncTime();
+  
+//   if (_logs.isEmpty) {
+//     setState(() => _loading = true);
+//   }
+  
+//   final startTime = DateTime.now();
+//   final logs = await widget.onReadLogs();
+  
+//   // Ensure loading shows for at least 500ms
+//   final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+//   if (elapsed < 500) {
+//     await Future.delayed(Duration(milliseconds: 500 - elapsed));
+//   }
+  
+//   if (mounted && logs != null) {
+//     setState(() {
+//       _logs = logs.reversed.toList();
+//       _loading = false;
+//     });
+//   } else if (mounted) {
+//     setState(() => _loading = false);
+//   }
+// }
+
+// Future<void> _loadLogs() async {
+//   await widget.onSyncTime();
+  
+//   // Only reset if we don't have cached logs
+//   if (_logs.isEmpty) {
+//     if (mounted && widget.appState?.connected == true) {
+//       // Send reset to device
+//       // You'll need access to _logGetChar here
+//       // For now, just load fresh
+//     }
+//   }
+  
+//   setState(() => _loading = true);
+//   final logs = await widget.onReadLogs();
+//   if (mounted) {
+//     setState(() {
+//       _logs = (logs ?? []).reversed.toList();
+//       _loading = false;
+//     });
+//   }
+// }
 
   Future<void> _clearLogs() async {
     final confirm = await showDialog<bool>(
@@ -2196,16 +2088,89 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
-  String _formatTime(int ts) {
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final secondsAgo = now - ts;
-    if (secondsAgo < 0) return 'Future';
-    if (secondsAgo < 60) return 'Just now';
-    if (secondsAgo < 3600) return '${(secondsAgo / 60).floor()}m ago';
-    if (secondsAgo < 86400) return '${(secondsAgo / 3600).floor()}h ago';
-    final date = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
-    return '${date.month}-${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+Future<void> _loadTimeFormat() async {
+  final prefs = await SharedPreferences.getInstance();
+  final use12h = prefs.getBool('time_12h') ?? false;
+  if (mounted) {
+    setState(() {
+      _use12h = use12h;
+    });
   }
+}
+
+Future<void> _toggleTimeFormat() async {
+  final prefs = await SharedPreferences.getInstance();
+  final newVal = !(prefs.getBool('time_12h') ?? false);
+  await prefs.setBool('time_12h', newVal);
+  if (mounted) {
+    setState(() {
+      _use12h = newVal;
+    });
+  }
+}
+
+  
+String _formatTime(int ts, {int mode = 0}) {
+    final logDate = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
+    final now = DateTime.now();
+    final difference = now.difference(logDate);
+    final secondsAgo = difference.inSeconds;
+
+    if (secondsAgo < 0) return 'Future';
+
+    final day = logDate.day.toString().padLeft(2, '0');
+    final month = logDate.month.toString().padLeft(2, '0');
+    final year = logDate.year.toString().substring(2);
+    
+    var hrs = logDate.hour;
+    final mins = logDate.minute.toString().padLeft(2, '0');
+    final secs = logDate.second.toString().padLeft(2, '0');
+
+    String ampm = '';
+    if (_use12h) {  // Use the loaded preference
+      ampm = hrs >= 12 ? 'PM' : 'AM';
+      hrs = hrs % 12;
+      if (hrs == 0) hrs = 12;
+    }
+    final hrsStr = hrs.toString().padLeft(2, '0');
+    final timeOnly = _use12h 
+      ? '$hrsStr:$mins:$secs $ampm' 
+      : '$hrsStr:$mins:$secs';
+
+    final isToday = now.year == logDate.year && 
+                    now.month == logDate.month && 
+                    now.day == logDate.day;
+    
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = yesterday.year == logDate.year && 
+                        yesterday.month == logDate.month && 
+                        yesterday.day == logDate.day;
+
+    String dateLabel;
+    if (isToday) {
+      dateLabel = 'Today';
+    } else if (isYesterday) {
+      dateLabel = 'Yesterday';
+    } else {
+      dateLabel = '$month-$day-$year';
+    }
+
+    final timeStr = '$dateLabel $timeOnly';
+    
+    if (secondsAgo < 60) {
+      return '$timeStr (${secondsAgo}s ago)';
+    }
+    if (secondsAgo < 3600) {
+      return '$timeStr (${(secondsAgo / 60).floor()}m ago)';
+    }
+    if (secondsAgo < 86400) {
+      return '$timeStr (${(secondsAgo / 3600).floor()}h ago)';
+    }
+
+    return timeStr;
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -2217,11 +2182,42 @@ class _LogsPageState extends State<LogsPage> {
       appBar: AppBar(
         title: const Text('Access Logs'),
         actions: [
+          ElevatedButton(
+            onPressed: _toggleTimeFormat,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_use12h ? Icons.timer : Icons.timer_outlined, size: 18),
+                SizedBox(width: 6),
+                Text(_use12h ? '12h' : '24h'),
+              ],
+            ),
+          ),
+
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: _clearLogs,
             tooltip: 'Clear Logs',
           ),
+          ElevatedButton.icon(
+            onPressed: _refreshLogs,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh Logs'),
+          )
+
+// ElevatedButton.icon(
+//   onPressed: () async {
+//     // Clear cache and reset device
+//     setState(() {
+//       _logs = [];
+//       _loading = true;
+//     });
+//     await widget.onResetDevice?.call();
+//     await _loadLogs();
+//   },
+//   icon: const Icon(Icons.refresh),
+//   label: const Text('Refresh Logs'),
+// )
         ],
       ),
       body: Column(
@@ -2255,6 +2251,7 @@ class _LogsPageState extends State<LogsPage> {
                           final source = log['source'] as int;
                           final result = log['result'] as int;
                           final ts = log['ts'] as int;
+                          final mode = log['mode'] as int? ?? 0;
                           final msg = log['msg'] ?? '';
 
                           Color levelColor;
@@ -2276,42 +2273,47 @@ class _LogsPageState extends State<LogsPage> {
                           }
 
                           return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(_formatTime(ts), style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: levelColor.withValues(alpha: 0.2),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(levelName, style: TextStyle(fontSize: 10, color: levelColor, fontWeight: FontWeight.bold)),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(sourceName, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                      const Spacer(),
-                                      Icon(
-                                        result == 1 ? Icons.check_circle : Icons.cancel,
-                                        size: 16,
-                                        color: result == 1 ? Colors.green : Colors.red,
-                                      ),
-                                    ],
-                                  ),
-                                  if (msg.isNotEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Text(msg, style: const TextStyle(fontSize: 14)),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          );
+  margin: const EdgeInsets.only(bottom: 8),
+  child: Padding(
+    padding: const EdgeInsets.all(12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Time/Date on its own line at top
+        Text(_formatTime(ts, mode: mode), style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        const SizedBox(height: 8),
+        
+        // Level, Source, Result on second line
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: levelColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(levelName, style: TextStyle(fontSize: 10, color: levelColor, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 8),
+            Text(sourceName, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const Spacer(),
+            Icon(
+              result == 1 ? Icons.check_circle : Icons.cancel,
+              size: 16,
+              color: result == 1 ? Colors.green : Colors.red,
+            ),
+          ],
+        ),
+        
+        // Message below
+        if (msg.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(msg, style: const TextStyle(fontSize: 14)),
+        ],
+      ],
+    ),
+  ),
+);
                         },
                       ),
           ),
