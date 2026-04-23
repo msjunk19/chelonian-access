@@ -7,9 +7,12 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_beacon/flutter_beacon.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
+import 'theme_provider.dart';
+
 
 // import 'dart:io';
 // import 'package:path_provider/path_provider.dart';
@@ -161,7 +164,14 @@ class SignalStrengthIcon extends StatelessWidget {
 // App entry
 // ─────────────────────────────────────────────
 void main() {
-  runApp(const ChelonianApp());
+  // runApp(const ChelonianApp());
+    runApp(
+    ChangeNotifierProvider(
+      // create: (context) => ThemeProvider()..load(),
+      create: (context) => ThemeProvider()..load(context),
+      child: const ChelonianApp(),
+    ),
+  );
 }
 
 class ChelonianApp extends StatelessWidget {
@@ -249,6 +259,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       CurvedAnimation(parent: _pressController, curve: Curves.easeInOut),
     );
     _loadPairing();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+    Provider.of<ThemeProvider>(context, listen: false).load(context);
+  });
   }
 
   @override
@@ -258,11 +271,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-Future<void> _loadDarkMode() async {
-  final prefs = await SharedPreferences.getInstance();
-  _isDarkMode = prefs.getBool('dark_mode') ?? false;
-  if (mounted) setState(() {});
-}
+// Future<void> _loadDarkMode() async {
+//   final prefs = await SharedPreferences.getInstance();
+//   _isDarkMode = prefs.getBool('dark_mode') ?? false;
+//   if (mounted) setState(() {});
+// }
+
+// Future<void> _toggleDarkMode() async {
+//   final prefs = await SharedPreferences.getInstance();
+//   _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
+//   await prefs.setBool('dark_mode', _isDarkMode);
+//   if (mounted) setState(() {});
+// }
 
 Future<void> _toggleDarkMode() async {
   final prefs = await SharedPreferences.getInstance();
@@ -270,7 +290,6 @@ Future<void> _toggleDarkMode() async {
   await prefs.setBool('dark_mode', _isDarkMode);
   if (mounted) setState(() {});
 }
-
 
   // ── Storage ──────────────────────────────────────────────────────────
 
@@ -1691,6 +1710,9 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
     super.initState();
     _autoConnect();
     _loadMacros();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ThemeProvider>(context, listen: false).load(context);
+    });
   }
 
   Future<void> _autoConnect() async {
@@ -1900,6 +1922,9 @@ class _LogsPageState extends State<LogsPage> {
     _autoConnect();
     _loadLogs();
     _startAutoRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ThemeProvider>(context, listen: false).load(context);
+    });
   }
 
   Future<void> _loadTimeFormatAndLogs() async {

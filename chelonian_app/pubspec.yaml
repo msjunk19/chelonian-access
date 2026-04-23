@@ -16,6 +16,7 @@ dependencies:
   crypto: ^3.0.0          # For token hashing (optional)
   pointycastle: ^3.7.0    # For AES-256-GCM (recommended for production)
   path_provider: ^2.1.5
+  provider: ^6.1.1
   
 dev_dependencies:
   flutter_test:
