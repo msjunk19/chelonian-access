@@ -1754,7 +1754,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                             //   value: _useMs,
                             //   onChanged: (v) => setState(() => _useMs = v ?? false),
                             // ),
-                            const Text('Show ms'),
+                            const Text('Display/Set Duration in Milliseconds'),
                           ],
                         ),
                       ),
@@ -2437,7 +2437,7 @@ class _StepEditor extends StatelessWidget {
                         onChanged(step);
                       },
                     ),
-                    Text('R${i + 1}'),
+                    Text('Relay ${i + 1}'),
                   ],
                 ),
               );
