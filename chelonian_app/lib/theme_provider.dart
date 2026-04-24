@@ -26,4 +26,13 @@ class ThemeProvider with ChangeNotifier {
       ));
     }
   }
+  // In ThemeProvider
+  ThemeMode get themeMode => _isDark ? ThemeMode.dark : ThemeMode.light;
+  void toggleTheme(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    _isDark = !(prefs.getBool('dark_mode') ?? false);
+    await prefs.setBool('dark_mode', _isDark);
+    notifyListeners();
+  }
+
 }

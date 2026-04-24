@@ -179,6 +179,7 @@ class ChelonianApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return MaterialApp(
       title: 'Chelonian',
       theme: ThemeData(
@@ -973,7 +974,8 @@ void _openSettings() {
         ),
         actions: [
           ElevatedButton.icon(
-            onPressed: _toggleDarkMode,
+            // onPressed: _toggleDarkMode,
+            onPressed: () => Provider.of<ThemeProvider>(context, listen: false).toggleTheme(context),
             icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nightlight_round, size: 18),
             label: Text(_isDarkMode ? 'Light' : 'Dark'),
           ),
