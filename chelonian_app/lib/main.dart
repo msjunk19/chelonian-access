@@ -11,6 +11,9 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'theme_provider.dart';
+import 'package:provider/provider.dart';
+
 // import 'dart:io';
 // import 'package:path_provider/path_provider.dart';
 
@@ -160,41 +163,68 @@ class SignalStrengthIcon extends StatelessWidget {
 // ─────────────────────────────────────────────
 // App entry
 // ─────────────────────────────────────────────
+// void main() {
+//   runApp(const ChelonianApp());
+// }
 void main() {
-  runApp(const ChelonianApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => ThemeProvider(),
+      child: const ChelonianApp(),
+    ),
+  );
 }
 
 class ChelonianApp extends StatelessWidget {
-  const ChelonianApp({super.key});
+  // const ChelonianApp({super.key});
+  const ChelonianApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Chelonian',
-      theme: ThemeData(
-        // colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        // useMaterial3: true,
-        primarySwatch: Colors.green
-      ),
-      darkTheme: ThemeData.dark(),
-
-      debugShowCheckedModeBanner: false,
-      // home: const HomePage(),
-      home: Scaffold(appBar: AppBar(title: Text('Always Dark Mode')
-      ),
-      body: Center(child: Text('TESTING'),
-      )
-      )
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Chelonian',
+          theme: themeProvider.lightTheme,
+          darkTheme: themeProvider.darkTheme,
+          themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          home: const HomePage(),
+        );
+      },
     );
   }
 }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       title: 'Chelonian',
+//       theme: ThemeData(
+//         // colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+//         // useMaterial3: true,
+//         primarySwatch: Colors.green
+//       ),
+//       darkTheme: ThemeData.dark(),
+
+//       debugShowCheckedModeBanner: false,
+//       home: const HomePage(),
+//       // home: Scaffold(appBar: AppBar(title: Text('Always Dark Mode')
+//       // ),
+//       // body: Center(child: Text('TESTING'),
+//       // )
+//       // )
+//     );
+//   }
+// }
 
 
 // ─────────────────────────────────────────────
 // Home page
 // ─────────────────────────────────────────────
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  // const HomePage({super.key});
+  const HomePage({Key? key}) : super(key: key);
+
 
 
   @override
@@ -955,11 +985,21 @@ void _openSettings() {
           style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5),
         ),
         actions: [
-              ElevatedButton.icon(
-                onPressed: _toggleDarkMode,
-                icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nightlight_round, size: 18),
-                label: Text(_isDarkMode ? 'Light' : 'Dark'),
-              ),
+          IconButton(
+            icon: Icon(
+              context.watch<ThemeProvider>().isDarkMode
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: () {
+              context.read<ThemeProvider>().toggleTheme();
+            },
+          ),
+              // ElevatedButton.icon(
+              //   onPressed: _toggleDarkMode,
+              //   icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nightlight_round, size: 18),
+              //   label: Text(_isDarkMode ? 'Light' : 'Dark'),
+              // ),
               
           // BT status dot
           Padding(
