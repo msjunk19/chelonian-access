@@ -14,8 +14,6 @@ import 'dart:math' as math;
 import 'theme_provider.dart';
 import 'package:provider/provider.dart';
 
-// import 'dart:io';
-// import 'package:path_provider/path_provider.dart';
 
 const String SERVICE_UUID     = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const String CMD_UUID         = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
@@ -195,28 +193,6 @@ class ChelonianApp extends StatelessWidget {
   }
 }
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(
-//       title: 'Chelonian',
-//       theme: ThemeData(
-//         // colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-//         // useMaterial3: true,
-//         primarySwatch: Colors.green
-//       ),
-//       darkTheme: ThemeData.dark(),
-
-//       debugShowCheckedModeBanner: false,
-//       home: const HomePage(),
-//       // home: Scaffold(appBar: AppBar(title: Text('Always Dark Mode')
-//       // ),
-//       // body: Center(child: Text('TESTING'),
-//       // )
-//       // )
-//     );
-//   }
-// }
-
 
 // ─────────────────────────────────────────────
 // Home page
@@ -296,20 +272,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _pressController.dispose();
     super.dispose();
   }
-
-// Future<void> _loadDarkMode() async {
-//   final prefs = await SharedPreferences.getInstance();
-//   _isDarkMode = prefs.getBool('dark_mode') ?? false;
-//   if (mounted) setState(() {});
-// }
-
-// Future<void> _toggleDarkMode() async {
-//   final prefs = await SharedPreferences.getInstance();
-//   _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
-//   await prefs.setBool('dark_mode', _isDarkMode);
-//   if (mounted) setState(() {});
-// }
-
 
   // ── Storage ──────────────────────────────────────────────────────────
 
@@ -492,11 +454,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // ── Pairing ───────────────────────────────────────────────────────────
 
   Future<void> _pair() async {
-    // if (_pairChar == null) { 
-    //   setState(() { _status = "Not connected"; }); 
-    //   setState(() { _status = "Pairing..."; });
-    //   _appState.update(status: "Pairing...");
-    //   return; }
     if (_pairChar == null) { 
       setState(() { _status = "Not connected"; });  // ← restore this
       _appState.update(status: "Not connected");     // ← keep this too
@@ -516,13 +473,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       }
       await _savePairing(deviceId, token);
       await _fetchDeviceInfo();
-      // setState(() { _status = "Paired successfully!"; });
+
       // Sync time after successful pairing
       await _syncTime();
       setState(() { _status = "Paired successfully!"; });
       _appState.update(paired: true, status: "Paired successfully!");
     } catch (e) {
-      // setState(() { _status = "Pairing error: $e"; });
+
       setState(() { _status = "Pairing error: $e"; });
       _appState.update(status: "Pairing error: $e");
     }
@@ -563,7 +520,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     if (_repairDialogShowing) return;
     _repairDialogShowing = true;
     await _clearPairing();
-    // setState(() { _status = "Pairing lost"; });
+
     setState(() { _status = "Pairing lost"; });
     _appState.update(paired: false, status: "Pairing lost");
     if (!mounted) return;
@@ -737,12 +694,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<bool> writeMacros(int macroCount, int tagMacro, List<Map<String, dynamic>> macros) async {
-  // final logger = DebugLogger();
-  
-  // if (_macroSetChar == null) {
-  //   logger.log("ERROR: _macroSetChar is null!");
-  //   return false;
-  // }
 
   try {
     // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
@@ -806,9 +757,6 @@ Future<List<Map<String, dynamic>>?> readLogs() async {
         break;
       }
     }
-
-    // Store raw JSON for debugging
-    // _lastRawJson = allLogsJson;
 
     try {
       final parsed = jsonDecode(allLogsJson);
@@ -995,11 +943,7 @@ void _openSettings() {
               context.read<ThemeProvider>().toggleTheme();
             },
           ),
-              // ElevatedButton.icon(
-              //   onPressed: _toggleDarkMode,
-              //   icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nightlight_round, size: 18),
-              //   label: Text(_isDarkMode ? 'Light' : 'Dark'),
-              // ),
+
               
           // BT status dot
           Padding(
@@ -1377,7 +1321,7 @@ class SettingsPage extends StatelessWidget {
                     child: Text(
                       status,
                       style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-),
+                  ),
                   ),
                   if (proximityEnabled)
                     Padding(
@@ -1497,24 +1441,7 @@ ListTile(
     );
   },
 ),
-                  // ListTile(
-                  //   leading: const Icon(Icons.history),
-                  //   title: const Text("Access Logs"),
-                  //   subtitle: const Text("View RFID and command history"),
-                  //   trailing: const Icon(Icons.chevron_right),
-                  //   onTap: () {
-                  //     Navigator.push(
-                  //       context,
-                  //       MaterialPageRoute(
-                  //         builder: (context) => LogsPage(
-                  //           onReadLogs: onReadLogs,
-                  //           onClearLogs: onClearLogs,
-                  //           onSyncTime: onSyncTime,
-                  //         ),
-                  //       ),
-                  //     );
-                  //   },
-                  // ),
+
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     child: OutlinedButton.icon(
@@ -1833,13 +1760,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                           decoration: const InputDecoration(
                             labelText: 'Tag fires:',
                           ),
-                        // child: DropdownButtonFormField<int>(
-                        //   value: _tagMacro < _macros.length ? _tagMacro : 0,
-                        //   decoration: const InputDecoration(
-                        //     labelText: 'Tag fires:',
-                        //     border: OutlineInputBorder(),
-                        //     // contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        //   ),
+
                           items: _macros.asMap().entries.map((e) {
                             return DropdownMenuItem(
                               value: e.key,
@@ -1889,13 +1810,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
-                        // child: ElevatedButton(
-                        //   onPressed: _saving ? null : _saveMacros,
-                        //   style: ElevatedButton.styleFrom(
-                        //     backgroundColor: Colors.green,
-                        //     foregroundColor: Colors.white,
-                        //     padding: const EdgeInsets.symmetric(vertical: 16),
-                        //   ),
+
                         child: ElevatedButton(
                           onPressed: _saving ? null : _saveMacros,
 
@@ -1992,21 +1907,6 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
-// Future<void> _refreshLogs() async {
-//   final newLogs = await widget.onReadLogs();
-//   if (mounted && newLogs != null) {
-//     setState(() {
-//       _logs = newLogs.reversed.toList();
-//     });
-//   }
-//   if (mounted && _loading) {
-//     setState(() => _loading = false);
-//   }
-//   Future.delayed(const Duration(seconds: 2), () {
-//     if (mounted) _refreshLogs();
-//   });
-// }
-
 
 Future<void> _loadLogs() async {
   // If we already have cached logs, don't reload
@@ -2063,73 +1963,6 @@ Future<void> _refreshLogs() async {
   }
 }
 
-// Future<void> _loadLogs() async {
-//   // If we already have cached logs, don't reload
-//   if (_logs.isNotEmpty) {
-//     return;
-//   }
-  
-//   await widget.onSyncTime();
-//   setState(() => _loading = true);
-  
-//   final logs = await widget.onReadLogs();
-//   if (mounted && logs != null) {
-//     setState(() {
-//       _logs = logs.reversed.toList();
-//       _loading = false;
-//     });
-//   } else if (mounted) {
-//     setState(() => _loading = false);
-//   }
-// }
-
-// Future<void> _loadLogs() async {
-//   await widget.onSyncTime();
-  
-//   if (_logs.isEmpty) {
-//     setState(() => _loading = true);
-//   }
-  
-//   final startTime = DateTime.now();
-//   final logs = await widget.onReadLogs();
-  
-//   // Ensure loading shows for at least 500ms
-//   final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-//   if (elapsed < 500) {
-//     await Future.delayed(Duration(milliseconds: 500 - elapsed));
-//   }
-  
-//   if (mounted && logs != null) {
-//     setState(() {
-//       _logs = logs.reversed.toList();
-//       _loading = false;
-//     });
-//   } else if (mounted) {
-//     setState(() => _loading = false);
-//   }
-// }
-
-// Future<void> _loadLogs() async {
-//   await widget.onSyncTime();
-  
-//   // Only reset if we don't have cached logs
-//   if (_logs.isEmpty) {
-//     if (mounted && widget.appState?.connected == true) {
-//       // Send reset to device
-//       // You'll need access to _logGetChar here
-//       // For now, just load fresh
-//     }
-//   }
-  
-//   setState(() => _loading = true);
-//   final logs = await widget.onReadLogs();
-//   if (mounted) {
-//     setState(() {
-//       _logs = (logs ?? []).reversed.toList();
-//       _loading = false;
-//     });
-//   }
-// }
 
   Future<void> _clearLogs() async {
     final confirm = await showDialog<bool>(
@@ -2262,11 +2095,7 @@ String _formatTime(int ts, {int mode = 0}) {
       appBar: AppBar(
         title: const Text('Access Logs'),
         actions: [
-          // IconButton(
-          //   icon: const Icon(Icons.delete_outline),
-          //   onPressed: _clearLogs,
-          //   tooltip: 'Clear Logs',
-          // ),
+
           ElevatedButton.icon( 
             onPressed: _clearLogs, 
             icon: const Icon(Icons.delete_outline), 

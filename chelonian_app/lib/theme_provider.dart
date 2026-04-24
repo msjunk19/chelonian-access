@@ -29,7 +29,9 @@ class ThemeProvider extends ChangeNotifier {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      primaryColor: const Color(0xFF3B82F6),
+      // primaryColor: const Color(0xFF3B82F6),
+      primaryColor : Color(0xFF22C55E),
+
       scaffoldBackgroundColor: const Color(0xFFF3F4F6),
       cardColor: Colors.white,
       colorScheme: ColorScheme.light(
@@ -63,7 +65,9 @@ class ThemeProvider extends ChangeNotifier {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+          // borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+          borderSide: const BorderSide(color: Color(0xFF22C55E), width: 2),
+
         ),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         floatingLabelBehavior: FloatingLabelBehavior.always, // Add this
@@ -89,7 +93,9 @@ class ThemeProvider extends ChangeNotifier {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      primaryColor: const Color(0xFF3B82F6),
+      // primaryColor: const Color(0xFF3B82F6),
+      primaryColor : Color(0xFF22C55E),
+
       scaffoldBackgroundColor: const Color(0xFF111827),
       cardColor: const Color(0xFF1F2937),
       colorScheme: ColorScheme.dark(
@@ -115,7 +121,9 @@ class ThemeProvider extends ChangeNotifier {
         fillColor: const Color(0xFF374151),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF374151)),
+          // borderSide: const BorderSide(color: Color(0xFF374151)),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+
         ),
 
         enabledBorder: OutlineInputBorder(
@@ -124,7 +132,9 @@ class ThemeProvider extends ChangeNotifier {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+          // borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+          borderSide: const BorderSide(color: Color(0xFF22C55E), width: 2),
+
         ),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         floatingLabelBehavior: FloatingLabelBehavior.always, // Add this
