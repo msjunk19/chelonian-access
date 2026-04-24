@@ -66,13 +66,17 @@ class ThemeProvider extends ChangeNotifier {
           borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
         ),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-
+        floatingLabelBehavior: FloatingLabelBehavior.always, // Add this
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3B82F6),
+          backgroundColor: Colors.green,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          // backgroundColor: const Color(0xFF3B82F6),
+          // foregroundColor: Colors.white,
+          // padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -123,13 +127,16 @@ class ThemeProvider extends ChangeNotifier {
           borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
         ),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        floatingLabelBehavior: FloatingLabelBehavior.always, // Add this
 
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF3B82F6),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          // padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

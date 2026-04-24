@@ -1833,7 +1833,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                           decoration: const InputDecoration(
                             labelText: 'Tag fires:',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            // contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
                           items: _macros.asMap().entries.map((e) {
                             return DropdownMenuItem(
@@ -1884,13 +1884,16 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
+                        // child: ElevatedButton(
+                        //   onPressed: _saving ? null : _saveMacros,
+                        //   style: ElevatedButton.styleFrom(
+                        //     backgroundColor: Colors.green,
+                        //     foregroundColor: Colors.white,
+                        //     padding: const EdgeInsets.symmetric(vertical: 16),
+                        //   ),
                         child: ElevatedButton(
                           onPressed: _saving ? null : _saveMacros,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
+                          
                           child: _saving
                               ? const SizedBox(
                                   width: 20,
