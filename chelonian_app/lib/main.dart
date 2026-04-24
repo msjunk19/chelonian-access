@@ -2095,13 +2095,12 @@ String _formatTime(int ts, {int mode = 0}) {
       appBar: AppBar(
         title: const Text('Access Logs'),
         actions: [
-
-          ElevatedButton.icon( 
+          OutlinedButton.icon( 
             onPressed: _clearLogs, 
             icon: const Icon(Icons.delete_outline), 
             label: const Text('Clear Logs'), 
-            ),
-          ElevatedButton(
+          ),
+          OutlinedButton(
             onPressed: _toggleTimeFormat,
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -2112,12 +2111,36 @@ String _formatTime(int ts, {int mode = 0}) {
               ],
             ),
           ),
-          ElevatedButton.icon(
+          OutlinedButton.icon(
             onPressed: _refreshLogs,
             icon: const Icon(Icons.refresh),
             label: const Text('Refresh Logs'),
           )
         ],
+        // actions: [
+
+        //   ElevatedButton.icon( 
+        //     onPressed: _clearLogs, 
+        //     icon: const Icon(Icons.delete_outline), 
+        //     label: const Text('Clear Logs'), 
+        //     ),
+        //   ElevatedButton(
+        //     onPressed: _toggleTimeFormat,
+        //     child: Row(
+        //       mainAxisSize: MainAxisSize.min,
+        //       children: [
+        //         Icon(_use12h ? Icons.timer : Icons.timer_outlined, size: 18),
+        //         SizedBox(width: 6),
+        //         Text(_use12h ? '12h' : '24h'),
+        //       ],
+        //     ),
+        //   ),
+        //   ElevatedButton.icon(
+        //     onPressed: _refreshLogs,
+        //     icon: const Icon(Icons.refresh),
+        //     label: const Text('Refresh Logs'),
+        //   )
+        // ],
       ),
       body: Column(
         children: [
