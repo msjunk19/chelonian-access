@@ -176,9 +176,11 @@ class ChelonianApp extends StatelessWidget {
         // useMaterial3: true,
         primarySwatch: Colors.green
       ),
+      darkTheme: ThemeData.dark(),
+
       debugShowCheckedModeBanner: false,
       // home: const HomePage(),
-      home: Scaffold(appBar: AppBar(title: Text('Always Light Mode')
+      home: Scaffold(appBar: AppBar(title: Text('Always Dark Mode')
       ),
       body: Center(child: Text('TESTING'),
       )
