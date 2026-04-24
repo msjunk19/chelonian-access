@@ -268,7 +268,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // UI
   String _status              = "Disconnected";
   bool   _repairDialogShowing = false;
-  bool _isDarkMode = false;
+  // bool _isDarkMode = false;
 
   // Button press animation
   late AnimationController _pressController;
@@ -303,12 +303,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 //   if (mounted) setState(() {});
 // }
 
-Future<void> _toggleDarkMode() async {
-  final prefs = await SharedPreferences.getInstance();
-  _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
-  await prefs.setBool('dark_mode', _isDarkMode);
-  if (mounted) setState(() {});
-}
+// Future<void> _toggleDarkMode() async {
+//   final prefs = await SharedPreferences.getInstance();
+//   _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
+//   await prefs.setBool('dark_mode', _isDarkMode);
+//   if (mounted) setState(() {});
+// }
 
 
   // ── Storage ──────────────────────────────────────────────────────────
@@ -1829,12 +1829,17 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                       ),
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: _tagMacro < _macros.length ? _tagMacro : 0,
+                          initialValue: _tagMacro < _macros.length ? _tagMacro : 0,
                           decoration: const InputDecoration(
                             labelText: 'Tag fires:',
-                            border: OutlineInputBorder(),
-                            // contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
+                        // child: DropdownButtonFormField<int>(
+                        //   value: _tagMacro < _macros.length ? _tagMacro : 0,
+                        //   decoration: const InputDecoration(
+                        //     labelText: 'Tag fires:',
+                        //     border: OutlineInputBorder(),
+                        //     // contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        //   ),
                           items: _macros.asMap().entries.map((e) {
                             return DropdownMenuItem(
                               value: e.key,
@@ -1893,7 +1898,7 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                         //   ),
                         child: ElevatedButton(
                           onPressed: _saving ? null : _saveMacros,
-                          
+
                           child: _saving
                               ? const SizedBox(
                                   width: 20,

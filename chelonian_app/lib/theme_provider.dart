@@ -132,8 +132,10 @@ class ThemeProvider extends ChangeNotifier {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3B82F6),
+          backgroundColor: Colors.green,
           foregroundColor: Colors.white,
+          // backgroundColor: const Color(0xFF3B82F6),
+          // foregroundColor: Colors.white,
           // padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           padding: const EdgeInsets.symmetric(vertical: 16),
 
