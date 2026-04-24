@@ -7,12 +7,9 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_beacon/flutter_beacon.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
-import 'theme_provider.dart';
-
 
 // import 'dart:io';
 // import 'package:path_provider/path_provider.dart';
@@ -164,14 +161,7 @@ class SignalStrengthIcon extends StatelessWidget {
 // App entry
 // ─────────────────────────────────────────────
 void main() {
-  // runApp(const ChelonianApp());
-    runApp(
-    ChangeNotifierProvider(
-      // create: (context) => ThemeProvider()..load(),
-      create: (context) => ThemeProvider()..load(context),
-      child: const ChelonianApp(),
-    ),
-  );
+  runApp(const ChelonianApp());
 }
 
 class ChelonianApp extends StatelessWidget {
@@ -179,14 +169,20 @@ class ChelonianApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
     return MaterialApp(
       title: 'Chelonian',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
+        // colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        // useMaterial3: true,
+        primarySwatch: Colors.green
       ),
-      home: const HomePage(),
+      debugShowCheckedModeBanner: false,
+      // home: const HomePage(),
+      home: Scaffold(appBar: AppBar(title: Text('Always Light Mode')
+      ),
+      body: Center(child: Text('TESTING'),
+      )
+      )
     );
   }
 }
@@ -260,9 +256,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       CurvedAnimation(parent: _pressController, curve: Curves.easeInOut),
     );
     _loadPairing();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-    Provider.of<ThemeProvider>(context, listen: false).load(context);
-  });
   }
 
   @override
@@ -278,26 +271,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 //   if (mounted) setState(() {});
 // }
 
-// Future<void> _toggleDarkMode() async {
-//   final prefs = await SharedPreferences.getInstance();
-//   _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
-//   await prefs.setBool('dark_mode', _isDarkMode);
-//   if (mounted) setState(() {});
-// }
-
 Future<void> _toggleDarkMode() async {
   final prefs = await SharedPreferences.getInstance();
   _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
   await prefs.setBool('dark_mode', _isDarkMode);
-
-  final theme = _isDarkMode ? ThemeData.dark() : ThemeData.light();
-  if (context.mounted) {
-    Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (context) => MaterialApp(theme: theme, home: Navigator.of(context).widget),
-    ));
-  }
-  setState(() {});
+  if (mounted) setState(() {});
 }
+
 
   // ── Storage ──────────────────────────────────────────────────────────
 
@@ -973,12 +953,11 @@ void _openSettings() {
           style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5),
         ),
         actions: [
-          ElevatedButton.icon(
-            // onPressed: _toggleDarkMode,
-            onPressed: () => Provider.of<ThemeProvider>(context, listen: false).toggleTheme(context),
-            icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nightlight_round, size: 18),
-            label: Text(_isDarkMode ? 'Light' : 'Dark'),
-          ),
+              ElevatedButton.icon(
+                onPressed: _toggleDarkMode,
+                icon: Icon(_isDarkMode ? Icons.wb_sunny : Icons.nightlight_round, size: 18),
+                label: Text(_isDarkMode ? 'Light' : 'Dark'),
+              ),
               
           // BT status dot
           Padding(
@@ -1719,9 +1698,6 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
     super.initState();
     _autoConnect();
     _loadMacros();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ThemeProvider>(context, listen: false).load(context);
-    });
   }
 
   Future<void> _autoConnect() async {
@@ -1931,9 +1907,6 @@ class _LogsPageState extends State<LogsPage> {
     _autoConnect();
     _loadLogs();
     _startAutoRefresh();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ThemeProvider>(context, listen: false).load(context);
-    });
   }
 
   Future<void> _loadTimeFormatAndLogs() async {
