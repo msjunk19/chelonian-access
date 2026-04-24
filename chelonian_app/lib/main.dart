@@ -2176,13 +2176,17 @@ String _formatTime(int ts, {int mode = 0}) {
                           final mode = log['mode'] as int? ?? 0;
                           final msg = log['msg'] ?? '';
 
-                          Color levelColor;
-                          String levelName;
-                          switch (level) {
-                            case 0: levelColor = Colors.green; levelName = 'Access'; break;
-                            case 1: levelColor = Colors.blue; levelName = 'System'; break;
-                            default: levelColor = Colors.grey; levelName = 'Debug'; break;
-                          }
+                          // Color levelColor;
+                          // String levelName;
+                          // switch (level) {
+                          //   case 0: levelColor = Colors.green; levelName = 'Access'; break;
+                          //   case 1: levelColor = Colors.blue; levelName = 'System'; break;
+                          //   default: levelColor = Colors.grey; levelName = 'Debug'; break;
+                          // }
+                          
+                          final levelStyle = Provider.of<ThemeProvider>(context).getLevelStyle(level);
+                          final Color levelColor = levelStyle.color;
+                          final String levelName = levelStyle.name;
 
                           String sourceName;
                           switch (source) {
