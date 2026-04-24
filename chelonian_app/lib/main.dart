@@ -1746,10 +1746,14 @@ class _MacroConfigPageState extends State<MacroConfigPage> {
                       Expanded(
                         child: Row(
                           children: [
-                            Checkbox(
+                            Switch(
                               value: _useMs,
                               onChanged: (v) => setState(() => _useMs = v ?? false),
                             ),
+                            // Checkbox(
+                            //   value: _useMs,
+                            //   onChanged: (v) => setState(() => _useMs = v ?? false),
+                            // ),
                             const Text('Show ms'),
                           ],
                         ),
@@ -2183,7 +2187,7 @@ String _formatTime(int ts, {int mode = 0}) {
                           //   case 1: levelColor = Colors.blue; levelName = 'System'; break;
                           //   default: levelColor = Colors.grey; levelName = 'Debug'; break;
                           // }
-                          
+
                           final levelStyle = Provider.of<ThemeProvider>(context).getLevelStyle(level);
                           final Color levelColor = levelStyle.color;
                           final String levelName = levelStyle.name;
@@ -2419,7 +2423,14 @@ class _StepEditor extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 16),
                 child: Row(
                   children: [
-                    Checkbox(
+                    // Checkbox(
+                    //   value: (relayMask & bit) != 0,
+                    //   onChanged: (v) {
+                    //     step['relay_mask'] = v == true ? (relayMask | bit) : (relayMask & ~bit);
+                    //     onChanged(step);
+                    //   },
+                    // ),
+                    Switch(
                       value: (relayMask & bit) != 0,
                       onChanged: (v) {
                         step['relay_mask'] = v == true ? (relayMask | bit) : (relayMask & ~bit);
