@@ -1332,7 +1332,7 @@ class SettingsPage extends StatelessWidget {
                             icon: const Icon(Icons.bluetooth_disabled),
                             label: const Text("Disconnect"),
                           )
-                        : ElevatedButton.icon(
+                        : OutlinedButton.icon(
                             onPressed: scanning ? null : onScanAndConnect,
                             icon: scanning
                                 ? const SizedBox(
