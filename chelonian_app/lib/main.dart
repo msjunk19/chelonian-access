@@ -288,7 +288,14 @@ Future<void> _toggleDarkMode() async {
   final prefs = await SharedPreferences.getInstance();
   _isDarkMode = !(prefs.getBool('dark_mode') ?? false);
   await prefs.setBool('dark_mode', _isDarkMode);
-  if (mounted) setState(() {});
+
+  final theme = _isDarkMode ? ThemeData.dark() : ThemeData.light();
+  if (context.mounted) {
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (context) => MaterialApp(theme: theme, home: Navigator.of(context).widget),
+    ));
+  }
+  setState(() {});
 }
 
   // ── Storage ──────────────────────────────────────────────────────────
