@@ -65,6 +65,8 @@ class ThemeProvider extends ChangeNotifier {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
         ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -111,6 +113,7 @@ class ThemeProvider extends ChangeNotifier {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF374151)),
         ),
+
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF374151)),
@@ -119,6 +122,8 @@ class ThemeProvider extends ChangeNotifier {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
         ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
