@@ -32,10 +32,10 @@ static inline void _clearStep(const RelayStep& step) {
 
 // Fire a macro by index
 static inline void fireMacro(AccessLoopState& state, uint8_t macroIndex) {
-    if (state.relayActive) {
-        ESP_LOGW(EXECUTORTAG, "Relay already active, ignoring trigger");
-        return;
-    }
+    // if (state.relayActive) {
+    //     ESP_LOGW(EXECUTORTAG, "Relay already active, ignoring trigger");
+    //     return;
+    // }
 
     if (macroIndex >= macroConfigManager.config.macro_count) {
         ESP_LOGE(EXECUTORTAG, "Invalid macro index: %u", macroIndex);
@@ -46,6 +46,11 @@ static inline void fireMacro(AccessLoopState& state, uint8_t macroIndex) {
 
     if (m.step_count == 0) {
         ESP_LOGW(EXECUTORTAG, "Macro %u has no steps", macroIndex);
+        return;
+    }
+
+    if (state.relayActive) {
+        ESP_LOGW(EXECUTORTAG, "Relay already active, ignoring trigger");
         return;
     }
 

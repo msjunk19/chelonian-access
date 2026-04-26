@@ -237,7 +237,7 @@ inline void handleGetNonce() {
     resp["ok"] = true;
     resp["nonce"] = nonceHex;
     resp["timestamp"] = (uint32_t)(time(nullptr));
-    resp["nonce_expires_in"] = NonceManager::NONCE_EXPIRY_MS / 1000;  // Inform client
+    resp["nonce_expires_in"] = NONCE_EXPIRY_MS / 1000;  // Inform client
 
     String body;
     serializeJson(resp, body);
@@ -963,5 +963,4 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
 
     ESP_LOGI(WIFIAUTHTAG, "Hardened auth endpoints registered");
 
-    // ESP_LOGI(WIFIAUTHTAG, "Hardened auth endpoints registered");
 }

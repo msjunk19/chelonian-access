@@ -4,6 +4,7 @@
 #include <cstring>
 #include "esp_log.h"
 #include "esp_random.h"
+#include <config.hpp>
 
 static const char* REPLAY_TAG = "REPLAY";
 
@@ -13,10 +14,10 @@ static const char* REPLAY_TAG = "REPLAY";
  */
 class NonceManager {
 public:
-    static constexpr uint8_t NONCE_SIZE = 16;
-    static constexpr uint8_t MAX_NONCES = 32;
-    static constexpr uint32_t NONCE_EXPIRY_MS = 30000;  // 30 seconds (reduced from 2 minutes)
-    static constexpr uint32_t CLEANUP_INTERVAL_MS = 5000;
+    // static constexpr uint8_t NONCE_SIZE = 16;
+    // static constexpr uint8_t MAX_NONCES = 32;
+    // // static constexpr uint32_t NONCE_EXPIRY_MS = 30000;  // 30 seconds (reduced from 2 minutes)
+    // static constexpr uint32_t CLEANUP_INTERVAL_MS = 5000;
 
     struct Nonce {
         uint8_t value[NONCE_SIZE];

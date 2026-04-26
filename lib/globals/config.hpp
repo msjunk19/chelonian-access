@@ -64,3 +64,9 @@ static constexpr uint8_t PHONE_ID_MAX_LEN  = 36; // standard UUID length
 #define IBEACON_MINOR    0x0001
 // #define IBEACON_TX_POWER 0xC5
 #define IBEACON_TX_POWER 0xA0  // -96 dBm — very large region
+
+// Nonce
+static constexpr uint8_t NONCE_SIZE = 16;
+static constexpr uint8_t MAX_NONCES = 32;
+static constexpr uint32_t NONCE_EXPIRY_MS = 5000;  // 5 seconds (reduced from 30 seconds)
+static constexpr uint32_t CLEANUP_INTERVAL_MS = 5000;

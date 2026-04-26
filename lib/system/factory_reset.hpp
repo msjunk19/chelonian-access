@@ -28,6 +28,8 @@ inline void factoryReset() {
     macroConfigManager.clear();
     // ESP_LOGI(RSTAG, "Macro configuration cleared");
 
+    nonceManager.clear();
+    
     ESP_LOGW(RSTAG, "Factory reset complete — rebooting");
 
     delay(1000);
