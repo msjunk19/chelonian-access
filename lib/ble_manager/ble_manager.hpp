@@ -63,10 +63,18 @@ public:
         _cmdChar->setCallbacks(new CommandCallbacks(this));
 
         // Status characteristic
+        // _statusChar = service->createCharacteristic(
+        //     BLE_STATUS_UUID,
+        //     NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
+        // );
         _statusChar = service->createCharacteristic(
             BLE_STATUS_UUID,
             NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
         );
+        // _statusChar->addDescriptor(new NimBLEDescriptor(BLEUUID((uint16_t)0x2902)));
+        // _statusChar->addDescriptor(new NimBLEDescriptor("2902"));
+        _statusChar->addDescriptor(new NimBLE2904());
+ 
 
         // Pairing characteristic
         _pairChar = service->createCharacteristic(
@@ -116,11 +124,20 @@ public:
         refreshMacroChar();
 
         // Log - read (with notify for chunked reading)
+        // _logGetChar = service->createCharacteristic(
+        //     BLE_LOG_GET_UUID,
+        //     NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY
+        // );
+        // _logGetChar->setCallbacks(new LogGetCallbacks(this));
         _logGetChar = service->createCharacteristic(
             BLE_LOG_GET_UUID,
             NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY
         );
+        // _logGetChar->addDescriptor(new NimBLEDescriptor(BLEUUID((uint16_t)0x2902)));
+        // _logGetChar->addDescriptor(new NimBLEDescriptor("2902"));
+        _logGetChar->addDescriptor(new NimBLE2904());
         _logGetChar->setCallbacks(new LogGetCallbacks(this));
+ 
 
         // Log - clear
         _logClearChar = service->createCharacteristic(
@@ -145,7 +162,6 @@ public:
         ESP_LOGI(BLETAG, "Created _timeSyncChar at UUID %s", BLE_TIME_SYNC_UUID);
     
 
-        _server->start();
 
         // Generate unique iBeacon UUID from MAC address
         char beaconUUID[37];
@@ -163,6 +179,10 @@ public:
             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         _macChar->setValue(macStr);
         ESP_LOGI(BLETAG, "BLE MAC: %s", macStr);
+
+
+        
+        _server->start();
 
         _startAdvertising(beaconUUID);
         ESP_LOGI(BLETAG, "BLE started — device name: Chelonian");
