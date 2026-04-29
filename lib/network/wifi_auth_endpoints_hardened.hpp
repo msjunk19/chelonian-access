@@ -178,7 +178,8 @@ bool checkTokenRateLimit(const char* deviceId) {
 inline void openPairingWindow() {
     pairingWindowOpen = true;
     pairingWindowStart = millis();
-    ESP_LOGI(WIFIAUTHTAG, "Pairing window opened (60s)");
+    // ESP_LOGI(WIFIAUTHTAG, "Pairing window opened (60s)");
+    ESP_LOGI(WIFIAUTHTAG, "WiFi pairing window opened (%lus)", PAIRING_WINDOW_MS / 1000);
     LED_SET_SEQ(SYSTEM_PAIR);
 }
 
