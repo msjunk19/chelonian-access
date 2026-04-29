@@ -6,8 +6,8 @@
 #include <pin_mapping.hpp>
 #include <master_uid_manager.h>
 #include <access_log.hpp>
-#include <ble_manager.hpp>
-extern BLEManager bleManager;
+// #include <ble_manager.hpp>
+// extern BLEManager bleManager;
 
 static const char* TAG = "ACCESS";  // Add TAG definition
 
@@ -18,13 +18,13 @@ const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12,
 
 
 void accessServiceSetup() {
-    macroConfigManager.load();
+    // macroConfigManager.load();
     led.begin();
     // LED_SET_SEQ(SYSTEM_READY);
     delay(1000);
 
-    rfid.begin();
-    rfid.printFirmwareVersion();
+    // rfid.begin();
+    // rfid.printFirmwareVersion();
     
     relays.begin();
     if (audio.begin()) {

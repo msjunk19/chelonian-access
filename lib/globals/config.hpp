@@ -22,7 +22,7 @@ const unsigned long RELAY_COUNT = 4; //How many relays are connected
 static constexpr uint32_t PAIRING_HOLD_MS       = 3000;
 static constexpr uint32_t FACTORY_RESET_HOLD_MS = 10000;
 
-static constexpr uint32_t PAIRING_WINDOW_MS = 60000;
+static constexpr uint32_t PAIRING_WINDOW_MS = 30000;
 
 
 // Timeouts
@@ -70,3 +70,13 @@ static constexpr uint8_t NONCE_SIZE = 16;
 static constexpr uint8_t MAX_NONCES = 32;
 static constexpr uint32_t NONCE_EXPIRY_MS = 5000;  // 5 seconds (reduced from 30 seconds)
 static constexpr uint32_t CLEANUP_INTERVAL_MS = 5000;
+
+// USB Macro Config
+#define USB_CONFIG_HOLD_MS 1500
+
+// Rate Limiter
+static constexpr uint32_t MACRO_RATE_LIMIT_MS   = 400; 
+static constexpr uint32_t NONCE_RATE_LIMIT_MS   = 500;  
+static constexpr uint32_t PAIR_RATE_LIMIT_MS    = 2000;  
+static constexpr uint32_t UNPAIR_RATE_LIMIT_MS  = 200; 
+static constexpr uint32_t COMMAND_RATE_LIMIT_MS = 100;  

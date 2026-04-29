@@ -4,7 +4,7 @@
 #include <Adafruit_PN532.h>
 #include <Arduino.h>
 #include "esp_log.h"
-#include "globals.hpp"
+#include <globals.hpp>
 #include <led_states.hpp>
 
 static const char* TAG = "RFID";

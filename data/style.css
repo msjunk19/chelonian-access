@@ -3,6 +3,8 @@
     --accent-green: #22c55e;
     --accent-red: #ef4444;
     --accent-purple: #a855f7;
+    --primary: #3b82f6;           /* Add this */
+    --primary-hover: #2563eb;     /* Add this */
     --bg: #f3f4f6;
     --card-bg: #ffffff;
     --text: #1f2937;

@@ -214,8 +214,8 @@ inline String generateToken() {
 inline void handleGetNonce() {
     String clientIP = getClientIP();
 
-    // CRITICAL FIX #1: Rate limit nonce endpoint (1 per 500ms, max 5 per second)
-    if (!rateLimiter.checkRateLimit(clientIP, 5, 500)) {
+    // CRITICAL FIX #1: Rate limit nonce endpoint (1 per 500ms, max 5 per minute)
+    if (!rateLimiter.checkRateLimit(clientIP, 10, NONCE_RATE_LIMIT_MS)) {
         uint32_t lockoutTime = rateLimiter.getLockoutTimeRemaining(clientIP);
         ESP_LOGW(WIFIAUTHTAG, "Nonce rate limit exceeded for %s (locked for %lu ms)", 
                  clientIP.c_str(), lockoutTime);
@@ -253,7 +253,7 @@ inline void handlePair() {
     String clientIP = getClientIP();
 
     // Rate limiting on pair endpoint (1 per 2 seconds, max 3 per minute)
-    if (!rateLimiter.checkRateLimit(clientIP, 3, 2000)) {
+    if (!rateLimiter.checkRateLimit(clientIP, 3, PAIR_RATE_LIMIT_MS)) {
         sendJsonError(429, "Rate limit exceeded", clientIP);
         return;
     }
@@ -327,7 +327,7 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
     String clientIP = getClientIP();
 
     // Rate limiting on command endpoint (1 per second, max 30 per minute)
-    if (!rateLimiter.checkRateLimit(clientIP, 30, 100)) {
+    if (!rateLimiter.checkRateLimit(clientIP, 30, COMMAND_RATE_LIMIT_MS)) {
         sendJsonError(429, "Rate limit exceeded", clientIP);
         return;
     }
@@ -492,7 +492,7 @@ inline void handleCommand(std::function<void(PhoneCommand)> onCommand) {
 inline void handleUnpair() {
     String clientIP = getClientIP();
 
-    if (!rateLimiter.checkRateLimit(clientIP, 5, 200)) {
+    if (!rateLimiter.checkRateLimit(clientIP, 5, UNPAIR_RATE_LIMIT_MS)) {
         sendJsonError(429, "Rate limit exceeded", clientIP);
         return;
     }
@@ -639,7 +639,7 @@ inline void setupAuthEndpoints(std::function<void(PhoneCommand)> onCommand) {
         String clientIP = getClientIP();
 
         // Rate limiting on macro endpoint
-        if (!rateLimiter.checkRateLimit(clientIP, 10, 1000)) {
+        if (!rateLimiter.checkRateLimit(clientIP, 10, MACRO_RATE_LIMIT_MS)) {
             sendJsonError(429, "Rate limit exceeded", clientIP);
             return;
         }

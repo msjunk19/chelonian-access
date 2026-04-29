@@ -29,7 +29,9 @@ inline void factoryReset() {
     // ESP_LOGI(RSTAG, "Macro configuration cleared");
 
     nonceManager.clear();
-    
+
+    accessLogger.logSystem(LogSource::SYSTEM, LogResult::SUCCESS, "SYSTEM", "Factory Reset");
+
     ESP_LOGW(RSTAG, "Factory reset complete — rebooting");
 
     delay(1000);

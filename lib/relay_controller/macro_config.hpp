@@ -98,6 +98,7 @@ public:
     }
 
     void save(uint8_t index) {
+        // Serial.println("{\"debug\":\"D saving macro index\"}");
         if (index >= config.macro_count) {
             ESP_LOGW(MACROTAG, "Save called with invalid index: %u", index);
             return;
@@ -122,6 +123,7 @@ public:
     }
 
     void saveAll() {
+        // Serial.println("{\"debug\":\"C saveAll loop start\"}");
         for (uint8_t i = 0; i < config.macro_count; i++) {
             save(i);
         }
