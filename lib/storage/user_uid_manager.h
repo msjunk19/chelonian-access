@@ -1,7 +1,9 @@
 #pragma once
+
+#include <esp_log.h>
 #include <Preferences.h>
-#include <config.hpp>
-#include "esp_log.h"
+
+#include "config.hpp"
 
 static const char* USERTAG = "USERUID";
 static const char* USER_NVS_NS = "user_uids"; // NVS namespace

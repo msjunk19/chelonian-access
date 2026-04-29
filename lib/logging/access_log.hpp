@@ -1,10 +1,11 @@
 #pragma once
 
-#include <Preferences.h>
-#include <esp_log.h>
-#include <Arduino.h>
 #include <time.h>
 #include <string.h>
+#include <esp_log.h>
+#include <Arduino.h>
+#include <Preferences.h>
+
 
 static const char* LOGTAG   = "LOG";
 static const char* TIMETAG  = "TIME_TRACE";

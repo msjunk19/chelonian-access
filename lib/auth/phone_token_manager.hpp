@@ -1,7 +1,9 @@
 #pragma once
+
+#include <esp_log.h>
 #include <Preferences.h>
-#include <config.hpp>
-#include "esp_log.h"
+
+#include "config.hpp"
 #include "encrypted_token_storage.hpp"
 
 static const char* PHONETAG = "PHONETOKEN";

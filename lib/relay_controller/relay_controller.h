@@ -1,9 +1,11 @@
 #pragma once
 
-#include <config.hpp>
-#include <pin_mapping.hpp>
-#include <Arduino.h>
 #include <array>
+#include <Arduino.h>
+
+#include "config.hpp"
+#include "pin_mapping.hpp"
+
 
 class RelayController {
 public:

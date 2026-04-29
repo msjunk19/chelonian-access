@@ -19,8 +19,12 @@
 // FEATURE TOGGLES - Uncomment to enable
 // ============================================
 
-#define ENABLE_WIFI_AP
-#define ENABLE_BLE
+// Enable in Platformio.ini build flags
+    //  -D ENABLE_WIFI_AP
+    //  -D ENABLE_BLE
+    
+// #define ENABLE_WIFI_AP
+// #define ENABLE_BLE
 
 // ============================================
 // Validation

@@ -9,9 +9,10 @@
  */
 
 #include <functional>
+
 #include "macro_config.hpp"
-#include <auth_manager.hpp>
-#include <macro_executor.hpp>
+#include "auth_manager.hpp"
+#include "macro_executor.hpp"
 
 extern MacroConfigManager macroConfigManager;
 

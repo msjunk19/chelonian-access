@@ -1,7 +1,9 @@
 #pragma once
+
+#include <esp_log.h>
 #include <Preferences.h>
-#include "esp_log.h"
-#include <pin_mapping.hpp>
+
+#include "pin_mapping.hpp"
 
 static const char* MACROTAG    = "MACRO";
 static const char* MACRO_NVS_NS = "macro_cfg";

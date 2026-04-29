@@ -2,19 +2,13 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <macro_config.hpp>
-#include <config.hpp>
 
+#include "config.hpp"
+#include "macro_config.hpp"
 
 static const char* USBMACROTAG = "USBMACRO";
 
 MacroConfigManager macroConfigManager;
-
-
-/*
-Hold duration to enter USB config mode
-*/
-// #define USB_CONFIG_HOLD_MS 1500
 
 /*
 --------------------------------------------------

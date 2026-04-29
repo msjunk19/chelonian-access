@@ -11,12 +11,11 @@
 #include "features.hpp"
 
 #ifdef ENABLE_BLE
-
-#include <command_handler.hpp>
-#include <ble_manager.hpp>
-#include <led_states.hpp>
-#include <globals.hpp>
-#include <macro_executor.hpp>
+#include "globals.hpp"
+#include "led_states.hpp"
+#include "ble_manager.hpp"
+#include "macro_executor.hpp"
+#include "command_handler.hpp"
 
 BLEManager bleManager;
 

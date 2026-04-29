@@ -1,12 +1,14 @@
 //Secure BLE
 #pragma once
+
+#include <esp_log.h>
 #include <NimBLEDevice.h>
-#include "phone_token_manager.hpp"
+
+#include "config.hpp"
+#include "access_log.hpp"
 #include "auth_manager.hpp"
 #include "macro_config.hpp"
-#include "esp_log.h"
-#include <config.hpp>
-#include <access_log.hpp>
+#include "phone_token_manager.hpp"
 
 static const char* BLETAG = "BLE";
 
@@ -32,7 +34,6 @@ extern AuthManager authManager;
 extern MacroConfigManager macroConfigManager;
 extern AccessLogger accessLogger;
 extern EncryptedTokenStorage encryptedStorage;
-// extern EncryptedTokenStorage encryptedStorage;
 
 static constexpr uint8_t CHUNK_SIZE = 3;
 
@@ -73,7 +74,7 @@ public:
         );
         // _statusChar->addDescriptor(new NimBLEDescriptor(BLEUUID((uint16_t)0x2902)));
         // _statusChar->addDescriptor(new NimBLEDescriptor("2902"));
-        _statusChar->addDescriptor(new NimBLE2904());
+        // _statusChar->addDescriptor(new NimBLE2904());
  
 
         // Pairing characteristic
@@ -123,19 +124,12 @@ public:
         // Initialize macro config characteristic with current values
         refreshMacroChar();
 
-        // Log - read (with notify for chunked reading)
-        // _logGetChar = service->createCharacteristic(
-        //     BLE_LOG_GET_UUID,
-        //     NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY
-        // );
-        // _logGetChar->setCallbacks(new LogGetCallbacks(this));
         _logGetChar = service->createCharacteristic(
             BLE_LOG_GET_UUID,
             NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY
         );
-        // _logGetChar->addDescriptor(new NimBLEDescriptor(BLEUUID((uint16_t)0x2902)));
-        // _logGetChar->addDescriptor(new NimBLEDescriptor("2902"));
-        _logGetChar->addDescriptor(new NimBLE2904());
+
+        // _logGetChar->addDescriptor(new NimBLE2904());
         _logGetChar->setCallbacks(new LogGetCallbacks(this));
  
 
@@ -682,8 +676,6 @@ void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
     void _parseAndSaveMacroConfig(const String& payload) {
         ESP_LOGI(BLETAG, "Parsing macro config payload: %s", payload.c_str());
         
-        // Simple pipe-separated format
-        // Format: macro_count|tag_macro|macro1_name|steps|relay|duration|gap|...
         
         int sep1 = payload.indexOf('|');
         int sep2 = payload.indexOf('|', sep1 + 1);

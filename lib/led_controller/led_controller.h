@@ -1,7 +1,9 @@
 #pragma once
+
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-#include <led_colors.hpp>
+
+#include "led_colors.hpp"
 
 enum LEDPattern {
     PATTERN_NONE,

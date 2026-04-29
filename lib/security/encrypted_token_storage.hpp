@@ -1,13 +1,15 @@
 #pragma once
+
+#include <esp_log.h>
 #include <Arduino.h>
+#include <esp_random.h>
 #include <Preferences.h>
 #include <mbedtls/aes.h>
 #include <mbedtls/gcm.h>
 #include <mbedtls/sha256.h>
 #include <mbedtls/cipher.h>
-#include "esp_log.h"
-#include "esp_random.h"
-#include <config.hpp>
+
+#include "config.hpp"
 
 static const char* CRYPTO_TAG = "CRYPTO";
 

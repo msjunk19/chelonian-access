@@ -1,13 +1,13 @@
-#include <access_service.h>
 #include <Arduino.h>
 #include <esp_log.h>
-#include <led_states.hpp>
-#include <globals.hpp>
-#include <pin_mapping.hpp>
-#include <master_uid_manager.h>
-#include <access_log.hpp>
-// #include <ble_manager.hpp>
-// extern BLEManager bleManager;
+
+#include "access_service.h"
+#include "led_states.hpp"
+#include "globals.hpp"
+#include "pin_mapping.hpp"
+#include "master_uid_manager.h"
+#include "access_log.hpp"
+
 
 static const char* TAG = "ACCESS";  // Add TAG definition
 
@@ -18,14 +18,7 @@ const uint8_t invalidDelays[MAXIMUM_INVALID_ATTEMPTS] = {1,  3,  4,  5,  8,  12,
 
 
 void accessServiceSetup() {
-    // macroConfigManager.load();
-    led.begin();
-    // LED_SET_SEQ(SYSTEM_READY);
     delay(1000);
-
-    // rfid.begin();
-    // rfid.printFirmwareVersion();
-    
     relays.begin();
     if (audio.begin()) {
         audio.setVolume(AUDIO_DEFAULT_VOLUME);
@@ -41,9 +34,6 @@ void accessServiceSetup() {
     }
     ESP_LOGI(TAG, "Waiting for an ISO14443A card");
     markUserActivity(state);
-    // LED_SET_SEQ(SYSTEM_READY);
-    // At start of accessServiceSetup()
-    // accessLogger.logSystem(LogSource::RFID, LogResult::SUCCESS, "System", "Device boot");
 }
 
 void fireMacro(uint8_t macroIndex) {
@@ -404,6 +394,7 @@ void handleRegularCard(uint8_t *uid, uint8_t uidLength, AccessLoopState &state) 
     }
 }
 
+// TODO - still done manually in some places
 // --- Impatience Timeout ---
 // Currently working. Impatient at boot with known MasterUID, Impatient after unknown tag, impatient after short master card hold, Not impatient after access granted, impatience disabled during programming mode
 // Not working. markUserActivity blocks programming mode boot announcements

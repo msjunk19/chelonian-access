@@ -1,7 +1,8 @@
-#include <Adafruit_PN532.h>
-#include <Arduino.h>
 #include <array>
-#include <pin_mapping.hpp>
+#include <Arduino.h>
+#include <Adafruit_PN532.h>
+
+#include "pin_mapping.hpp"
 
 class RFIDController {
 public:

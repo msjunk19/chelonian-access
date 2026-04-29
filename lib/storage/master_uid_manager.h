@@ -1,7 +1,9 @@
 #pragma once
+
+#include <esp_log.h>
 #include <Preferences.h>
-#include <config.hpp>
-#include "esp_log.h"
+
+#include "config.hpp"
 
 static const char* MASTERTAG = "MASTERUID";
 static const char* MASTER_NVS_NS = "master_uids"; // NVS namespace

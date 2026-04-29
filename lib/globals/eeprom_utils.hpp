@@ -1,6 +1,6 @@
 #pragma once
+
 #include <EEPROM.h>
-// #include <config.hpp>
 
 static void clearEntireEEPROM() {
     EEPROM.begin(512);

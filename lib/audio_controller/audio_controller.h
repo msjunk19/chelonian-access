@@ -1,8 +1,10 @@
 #pragma once
 
-#include <pin_mapping.hpp>
 #include <Arduino.h>
 #include <SoftwareSerial.h>  // For SoftwareSerial on ESP32-C3
+
+#include "pin_mapping.hpp"
+
 #ifdef USINGMP3
 #include <JQ6500_Serial.h>
 #endif

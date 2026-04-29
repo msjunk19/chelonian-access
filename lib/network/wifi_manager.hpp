@@ -1,12 +1,13 @@
 #pragma once
+
 #include <WiFi.h>
-#include <WebServer.h>
-#include <Preferences.h>
-#include <DNSServer.h>
 #include <LittleFS.h>
+#include <WebServer.h>
+#include <DNSServer.h>
+#include <Preferences.h>
+
 #include "config.hpp"
-// #include <wifi_auth_endpoints.hpp>
-#include <wifi_auth_endpoints_hardened.hpp>
+#include "wifi_auth_endpoints_hardened.hpp"
 
 static const char* WIFICFG_TAG    = "WIFICFG";
 static const char* WIFICFG_NVS_NS = "wifi_cfg";

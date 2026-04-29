@@ -1,17 +1,20 @@
 #pragma once
+
+#include <esp_log.h>
 #include <WebServer.h>
+#include <esp_random.h>
 #include <ArduinoJson.h>
-#include "phone_token_manager.hpp"
+
+#include "config.hpp"
+#include "led_states.hpp"
+#include "access_log.hpp"
+#include "macro_config.hpp"
 #include "auth_manager.hpp"
-#include "esp_log.h"
-#include "esp_random.h"
-#include <led_states.hpp>
-#include <access_log.hpp>
-#include <config.hpp>
 #include "rate_limiter.hpp"
 #include "nonce_manager.hpp"
+#include "phone_token_manager.hpp"
 #include "encrypted_token_storage.hpp"
-#include <macro_config.hpp>
+
 
 static const char* WIFIAUTHTAG = "WIFIAUTH";
 
@@ -556,26 +559,6 @@ inline void handleUnpair() {
     server.send(200, "application/json", body);
 }
 
-// // -------------------------
-// // Helper: Convert hex string to binary
-// // -------------------------
-// bool hexStringToBytes(const char* hexStr, uint8_t* bytesOut, size_t bytesLen) {
-//     if (!hexStr || strlen(hexStr) != bytesLen * 2) {
-//         return false;
-//     }
-    
-//     for (size_t i = 0; i < bytesLen; i++) {
-//         char byte[3] = { hexStr[i*2], hexStr[i*2+1], 0 };
-//         char* endptr = nullptr;
-//         long val = strtol(byte, &endptr, 16);
-//         if (endptr != &byte[2] || val < 0 || val > 255) {
-//             return false;
-//         }
-//         bytesOut[i] = (uint8_t)val;
-//     }
-    
-//     return true;
-// }
 
 // -------------------------
 // Register all endpoints

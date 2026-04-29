@@ -1,8 +1,9 @@
-#include "exception_handler.h"
 #include <Arduino.h>
 #include <cstdlib>
 #include <exception>
-#include "esp_log.h"
+#include <esp_log.h>
+
+#include "exception_handler.h"
 
 static const char* TAG = "ExceptionHandler";
 
