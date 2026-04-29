@@ -6,10 +6,10 @@
 #include "config.hpp"
 #include "eeprom_utils.hpp"
 
-// #ifdef ENABLE_WIFI_AP
+
 #include "wifi_manager.hpp"
 #include "wifi_auth_endpoints_hardened.hpp"
-// #endif
+
 
 #include "pairing_button.hpp"
 #include "auth_manager.hpp"

@@ -27,5 +27,5 @@
 // ============================================
 
 #if !defined(ENABLE_WIFI_AP) && !defined(ENABLE_BLE)
-    #warning "No communication features enabled. Device will only accept RFID/physical access."
+    #warning "No wireless communication features enabled. Device will only accept RFID/physical access."
 #endif
