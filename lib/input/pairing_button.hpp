@@ -8,9 +8,25 @@
 #include "pin_mapping.hpp"
 // #include <wifi_auth_endpoints.hpp>
 #include "wifi_auth_endpoints_hardened.hpp"
+#include <Preferences.h>
 
+enum class BootMode {
+    NORMAL,
+    USB_CONFIG
+};
+
+
+BootMode bootMode = BootMode::NORMAL;
 
 static const char* BTNTAG = "PAIRBUTTON";
+
+#define HAS_WIRELESS (defined(ENABLE_WIFI_AP) || defined(ENABLE_BLE))
+
+// #if defined(ENABLE_WIFI_AP) || defined(ENABLE_BLE)
+//     #define HAS_WIRELESS 1
+// #else
+//     #define HAS_WIRELESS 0
+// #endif
 
 class PairingButton {
 public:
@@ -21,6 +37,16 @@ public:
         pinMode(PAIRING_BUTTON_PIN, INPUT_PULLUP);
         ESP_LOGI(BTNTAG, "Pairing button initialized on GPIO %d", PAIRING_BUTTON_PIN);
     }
+
+void setBootMode(BootMode mode) {
+    Preferences prefs;
+    prefs.begin("system", false);
+
+    Serial.printf("Setting boot_mode = %u\n", (uint8_t)mode);
+
+    prefs.putUChar("boot_mode", (uint8_t)mode);
+    prefs.end();
+}
 
     void update() {
         bool pressed = (digitalRead(PAIRING_BUTTON_PIN) == LOW);
@@ -43,10 +69,31 @@ public:
                 }
                 // Then pairing (3s)
                 else if (heldMs >= PAIRING_HOLD_MS) {
+
+                #if HAS_WIRELESS
+
                     ESP_LOGI(BTNTAG, "Pairing triggered on hold (%lums)", heldMs);
                     _onPairingHold();
                     LED_SET_SEQ(SYSTEM_PAIR);
+
+                #else
+
+                    ESP_LOGW(BTNTAG, "No wireless features — entering USB config mode (%lums)", heldMs);
+
+                    // Set boot mode and reboot
+                    setBootMode(BootMode::USB_CONFIG);  // you implement 
+                    LED_SET_SEQ(SYSTEM_USB);
+                    
+                    delay(1000);
+                    ESP.restart();
+
+                #endif
                 }
+                // else if (heldMs >= PAIRING_HOLD_MS) {
+                //     ESP_LOGI(BTNTAG, "Pairing triggered on hold (%lums)", heldMs);
+                //     _onPairingHold();
+                //     LED_SET_SEQ(SYSTEM_PAIR);
+                // }
             }
         } else {
             if (_wasPressed) {

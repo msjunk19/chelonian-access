@@ -20,6 +20,7 @@
 #include "nonce_manager.hpp"
 #include "usb_macro_mode.hpp"
 #include "usb_handler.hpp"
+#include "Preferences.h"
 
 // ========== NEW: Feature toggles and modules ==========
 #include "features.hpp"
@@ -28,12 +29,8 @@
 #include "ble_module.hpp"
 // ====================================================
 
-enum class BootMode {
-    NORMAL,
-    USB_CONFIG
-};
 
-BootMode bootMode = BootMode::NORMAL;
+// BootMode bootMode = BootMode::NORMAL;
 
 // LED Selection, only use one. 
 LEDController led(0, true, PN_NEOPIXEL);
@@ -61,6 +58,8 @@ static const char* TAG = "Main";
 WiFiModule& wifiModule = WiFiModule::getInstance();
 BLEModule& bleModule = BLEModule::getInstance();
 // ==========================================
+
+// #define HAS_WIRELESS (defined(ENABLE_WIFI_AP) || defined(ENABLE_BLE))
 
 // void setupUSBMode() {
 //     ESP_LOGI(TAG, "USB Configuration Mode initialized");
@@ -101,6 +100,45 @@ BLEModule& bleModule = BLEModule::getInstance();
 
 //     Serial.println("--------------------");
 // }
+    // void handleSerialStatus() {
+    //     if (!Serial.available()) return;
+
+    //     String cmd = Serial.readStringUntil('\n');
+    //     cmd.trim();
+
+    // if (cmd == "GET_STATUS") {
+
+    //     if (bootMode == BootMode::USB_CONFIG) {
+    //         Serial.println("{\"ok\":true,\"mode\":\"usb\"}");
+    //         return;
+    //     }
+
+    //     // NORMAL mode
+    //     #if defined(ENABLE_WIFI_AP) || defined(ENABLE_BLE)
+
+    //         // 🔥 Wireless firmware build
+    //         Serial.println(
+    //             "{\"ok\":false,"
+    //             "\"mode\":\"wireless\","
+    //             "\"error\":\"usb_disabled\","
+    //             "\"message\":\"Device is configured for wireless mode. USB configuration is not supported.\"}"
+    //         );
+
+    //     #else
+
+    //         // 🔥 USB-capable firmware, just not in USB mode
+    //         Serial.println(
+    //             "{\"ok\":false,"
+    //             "\"mode\":\"normal\","
+    //             "\"error\":\"not_in_usb_mode\","
+    //             "\"message\":\"Hold pairing button and reboot to enter USB mode.\"}"
+    //         );
+
+    //     #endif
+
+    //     return;
+    // }
+    // }
 
 void setup()
 {
@@ -114,8 +152,21 @@ void setup()
     led.begin();
     delay(1000);
 
+    Preferences prefs;
+    prefs.begin("system", true);
+    Serial.println("Reading boot_mode from NVS...");
+    // uint8_t mode = prefs.getUChar("boot_mode", 255);
+    uint8_t mode = prefs.getUChar("boot_mode", (uint8_t)BootMode::NORMAL);
+    bootMode = (BootMode)mode;
+    Serial.printf("boot_mode raw = %u\n", mode);
+    // Serial.println(prefs.getUChar("boot_mode"));
+    // bootMode = (BootMode)prefs.getUChar("boot_mode", (uint8_t)BootMode::NORMAL);
+    // Serial.print("Boot Mode: (%lu)", bootMode);
+
+    prefs.end();
+
     // bootMode = BootMode::USB_CONFIG;
-    bootMode = BootMode::NORMAL;
+    // // bootMode = BootMode::NORMAL;
 
 
     Serial.printf("Boot mode = %s\n",
@@ -127,12 +178,16 @@ void setup()
         delay(500); // IMPORTANT: let USB enumerate
         Serial.println("Entering USB Macro Config Mode...");
         ESP_LOGI(TAG, "USB mode active");
+        LED_SET_SEQ(SYSTEM_USB);
+
+        // Reset boot mode so next reboot is normal
+        pairingButton.setBootMode(BootMode::NORMAL);
+
         delay(1000);
         return;
     }
 
     rfid.begin();
-    // rfid.printFirmwareVersion();
     delay(2000);
 
     /* NEW: Initialize encrypted storage */
@@ -196,6 +251,8 @@ void setup()
 }
 
 void loop() {
+    pairingButton.update();
+
     if (bootMode == BootMode::USB_CONFIG) {
         UsbCommandHandler::loop(macroConfigManager);
         delay(5);
@@ -203,7 +260,6 @@ void loop() {
     }
         
     accessServiceLoop();
-    pairingButton.update();
 
     // ========== COMMUNICATION MODULE UPDATES ==========
     #ifdef ENABLE_WIFI_AP

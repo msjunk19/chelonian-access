@@ -84,6 +84,8 @@ private:
         serializeJson(doc, out);
 
         Serial.println(out);
+        // Serial.println("{\"ok\":true}");
+
     }
 
     static void handleSaveMacros(String json, MacroConfigManager& m) {

@@ -5,7 +5,6 @@
 #include <Adafruit_PN532.h>
 
 #include "rfid_controller.h"
-
 #include "globals.hpp"
 #include "led_states.hpp"
 
@@ -32,22 +31,16 @@ bool RFIDController::begin() {
 
     if (versiondata == 0) {
         ESP_LOGE(TAG, "PN532 not detected or firmware read failed!");
-        // LED_ENQUEUE(PN_532_ERROR);
         LED_SET_SEQ(PN_532_ERROR);
 
         return false;
     }
 
     ESP_LOGI(TAG, "PN532 initialized successfully");
-    // LED_ENQUEUE(PN_532_CONNECTED);
     LED_SET_SEQ(PN_532_CONNECTED);
 
 
     printFirmwareVersion();
-    // ESP_LOGI(TAG, "PN5 (IC: %02X) Firmware %u.%u",
-    //     (versiondata >> 24) & 0xFF,
-    //     (versiondata >> 16) & 0xFF,
-    //     (versiondata >> 8) & 0xFF);
 
     m_nfc->SAMConfig();
     return true;

@@ -59,7 +59,8 @@ public:
         // Command characteristic
         _cmdChar = service->createCharacteristic(
             BLE_CMD_UUID,
-            NIMBLE_PROPERTY::WRITE
+            NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::WRITE_ENC
         );
         _cmdChar->setCallbacks(new CommandCallbacks(this));
 
@@ -99,21 +100,26 @@ public:
         // Verify characteristic
         _verifyChar = service->createCharacteristic(
             BLE_VERIFY_UUID,
-            NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ
+            NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::READ |
+            NIMBLE_PROPERTY::WRITE_ENC |
+            NIMBLE_PROPERTY::READ_ENC
         );
         _verifyChar->setCallbacks(new VerifyCallbacks(this));
 
         // Macro config - read
         _macroGetChar = service->createCharacteristic(
             BLE_MACRO_GET_UUID,
-            NIMBLE_PROPERTY::READ
+            NIMBLE_PROPERTY::READ |
+            NIMBLE_PROPERTY::READ_ENC
         );
         _macroGetChar->setCallbacks(new MacroGetCallbacks(this));
 
         // Macro config - write
         _macroSetChar = service->createCharacteristic(
             BLE_MACRO_SET_UUID,
-            NIMBLE_PROPERTY::WRITE
+            NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::WRITE_ENC
         );
 
         _macroSetChar->setCallbacks(new MacroCallbacks(this));
@@ -126,7 +132,11 @@ public:
 
         _logGetChar = service->createCharacteristic(
             BLE_LOG_GET_UUID,
-            NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY
+            NIMBLE_PROPERTY::READ |
+            NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::NOTIFY |
+            NIMBLE_PROPERTY::READ_ENC |
+            NIMBLE_PROPERTY::WRITE_ENC
         );
 
         // _logGetChar->addDescriptor(new NimBLE2904());
@@ -136,21 +146,24 @@ public:
         // Log - clear
         _logClearChar = service->createCharacteristic(
             BLE_LOG_CLEAR_UUID,
-            NIMBLE_PROPERTY::WRITE
+            NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::WRITE_ENC
         );
         _logClearChar->setCallbacks(new LogClearCallbacks(this));
 
         // Reboot
         NimBLECharacteristic* rebootChar = service->createCharacteristic(
             BLE_REBOOT_UUID,
-            NIMBLE_PROPERTY::WRITE
+            NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::WRITE_ENC
         );
         rebootChar->setCallbacks(new RebootCallbacks());
 
         // ✅ NEW: Time Sync characteristic
         _timeSyncChar = service->createCharacteristic(
             BLE_TIME_SYNC_UUID,
-            NIMBLE_PROPERTY::WRITE
+            NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::WRITE_ENC
         );
         _timeSyncChar->setCallbacks(new TimeSyncCallbacks(this));
         ESP_LOGI(BLETAG, "Created _timeSyncChar at UUID %s", BLE_TIME_SYNC_UUID);
@@ -370,6 +383,11 @@ private:
         CommandCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            if (!connInfo.isEncrypted()) {
+                ESP_LOGW(BLETAG, "Command rejected: unencrypted connection");
+                _mgr->notifyStatus("error:not_paired");
+                return;
+            }
             std::string raw = pChar->getValue();
             while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r' || raw.back() == ' ')) {
                 raw.pop_back();
@@ -535,6 +553,11 @@ private:
         VerifyCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            if (!connInfo.isEncrypted()) {
+                ESP_LOGW(BLETAG, "Command rejected: unencrypted connection");
+                _mgr->notifyStatus("error:not_paired");
+                return;
+            }
             std::string raw = pChar->getValue();
             String deviceId = String(raw.c_str());
             deviceId.trim();
@@ -591,6 +614,11 @@ public:
     }
 
     void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+        if (!connInfo.isEncrypted()) {
+            ESP_LOGW(BLETAG, "Command rejected: unencrypted connection");
+            _mgr->notifyStatus("error:not_paired");
+            return;
+}
         std::string cmd = pChar->getValue();
         if (cmd == "reset") {
             _byteOffset = 0;
@@ -612,6 +640,11 @@ public:
         MacroCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
 void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            if (!connInfo.isEncrypted()) {
+                ESP_LOGW(BLETAG, "Command rejected: unencrypted connection");
+                _mgr->notifyStatus("error:not_paired");
+            return;
+}
             std::string raw = pChar->getValue();
             ESP_LOGI(BLETAG, "Macro config write received (%d bytes)", raw.length());
 
@@ -794,6 +827,11 @@ void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
         LogClearCallbacks(BLEManager* mgr) : _mgr(mgr) {}
 
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            if (!connInfo.isEncrypted()) {
+                ESP_LOGW(BLETAG, "Command rejected: unencrypted connection");
+                _mgr->notifyStatus("error:not_paired");
+             return;
+            }
             std::string raw = pChar->getValue();
             ESP_LOGI(BLETAG, "Log clear command received");
             accessLogger.clear();
@@ -809,6 +847,11 @@ void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
     class RebootCallbacks : public NimBLECharacteristicCallbacks {
     public:
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            if (!connInfo.isEncrypted()) {
+                ESP_LOGW(BLETAG, "Command rejected: unencrypted connection");
+                // _mgr->notifyStatus("error:not_paired");
+                return;
+            }           
             ESP_LOGI(BLETAG, "Reboot command received");
             accessLogger.logSystem(LogSource::BLE, LogResult::SUCCESS, "System", "Manual Reboot");
 
@@ -822,6 +865,11 @@ void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
         TimeSyncCallbacks(BLEManager* mgr) : _mgr(mgr) {}
     
         void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+            if (!connInfo.isEncrypted()) {
+                ESP_LOGW(BLETAG, "Command rejected: unencrypted connection");
+                _mgr->notifyStatus("error:not_paired");
+                return;
+            }
             std::string raw = pChar->getValue();
             
             // Parse timestamp from request

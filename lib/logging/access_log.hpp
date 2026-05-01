@@ -238,7 +238,9 @@ public:
         if (_count < LOG_MAX_ENTRIES)
             _count++;
 
-        saveAllEntries();
+        // saveAllEntries();
+        saveEntry((_head + LOG_MAX_ENTRIES - 1) % LOG_MAX_ENTRIES);
+
     }
 
     // ======================================================
@@ -428,6 +430,21 @@ private:
             snprintf(key, sizeof(key), "log_%u", i);
             prefs.getBytes(key, &_entries[i], sizeof(LogEntry));
         }
+
+        prefs.end();
+    }
+
+    void saveEntry(uint8_t index)
+    {
+        Preferences prefs;
+        prefs.begin(LOG_NAMESPACE, false);
+
+        prefs.putUChar("head", _head);
+        prefs.putUChar("count", _count);
+
+        char key[8];
+        snprintf(key, sizeof(key), "log_%u", index);
+        prefs.putBytes(key, &_entries[index], sizeof(LogEntry));
 
         prefs.end();
     }

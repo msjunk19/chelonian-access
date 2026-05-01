@@ -69,7 +69,7 @@ static constexpr uint8_t PHONE_ID_MAX_LEN  = 36; // standard UUID length
 // Nonce
 static constexpr uint8_t NONCE_SIZE = 16;
 static constexpr uint8_t MAX_NONCES = 32;
-static constexpr uint32_t NONCE_EXPIRY_MS = 5000;  // 5 seconds (reduced from 30 seconds)
+static constexpr uint32_t NONCE_EXPIRY_MS = 2000;  // 2 seconds (reduced from 5 seconds, originally 30)
 static constexpr uint32_t CLEANUP_INTERVAL_MS = 5000;
 
 // USB Macro Config
